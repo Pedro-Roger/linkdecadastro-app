@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -47,26 +47,7 @@ export default function HomePage() {
     fetchAllCourses()
   }, [])
 
-  useEffect(() => {
-    filterCourses()
-  }, [activeFilter, searchTerm, allCourses])
-
-  const fetchAllCourses = async () => {
-    try {
-      setLoading(true)
-      const response = await fetch('/api/courses')
-      if (response.ok) {
-        const data = await response.json()
-        setAllCourses(data)
-      }
-    } catch (error) {
-      console.error('Erro ao buscar cursos:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const filterCourses = () => {
+  const filterCourses = useCallback(() => {
     let filtered = [...allCourses]
 
     // Aplicar filtro de categoria
@@ -107,6 +88,25 @@ export default function HomePage() {
     }
 
     setCourses(filtered)
+  }, [activeFilter, searchTerm, allCourses])
+
+  useEffect(() => {
+    filterCourses()
+  }, [filterCourses])
+
+  const fetchAllCourses = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch('/api/courses')
+      if (response.ok) {
+        const data = await response.json()
+        setAllCourses(data)
+      }
+    } catch (error) {
+      console.error('Erro ao buscar cursos:', error)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const getCourseStatus = (course: Course) => {

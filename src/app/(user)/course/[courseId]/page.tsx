@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
@@ -32,20 +32,7 @@ export default function CoursePage() {
     }
   }, [status, router])
 
-  useEffect(() => {
-    if (status === 'authenticated' && courseId) {
-      fetchCourse()
-    }
-  }, [status, courseId])
-
-  useEffect(() => {
-    if (selectedLesson) {
-      fetchComments()
-      fetchProgress()
-    }
-  }, [selectedLesson])
-
-  async function fetchCourse() {
+  const fetchCourse = useCallback(async () => {
     try {
       const res = await fetch(`/api/courses/${courseId}`)
       if (res.ok) {
@@ -62,9 +49,9 @@ export default function CoursePage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [courseId])
 
-  async function fetchComments() {
+  const fetchComments = useCallback(async () => {
     if (!selectedLesson) return
     
     try {
@@ -76,9 +63,9 @@ export default function CoursePage() {
     } catch (error) {
       console.error(error)
     }
-  }
+  }, [selectedLesson])
 
-  async function fetchProgress() {
+  const fetchProgress = useCallback(async () => {
     if (!selectedLesson) return
     
     try {
@@ -90,7 +77,20 @@ export default function CoursePage() {
     } catch (error) {
       console.error(error)
     }
-  }
+  }, [selectedLesson])
+
+  useEffect(() => {
+    if (status === 'authenticated' && courseId) {
+      fetchCourse()
+    }
+  }, [status, courseId, fetchCourse])
+
+  useEffect(() => {
+    if (selectedLesson) {
+      fetchComments()
+      fetchProgress()
+    }
+  }, [selectedLesson, fetchComments, fetchProgress])
 
   const handleVideoProgress = async (state: { playedSeconds: number, played: number }) => {
     if (!selectedLesson) return

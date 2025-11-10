@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -36,25 +36,7 @@ export default function CoursesPage() {
     }
   }, [status])
 
-  useEffect(() => {
-    filterCourses()
-  }, [activeFilter, searchTerm, allCourses])
-
-  async function fetchAllCourses() {
-    try {
-      const res = await fetch('/api/courses')
-      if (res.ok) {
-        const data = await res.json()
-        setAllCourses(data)
-      }
-    } catch (error) {
-      console.error('Erro ao buscar cursos:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const filterCourses = () => {
+  const filterCourses = useCallback(() => {
     let filtered = [...allCourses]
 
     // Aplicar filtro de categoria
@@ -95,6 +77,24 @@ export default function CoursesPage() {
     }
 
     setCourses(filtered)
+  }, [activeFilter, searchTerm, allCourses])
+
+  useEffect(() => {
+    filterCourses()
+  }, [filterCourses])
+
+  async function fetchAllCourses() {
+    try {
+      const res = await fetch('/api/courses')
+      if (res.ok) {
+        const data = await res.json()
+        setAllCourses(data)
+      }
+    } catch (error) {
+      console.error('Erro ao buscar cursos:', error)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const getFilterCount = (filterType: string) => {

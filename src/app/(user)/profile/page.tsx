@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
@@ -38,14 +38,7 @@ export default function ProfilePage() {
     }
   }, [status, router])
 
-  useEffect(() => {
-    if (status === 'authenticated') {
-      fetchUser()
-      fetchStats()
-    }
-  }, [status])
-
-  async function fetchUser() {
+  const fetchUser = useCallback(async () => {
     try {
       const res = await fetch('/api/user/profile')
       if (res.ok) {
@@ -61,9 +54,9 @@ export default function ProfilePage() {
     } catch (error) {
       console.error(error)
     }
-  }
+  }, [])
 
-  async function fetchStats() {
+  const fetchStats = useCallback(async () => {
     try {
       const res = await fetch('/api/user/stats')
       if (res.ok) {
@@ -73,7 +66,14 @@ export default function ProfilePage() {
     } catch (error) {
       console.error(error)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    if (status === 'authenticated') {
+      fetchUser()
+      fetchStats()
+    }
+  }, [status, fetchUser, fetchStats])
 
   const onSubmit = async (data: ProfileFormData) => {
     setSubmitting(true)

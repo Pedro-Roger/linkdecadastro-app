@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
 import { useForm } from 'react-hook-form'
@@ -133,14 +133,7 @@ export default function CourseLessonsPage() {
     }
   }, [status, session, router])
 
-  useEffect(() => {
-    if (status === 'authenticated' && session?.user?.role === 'ADMIN' && courseId) {
-      fetchCourse()
-      fetchLessons()
-    }
-  }, [status, session, courseId])
-
-  async function fetchCourse() {
+  const fetchCourse = useCallback(async () => {
     try {
       const res = await fetch(`/api/admin/courses/${courseId}`)
       if (res.ok) {
@@ -150,9 +143,9 @@ export default function CourseLessonsPage() {
     } catch (error) {
       console.error(error)
     }
-  }
+  }, [courseId, reset])
 
-  async function fetchLessons() {
+  const fetchLessons = useCallback(async () => {
     try {
       const res = await fetch(`/api/admin/courses/${courseId}/lessons`)
       if (res.ok) {
@@ -163,7 +156,14 @@ export default function CourseLessonsPage() {
     } catch (error) {
       console.error(error)
     }
-  }
+  }, [courseId, reset])
+
+  useEffect(() => {
+    if (status === 'authenticated' && session?.user?.role === 'ADMIN' && courseId) {
+      fetchCourse()
+      fetchLessons()
+    }
+  }, [status, session, courseId, fetchCourse, fetchLessons])
 
   const onSubmit = async (data: LessonFormData) => {
     setSubmitting(true)

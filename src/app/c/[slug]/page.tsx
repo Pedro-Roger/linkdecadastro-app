@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import ReactPlayer from 'react-player/youtube'
@@ -42,7 +42,7 @@ export default function CourseBySlugPage() {
     }
   }, [course, selectedLesson, status])
 
-  async function fetchCourse() {
+  const fetchCourse = useCallback(async () => {
     try {
       const res = await fetch(`/api/courses/slug/${slug}`)
       if (res.ok) {
@@ -62,9 +62,9 @@ export default function CourseBySlugPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [slug, router])
 
-  async function checkEnrollment() {
+  const checkEnrollment = useCallback(async () => {
     if (!session || !course) return
     
     try {
@@ -76,9 +76,9 @@ export default function CourseBySlugPage() {
     } catch (error) {
       console.error(error)
     }
-  }
+  }, [session, course])
 
-  async function fetchComments() {
+  const fetchComments = useCallback(async () => {
     if (!selectedLesson) return
     
     try {
@@ -90,9 +90,9 @@ export default function CourseBySlugPage() {
     } catch (error) {
       console.error(error)
     }
-  }
+  }, [selectedLesson])
 
-  async function fetchProgress() {
+  const fetchProgress = useCallback(async () => {
     if (!selectedLesson || !session) return
     
     try {
@@ -104,7 +104,23 @@ export default function CourseBySlugPage() {
     } catch (error) {
       console.error(error)
     }
-  }
+  }, [selectedLesson, session])
+
+  useEffect(() => {
+    if (slug) {
+      fetchCourse()
+    }
+  }, [slug, fetchCourse])
+
+  useEffect(() => {
+    if (course && status === 'authenticated') {
+      checkEnrollment()
+      if (selectedLesson) {
+        fetchComments()
+        fetchProgress()
+      }
+    }
+  }, [course, selectedLesson, status, checkEnrollment, fetchComments, fetchProgress])
 
   const handleEnroll = async () => {
     if (!session) {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -27,13 +27,7 @@ export default function AdminDashboardPage() {
     }
   }, [status, session, router])
 
-  useEffect(() => {
-    if (status === 'authenticated' && session?.user?.role === 'ADMIN') {
-      fetchStats()
-    }
-  }, [status, session])
-
-  async function fetchStats() {
+  const fetchStats = useCallback(async () => {
     try {
       const [coursesRes, eventsRes] = await Promise.all([
         fetch('/api/admin/courses'),
@@ -66,7 +60,13 @@ export default function AdminDashboardPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    if (status === 'authenticated' && session?.user?.role === 'ADMIN') {
+      fetchStats()
+    }
+  }, [status, session, fetchStats])
 
   async function fetchRecentEnrollments(coursesData: any[]) {
     try {

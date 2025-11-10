@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
@@ -43,13 +43,7 @@ export default function CourseEnrollmentsPage() {
     }
   }, [status, session, router])
 
-  useEffect(() => {
-    if (status === 'authenticated' && session?.user?.role === 'ADMIN' && courseId) {
-      fetchData()
-    }
-  }, [status, session, courseId])
-
-  async function fetchData() {
+  const fetchData = useCallback(async () => {
     try {
       const [enrollmentsRes, courseRes] = await Promise.all([
         fetch(`/api/admin/courses/${courseId}/enrollments`),
@@ -70,7 +64,13 @@ export default function CourseEnrollmentsPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [courseId])
+
+  useEffect(() => {
+    if (status === 'authenticated' && session?.user?.role === 'ADMIN' && courseId) {
+      fetchData()
+    }
+  }, [status, session, courseId, fetchData])
 
   const handleExport = async () => {
     try {
