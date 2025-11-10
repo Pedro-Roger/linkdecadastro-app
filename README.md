@@ -242,3 +242,4 @@ O sistema suporta login pelo Google. Para configurar:
 Este projeto é privado e proprietário.
 
 # linkdecadastro-app
+# linkdecadastro-app
