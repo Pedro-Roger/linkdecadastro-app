@@ -1,0 +1,568 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { useSession, signOut } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
+import Link from 'next/link'
+import NotificationBell from '@/components/notifications/NotificationBell'
+import Footer from '@/components/ui/Footer'
+
+const courseSchema = z.object({
+  title: z.string().min(1, 'Título é obrigatório'),
+  description: z.string().optional(),
+  bannerUrl: z.string().optional().or(z.literal('')).transform((val) => {
+    // Transformar string vazia em undefined
+    return val && val.trim() ? val.trim() : undefined
+  }).refine(
+    (val) => !val || val.startsWith('/') || val.startsWith('http://') || val.startsWith('https://'),
+    { message: 'URL inválida' }
+  ),
+  status: z.enum(['ACTIVE', 'INACTIVE']).default('ACTIVE'),
+  type: z.enum(['PRESENCIAL', 'ONLINE']).default('ONLINE'),
+  maxEnrollments: z.string().optional().transform((val) => val && val.trim() ? parseInt(val) : null),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  slug: z.string().optional().refine(
+    (val) => !val || /^[a-z0-9-]+$/.test(val),
+    { message: 'URL personalizada deve conter apenas letras minúsculas, números e hífens' }
+  ),
+  // Campos para primeira aula
+  firstLessonTitle: z.string().optional(),
+  firstLessonVideoUrl: z.string().optional().or(z.literal('')).refine(
+    (val) => !val || val.trim() === '' || val.startsWith('http://') || val.startsWith('https://'),
+    { message: 'URL do YouTube inválida' }
+  ),
+  firstLessonDescription: z.string().optional(),
+})
+
+type CourseFormData = z.infer<typeof courseSchema>
+
+export default function NewCoursePage() {
+  const { data: session, status } = useSession()
+  const router = useRouter()
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const [bannerPreview, setBannerPreview] = useState<string | null>(null)
+  const [showFirstLesson, setShowFirstLesson] = useState(false)
+
+  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<CourseFormData>({
+    resolver: zodResolver(courseSchema)
+  })
+
+  const bannerUrl = watch('bannerUrl')
+  const firstLessonVideoUrl = watch('firstLessonVideoUrl')
+
+  // Função para extrair ID do YouTube e gerar thumbnail
+  const extractYouTubeThumbnail = (url: string): string | null => {
+    const patterns = [
+      /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
+      /youtube\.com\/watch\?.*v=([^&\n?#]+)/
+    ]
+
+    for (const pattern of patterns) {
+      const match = url.match(pattern)
+      if (match && match[1]) {
+        const videoId = match[1]
+        // Retornar URL da thumbnail de alta qualidade
+        return `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`
+      }
+    }
+
+    return null
+  }
+
+  // Atualizar banner automaticamente quando o link do YouTube da primeira aula mudar
+  useEffect(() => {
+    if (firstLessonVideoUrl && firstLessonVideoUrl.trim() && showFirstLesson) {
+      const thumbnail = extractYouTubeThumbnail(firstLessonVideoUrl)
+      if (thumbnail && (!bannerUrl || bannerUrl === '' || bannerUrl === bannerPreview)) {
+        setValue('bannerUrl', thumbnail, { shouldValidate: false })
+        setBannerPreview(thumbnail)
+      }
+    }
+  }, [firstLessonVideoUrl, showFirstLesson, setValue])
+
+  const handleFileUpload = async (file: File) => {
+    setUploading(true)
+    setError(null)
+
+    try {
+      console.log('Iniciando upload:', {
+        name: file.name,
+        type: file.type,
+        size: file.size
+      })
+
+      // Validar tipo de arquivo
+      if (!file.type.startsWith('image/')) {
+        throw new Error('Apenas imagens são permitidas (JPG, PNG, GIF)')
+      }
+
+      // Validar tamanho (máximo 5MB)
+      const maxSize = 5 * 1024 * 1024 // 5MB
+      if (file.size > maxSize) {
+        throw new Error(`Arquivo muito grande (${(file.size / 1024 / 1024).toFixed(2)}MB). Máximo: 5MB`)
+      }
+
+      // Fazer upload diretamente sem validar dimensões
+      const formData = new FormData()
+      formData.append('file', file)
+
+      console.log('Enviando para API...')
+      const response = await fetch('/api/admin/upload', {
+        method: 'POST',
+        body: formData
+      })
+
+      console.log('Resposta recebida:', response.status, response.statusText)
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }))
+        console.error('Erro na resposta:', errorData)
+        throw new Error(errorData.error || `Erro ao fazer upload (${response.status})`)
+      }
+
+      const data = await response.json()
+      console.log('Dados recebidos:', data)
+
+      if (!data.url) {
+        throw new Error('URL não retornada pelo servidor')
+      }
+
+      console.log('URL do banner:', data.url)
+      setValue('bannerUrl', data.url, { shouldValidate: true })
+      setBannerPreview(data.url)
+      
+      // Mostrar mensagem de sucesso
+      setError(null)
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao fazer upload'
+      setError(errorMessage)
+      console.error('Erro no upload:', err)
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/login')
+    } else if (status === 'authenticated' && session?.user?.role !== 'ADMIN') {
+      router.push('/my-courses')
+    }
+  }, [status, session, router])
+
+  const onSubmit = async (data: CourseFormData) => {
+    setSubmitting(true)
+    setError(null)
+
+    try {
+      // Capturar bannerUrl do formulário ou do preview
+      // Se não houver banner fornecido, deixar undefined para que a API extraia do YouTube
+      const finalBannerUrl = (data.bannerUrl && data.bannerUrl.trim()) || (bannerPreview && bannerPreview.trim()) || undefined
+      
+      console.log('Criando curso com bannerUrl:', finalBannerUrl)
+      console.log('bannerPreview:', bannerPreview)
+      console.log('data.bannerUrl:', data.bannerUrl)
+      
+      // Converter datas vazias para null e preparar payload
+      const payload: any = {
+        title: data.title,
+        description: data.description || undefined,
+        bannerUrl: finalBannerUrl, // Se undefined, a API vai extrair do YouTube automaticamente
+        status: data.status || 'ACTIVE',
+        type: data.type || 'ONLINE',
+        maxEnrollments: data.maxEnrollments && typeof data.maxEnrollments === 'number' ? data.maxEnrollments : null,
+        startDate: data.startDate && data.startDate.trim() ? data.startDate : undefined,
+        endDate: data.endDate && data.endDate.trim() ? data.endDate : undefined,
+        slug: data.slug && data.slug.trim() ? data.slug.trim().toLowerCase() : undefined,
+        // Primeira aula (se título e vídeo forem fornecidos)
+        firstLesson: (data.firstLessonTitle && data.firstLessonTitle.trim() && 
+                     data.firstLessonVideoUrl && data.firstLessonVideoUrl.trim()) ? {
+          title: data.firstLessonTitle.trim(),
+          videoUrl: data.firstLessonVideoUrl.trim(),
+          description: data.firstLessonDescription?.trim() || undefined,
+          order: 0
+        } : undefined
+      }
+
+      console.log('Payload completo:', payload)
+
+      const response = await fetch('/api/admin/courses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        const errorMessage = errorData.error || 'Erro ao criar curso'
+        const errorDetails = errorData.details ? `\n\nDetalhes: ${JSON.stringify(errorData.details, null, 2)}` : ''
+        throw new Error(`${errorMessage}${errorDetails}`)
+      }
+
+      const course = await response.json()
+      router.push(`/admin/courses/${course.id}/lessons`)
+    } catch (err) {
+      console.error('Erro ao criar curso:', err)
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao criar curso'
+      setError(errorMessage)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-xl">Carregando...</div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header Responsivo */}
+      <header className="bg-white shadow-sm sticky top-0 z-50">
+        <div className="container mx-auto px-4 py-2">
+          <div className="flex flex-col md:flex-row items-center justify-between space-y-2 md:space-y-0">
+            <Link href="/" className="flex items-center">
+              <img
+                src="/logo B.png"
+                alt="Link de Cadastro"
+                className="h-20 md:h-24 w-auto object-contain"
+              />
+            </Link>
+            <nav className="flex items-center space-x-4 md:space-x-6 text-sm md:text-base">
+              <Link href="/admin/dashboard" className="text-gray-700 hover:text-[#FF6600]">Dashboard</Link>
+              <Link href="/admin/courses" className="text-gray-700 hover:text-[#FF6600]">Cursos</Link>
+              <Link href="/admin/events" className="text-gray-700 hover:text-[#FF6600]">Eventos</Link>
+              <NotificationBell />
+              <Link href="/profile" className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-[#FF6600] text-white font-bold flex items-center justify-center">
+                {session?.user?.name?.charAt(0).toUpperCase() || 'A'}
+              </Link>
+              <button
+                onClick={() => signOut({ callbackUrl: '/' })}
+                className="bg-red-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-red-600 transition-colors text-sm md:text-base"
+              >
+                Sair
+              </button>
+            </nav>
+          </div>
+        </div>
+      </header>
+
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-3xl mx-auto">
+          <Link
+            href="/admin/courses"
+            className="text-[#FF6600] hover:underline mb-4 inline-block"
+          >
+            ← Voltar para Cursos
+          </Link>
+          <h1 className="text-3xl font-bold mb-8 text-[#003366]">Criar Novo Curso</h1>
+
+          <form onSubmit={handleSubmit(onSubmit)} className="bg-white rounded-lg shadow-md p-8 space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Título do Curso *
+              </label>
+              <input
+                {...register('title')}
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
+                placeholder="Ex: Workshop de Gestão de Viveiros"
+              />
+              {errors.title && <p className="text-red-500 text-sm mt-1">{errors.title.message}</p>}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Descrição
+              </label>
+              <textarea
+                {...register('description')}
+                rows={4}
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
+                placeholder="Descreva o curso..."
+              />
+              {errors.description && <p className="text-red-500 text-sm mt-1">{errors.description.message}</p>}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Banner do Curso (opcional)
+              </label>
+              <p className="text-xs text-gray-500 mb-2">
+                Formatos aceitos: JPG, PNG, GIF. Tamanho máximo: 5MB. Se não fornecer, o banner será extraído automaticamente do vídeo do YouTube da primeira aula.
+              </p>
+              
+              <div className="space-y-3">
+                <div>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) {
+                        console.log('Arquivo selecionado:', file.name, file.type, file.size)
+                        handleFileUpload(file)
+                      } else {
+                        console.log('Nenhum arquivo selecionado')
+                      }
+                    }}
+                    disabled={uploading}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900 disabled:opacity-50 cursor-pointer"
+                  />
+                  {uploading && (
+                    <p className="text-sm text-blue-600 mt-1 flex items-center gap-2">
+                      <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Fazendo upload...
+                    </p>
+                  )}
+                  {bannerPreview && !uploading && (
+                    <p className="text-sm text-green-600 mt-1">✅ Upload concluído com sucesso!</p>
+                  )}
+                </div>
+                
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">
+                    Ou informe a URL do banner (opcional):
+                  </label>
+                  <input
+                    type="text"
+                    {...register('bannerUrl')}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
+                    placeholder="https://exemplo.com/banner.jpg ou /uploads/banners/banner.jpg"
+                    onChange={(e) => {
+                      const value = e.target.value.trim() || ''
+                      setValue('bannerUrl', value, { shouldValidate: false })
+                      if (value) {
+                        setBannerPreview(value)
+                      }
+                    }}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Deixe em branco se já fez upload de uma imagem acima
+                  </p>
+                </div>
+                
+                {(bannerUrl || bannerPreview) && (
+                  <div className="mt-3">
+                    <p className="text-sm text-gray-600 mb-2">Preview:</p>
+                    <img
+                      src={bannerUrl || bannerPreview || ''}
+                      alt="Preview do banner"
+                      className="w-full h-48 object-cover rounded-md border border-gray-300"
+                      onError={() => setBannerPreview(null)}
+                    />
+                  </div>
+                )}
+              </div>
+              {errors.bannerUrl && <p className="text-red-500 text-sm mt-1">{errors.bannerUrl.message}</p>}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Tipo de Curso *
+                </label>
+                <select
+                  {...register('type')}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
+                >
+                  <option value="ONLINE">Online</option>
+                  <option value="PRESENCIAL">Presencial</option>
+                </select>
+                {errors.type && <p className="text-red-500 text-sm mt-1">{errors.type.message}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Limite de Vagas (opcional)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  {...register('maxEnrollments')}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
+                  placeholder="Ex: 50"
+                />
+                {errors.maxEnrollments && <p className="text-red-500 text-sm mt-1">{errors.maxEnrollments.message}</p>}
+                <p className="text-xs text-gray-500 mt-1">Deixe em branco para ilimitado</p>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Status
+              </label>
+              <select
+                {...register('status')}
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
+              >
+                <option value="ACTIVE">Ativo</option>
+                <option value="INACTIVE">Inativo</option>
+              </select>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Data de Início (opcional)
+                </label>
+                <input
+                  type="datetime-local"
+                  {...register('startDate')}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
+                />
+                {errors.startDate && <p className="text-red-500 text-sm mt-1">{errors.startDate.message}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Data de Fim (opcional)
+                </label>
+                <input
+                  type="datetime-local"
+                  {...register('endDate')}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
+                />
+                {errors.endDate && <p className="text-red-500 text-sm mt-1">{errors.endDate.message}</p>}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                URL Personalizada (opcional)
+              </label>
+              <div className="flex items-center gap-2">
+                <span className="text-gray-500">https://seudominio.com/c/</span>
+                <input
+                  type="text"
+                  {...register('slug')}
+                  placeholder="meu-curso-especial"
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
+                />
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Use apenas letras minúsculas, números e hífens. Ex: meu-curso-especial
+              </p>
+              {errors.slug && <p className="text-red-500 text-sm mt-1">{errors.slug.message}</p>}
+            </div>
+
+            {/* Seção para Primeira Aula */}
+            <div className="border-t pt-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-[#003366]">Primeira Aula (opcional)</h3>
+                  <p className="text-sm text-gray-500">Adicione a primeira aula do curso agora</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowFirstLesson(!showFirstLesson)}
+                  className="text-[#FF6600] hover:text-[#e55a00] font-medium text-sm"
+                >
+                  {showFirstLesson ? 'Ocultar' : 'Adicionar Primeira Aula'}
+                </button>
+              </div>
+
+              {showFirstLesson && (
+                <div className="space-y-4 p-4 bg-gray-50 rounded-lg">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Título da Primeira Aula *
+                    </label>
+                    <input
+                      {...register('firstLessonTitle')}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
+                      placeholder="Ex: Introdução ao Curso"
+                    />
+                    {errors.firstLessonTitle && <p className="text-red-500 text-sm mt-1">{errors.firstLessonTitle.message}</p>}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <span className="flex items-center gap-2">
+                        <svg className="w-5 h-5 text-red-600" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                        </svg>
+                        Link do Vídeo do YouTube *
+                      </span>
+                    </label>
+                    <input
+                      type="text"
+                      {...register('firstLessonVideoUrl')}
+                      placeholder="Cole aqui o link do YouTube (ex: https://www.youtube.com/watch?v=... ou https://youtu.be/...)"
+                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-[#FF6600] text-gray-900"
+                      onChange={(e) => {
+                        const value = e.target.value
+                        setValue('firstLessonVideoUrl', value, { shouldValidate: false })
+                        // Extrair thumbnail automaticamente
+                        if (value && value.trim()) {
+                          const thumbnail = extractYouTubeThumbnail(value)
+                          if (thumbnail && (!bannerUrl || bannerUrl === '')) {
+                            setValue('bannerUrl', thumbnail, { shouldValidate: false })
+                            setBannerPreview(thumbnail)
+                          }
+                        }
+                      }}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Aceita links do YouTube em qualquer formato: youtube.com/watch?v=..., youtu.be/..., ou youtube.com/embed/...
+                    </p>
+                    {errors.firstLessonVideoUrl && <p className="text-red-500 text-sm mt-1">{errors.firstLessonVideoUrl.message}</p>}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Descrição da Primeira Aula (opcional)
+                    </label>
+                    <textarea
+                      {...register('firstLessonDescription')}
+                      rows={3}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
+                      placeholder="Descreva a primeira aula..."
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+                {error}
+              </div>
+            )}
+
+            <div className="flex space-x-4">
+              <button
+                type="submit"
+                disabled={submitting}
+                className="flex-1 bg-[#FF6600] text-white py-3 px-6 rounded-md font-semibold hover:bg-[#e55a00] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {submitting ? 'Criando...' : 'Criar Curso'}
+              </button>
+              <button
+                type="button"
+                onClick={() => router.back()}
+                className="px-6 py-3 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <Footer />
+    </div>
+  )
+}
+
