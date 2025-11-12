@@ -25,7 +25,7 @@ type FieldDescriptor = {
 const availableFields: Record<string, FieldDescriptor> = {
   number: {
     label: 'Nº',
-    getter: (_enrollment: any, index: number) => index + 1
+    getter: (_enrollment: any, index: number = 0) => index + 1
   },
   name: {
     label: 'Nome',
@@ -241,8 +241,9 @@ async function handleExport(
     doc.end()
 
     const pdfBuffer = await pdfPromise
+    const arrayBuffer = new Uint8Array(pdfBuffer).buffer as ArrayBuffer
 
-    return new NextResponse(pdfBuffer, {
+    return new NextResponse(arrayBuffer, {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="inscritos-${sanitizedTitle}.pdf"`
