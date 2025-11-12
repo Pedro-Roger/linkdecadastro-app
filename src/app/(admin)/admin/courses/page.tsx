@@ -106,7 +106,7 @@ export default function AdminCoursesPage() {
     return {
       url,
       bannerUrl,
-      message: `Confira o curso "${course.title}" na Link de Cadastro: ${url}`
+      message: `Confira o curso "${course.title}" na Quero Cursos: ${url}`
     }
   }
 
@@ -144,7 +144,7 @@ export default function AdminCoursesPage() {
 
     const shareData = {
       title: selectedCourse.title,
-      text: `Confira o curso "${selectedCourse.title}" na Link de Cadastro.`,
+      text: `Confira o curso "${selectedCourse.title}" na Quero Cursos.`,
       url: selectedShareData.url
     }
 

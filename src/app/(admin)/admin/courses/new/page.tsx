@@ -386,7 +386,7 @@ export default function NewCoursePage() {
             <Link href="/" className="flex items-center">
               <img
                 src="/logo B.png"
-                alt="Link de Cadastro"
+                alt="Quero Cursos"
                 className="h-20 md:h-24 w-auto object-contain"
               />
             </Link>

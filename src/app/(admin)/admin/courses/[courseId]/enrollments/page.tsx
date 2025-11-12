@@ -111,7 +111,7 @@ export default function CourseEnrollmentsPage() {
             <Link href="/" className="flex items-center">
               <Image
                 src="/logo B.png"
-                alt="Link de Cadastro"
+                alt="Quero Cursos"
                 width={300}
                 height={100}
                 className="h-20 md:h-24 w-auto object-contain"

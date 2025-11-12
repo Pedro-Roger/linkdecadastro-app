@@ -25,7 +25,7 @@ export async function sendRegistrationEmail(
       <p>Seu cadastro no evento <strong>${eventTitle}</strong> foi confirmado com sucesso!</p>
       <p>Aguarde mais informações em breve.</p>
       <hr>
-      <p><strong>Link de Cadastro</strong></p>
+      <p><strong>Quero Cursos</strong></p>
     `,
   }
 

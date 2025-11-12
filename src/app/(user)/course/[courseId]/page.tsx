@@ -132,7 +132,7 @@ export default function CoursePage() {
       bannerUrl = origin ? `${origin}${bannerUrl}` : bannerUrl
     }
 
-    const message = `Confira o curso "${course.title}" na Link de Cadastro: ${url}`
+    const message = `Confira o curso "${course.title}" na Quero Cursos: ${url}`
 
     return {
       url,
@@ -146,7 +146,7 @@ export default function CoursePage() {
 
     const shareData = {
       title: course.title,
-      text: `Confira o curso "${course.title}" na Link de Cadastro.`,
+      text: `Confira o curso "${course.title}" na Quero Cursos.`,
       url: courseShareData.url
     }
 
@@ -245,7 +245,7 @@ export default function CoursePage() {
             <Link href="/" className="flex items-center">
               <Image
                 src="/logo B.png"
-                alt="Link de Cadastro"
+                alt="Quero Cursos"
                 width={300}
                 height={100}
                 className="h-20 md:h-24 w-auto object-contain"
@@ -418,6 +418,7 @@ export default function CoursePage() {
               <h3 className="text-lg md:text-xl font-semibold mb-4 text-[#003366]">
                 Comentários ({comments.length})
               </h3>
+              
 
               {/* Formulário de Comentário */}
               <form onSubmit={handleSubmitComment} className="mb-6">

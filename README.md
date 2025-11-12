@@ -1,4 +1,4 @@
-# Link de Cadastro - Sistema de Cadastro e Plataforma de Cursos
+# Quero Cursos - Sistema de Cadastro e Plataforma de Cursos
 
 Sistema completo de cadastro de eventos e plataforma de cursos com gamificação, comentários e notificações.
 
@@ -211,7 +211,7 @@ O sistema suporta login pelo Google. Para configurar:
 
 2. **Configurar OAuth 2.0:**
    - Tipo de aplicativo: Aplicativo da Web
-   - Nome: Link de Cadastro
+   - Nome: Quero Cursos
    - URLs de redirecionamento autorizadas:
      - `http://localhost:3000/api/auth/callback/google` (desenvolvimento)
      - `https://seudominio.com/api/auth/callback/google` (produção)

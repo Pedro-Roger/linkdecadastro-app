@@ -100,7 +100,7 @@ export default function CompleteProfilePage() {
           <Link href="/" className="flex items-center">
             <Image
               src="/logo B.png"
-              alt="Link de Cadastro"
+              alt="Quero Cursos"
               width={300}
               height={100}
               className="h-16 md:h-20 w-auto object-contain"

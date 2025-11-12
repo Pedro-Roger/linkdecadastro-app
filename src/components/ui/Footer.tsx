@@ -24,7 +24,7 @@ export default function Footer() {
           </div>
         </div>
         <div className="mt-8 pt-6 border-t border-gray-600 text-center text-sm text-gray-400">
-          <p>&copy; {new Date().getFullYear()} Link de Cadastro. Todos os direitos reservados.</p>
+          <p>&copy; {new Date().getFullYear()} Quero Cursos. Todos os direitos reservados.</p>
         </div>
       </div>
     </footer>
