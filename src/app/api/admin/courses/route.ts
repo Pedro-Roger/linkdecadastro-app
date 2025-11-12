@@ -4,6 +4,14 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 
+const regionQuotaSchema = z.object({
+  id: z.string().optional(),
+  state: z.string().min(2, 'Estado é obrigatório'),
+  city: z.string().optional(),
+  limit: z.number().int().nonnegative('Limite deve ser zero ou maior'),
+  waitlistLimit: z.number().int().nonnegative('Limite da lista de espera deve ser zero ou maior').optional()
+})
+
 const courseSchema = z.object({
   title: z.string().min(1, 'Título é obrigatório'),
   description: z.string().optional(),
@@ -14,6 +22,12 @@ const courseSchema = z.object({
   status: z.enum(['ACTIVE', 'INACTIVE']).default('ACTIVE'),
   type: z.enum(['PRESENCIAL', 'ONLINE']).default('ONLINE'),
   maxEnrollments: z.union([z.number().int().positive(), z.null()]).optional(),
+  waitlistEnabled: z.boolean().optional(),
+  waitlistLimit: z.number().int().nonnegative().optional(),
+  regionRestrictionEnabled: z.boolean().optional(),
+  allowAllRegions: z.boolean().optional(),
+  defaultRegionLimit: z.union([z.number().int().nonnegative(), z.null()]).optional(),
+  regionQuotas: z.array(regionQuotaSchema).optional(),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
   slug: z.string().optional().or(z.literal('')).refine(
@@ -62,20 +76,7 @@ export async function GET(request: NextRequest) {
     }
 
     const courses = await prisma.course.findMany({
-      select: {
-        id: true,
-        title: true,
-        description: true,
-        bannerUrl: true, // Garantir que bannerUrl seja retornado
-        status: true,
-        type: true,
-        maxEnrollments: true,
-        startDate: true,
-        endDate: true,
-        slug: true,
-        createdAt: true,
-        updatedAt: true,
-        createdBy: true,
+      include: {
         creator: {
           select: {
             name: true,
@@ -90,6 +91,7 @@ export async function GET(request: NextRequest) {
             order: true
           }
         },
+        regionQuotas: true,
         _count: {
           select: {
             enrollments: true
@@ -165,6 +167,17 @@ export async function POST(request: NextRequest) {
       status: validatedData.status,
       type: validatedData.type,
       maxEnrollments: validatedData.maxEnrollments || null,
+      waitlistEnabled: validatedData.waitlistEnabled ?? false,
+      waitlistLimit:
+        validatedData.waitlistLimit !== undefined
+          ? validatedData.waitlistLimit
+          : 0,
+      regionRestrictionEnabled: validatedData.regionRestrictionEnabled ?? false,
+      allowAllRegions: validatedData.allowAllRegions ?? true,
+      defaultRegionLimit:
+        validatedData.defaultRegionLimit !== undefined
+          ? validatedData.defaultRegionLimit
+          : null,
       startDate: validatedData.startDate ? new Date(validatedData.startDate) : null,
       endDate: validatedData.endDate ? new Date(validatedData.endDate) : null,
       createdBy: session.user.id
@@ -178,31 +191,30 @@ export async function POST(request: NextRequest) {
     console.log('API: courseData antes de criar:', JSON.stringify(courseData, null, 2))
 
     // Criar curso e primeira aula em uma transação
+    const normalizedRegionQuotas =
+      validatedData.regionQuotas?.map((quota) => ({
+        state: quota.state.trim().toUpperCase(),
+        city: quota.city ? quota.city.trim() : null,
+        limit: quota.limit,
+        waitlistLimit: quota.waitlistLimit ?? 0
+      })) ?? []
+
     const course = await prisma.$transaction(async (tx) => {
       const newCourse = await tx.course.create({
-        data: courseData,
-        select: {
-          id: true,
-          title: true,
-          description: true,
-          bannerUrl: true, // Garantir que bannerUrl seja retornado
-          status: true,
-          type: true,
-          maxEnrollments: true,
-          startDate: true,
-          endDate: true,
-          slug: true,
-          createdAt: true,
-          updatedAt: true,
-          createdBy: true,
-          creator: {
-            select: {
-              name: true,
-              email: true
-            }
-          }
-        }
+        data: courseData
       })
+
+      if (normalizedRegionQuotas.length > 0) {
+        await tx.courseRegionQuota.createMany({
+          data: normalizedRegionQuotas.map((quota) => ({
+            courseId: newCourse.id,
+            state: quota.state,
+            city: quota.city,
+            limit: quota.limit,
+            waitlistLimit: quota.waitlistLimit
+          }))
+        })
+      }
 
       // Criar primeira aula se fornecida
       if (validatedData.firstLesson) {
@@ -226,8 +238,31 @@ export async function POST(request: NextRequest) {
         })
       }
 
-      return newCourse
+      return tx.course.findUnique({
+        where: { id: newCourse.id },
+        include: {
+          creator: {
+            select: {
+              name: true,
+              email: true
+            }
+          },
+          lessons: {
+            orderBy: { order: 'asc' }
+          },
+          regionQuotas: true,
+          _count: {
+            select: {
+              enrollments: true
+            }
+          }
+        }
+      })
     })
+
+    if (!course) {
+      throw new Error('Falha ao carregar curso recém-criado')
+    }
 
     return NextResponse.json(course, { status: 201 })
   } catch (error) {

@@ -24,14 +24,21 @@ export async function GET(
             id: true,
             name: true,
             email: true,
-            createdAt: true
+            createdAt: true,
+            state: true,
+            city: true,
+            phone: true
           }
         },
         course: {
           select: {
-            title: true
+            title: true,
+            waitlistEnabled: true,
+            waitlistLimit: true,
+            maxEnrollments: true
           }
-        }
+        },
+        regionQuota: true
       },
       orderBy: { createdAt: 'desc' }
     })

@@ -28,7 +28,8 @@ export async function GET(
               }
             }
           }
-        }
+        },
+        regionQuotas: true
       }
     })
 
@@ -59,7 +60,8 @@ export async function GET(
                     }
                   }
                 }
-              }
+              },
+              regionQuotas: true
             }
           }
         }

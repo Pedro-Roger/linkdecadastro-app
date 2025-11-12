@@ -40,6 +40,10 @@ export default function HomePage() {
     courseId: '',
     courseTitle: ''
   })
+  const [enrollmentFeedback, setEnrollmentFeedback] = useState<{
+    message: string
+    tone: 'success' | 'info' | 'warning'
+  } | null>(null)
 
   // Removido redirecionamento automático - admin pode ver página pública
 
@@ -109,6 +113,53 @@ export default function HomePage() {
     }
   }
 
+  const handleEnrollmentSuccess = (payload?: {
+    enrollment: any
+    metadata?: { waitlistPosition?: number | null }
+  }) => {
+    fetchAllCourses()
+
+    if (payload?.enrollment) {
+      const status = payload.enrollment.status as string | undefined
+      if (status === 'WAITLIST') {
+        const waitlistPosition = payload.metadata?.waitlistPosition
+        setEnrollmentFeedback({
+          message:
+            waitlistPosition && waitlistPosition > 0
+              ? `Você entrou na lista de espera. Posição atual: ${waitlistPosition}.`
+              : 'Você entrou na lista de espera deste curso. Aguarde a aprovação do administrador.',
+          tone: 'info'
+        })
+      } else if (status === 'PENDING_REGION') {
+        setEnrollmentFeedback({
+          message:
+            payload.enrollment.eligibilityReason ||
+            'Cadastro registrado, aguardando confirmação da equipe.',
+          tone: 'warning'
+        })
+      } else if (status === 'REJECTED') {
+        setEnrollmentFeedback({
+          message:
+            payload.enrollment.eligibilityReason ||
+            'Sua inscrição foi registrada, mas não pôde ser aprovada automaticamente.',
+          tone: 'warning'
+        })
+      } else {
+        setEnrollmentFeedback({
+          message: 'Inscrição confirmada! Você já pode acessar o conteúdo em "Meus Cursos".',
+          tone: 'success'
+        })
+      }
+    } else {
+      setEnrollmentFeedback({
+        message: 'Solicitação enviada. Verifique seus cursos em alguns instantes.',
+        tone: 'info'
+      })
+    }
+
+    setTimeout(() => setEnrollmentFeedback(null), 8000)
+  }
+
   const getCourseStatus = (course: Course) => {
     const now = new Date()
     const startDate = course.startDate ? new Date(course.startDate) : null
@@ -169,7 +220,20 @@ export default function HomePage() {
 
       {/* Barra de Pesquisa */}
       <div className="bg-white border-b">
-        <div className="container mx-auto px-4 py-6">
+        <div className="container mx-auto px-4 py-6 space-y-4">
+          {enrollmentFeedback && (
+            <div
+              className={`rounded-lg border px-4 py-3 text-sm ${
+                enrollmentFeedback.tone === 'success'
+                  ? 'border-green-200 bg-green-50 text-green-800'
+                  : enrollmentFeedback.tone === 'warning'
+                  ? 'border-yellow-200 bg-yellow-50 text-yellow-800'
+                  : 'border-blue-200 bg-blue-50 text-blue-800'
+              }`}
+            >
+              {enrollmentFeedback.message}
+            </div>
+          )}
           <div className="relative max-w-2xl mx-auto">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <svg
@@ -398,9 +462,7 @@ export default function HomePage() {
         onClose={() => setEnrollmentModal({ isOpen: false, courseId: '', courseTitle: '' })}
         courseId={enrollmentModal.courseId}
         courseTitle={enrollmentModal.courseTitle}
-        onSuccess={() => {
-          fetchAllCourses()
-        }}
+        onSuccess={handleEnrollmentSuccess}
       />
     </div>
   )

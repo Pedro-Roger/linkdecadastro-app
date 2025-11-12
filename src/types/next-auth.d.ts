@@ -9,6 +9,9 @@ declare module 'next-auth' {
       name: string
       role: string
       needsProfileCompletion?: boolean
+      phone?: string | null
+      state?: string | null
+      city?: string | null
     }
   }
 
@@ -18,6 +21,9 @@ declare module 'next-auth' {
     name: string
     role: string
     needsProfileCompletion?: boolean
+    phone?: string | null
+    state?: string | null
+    city?: string | null
   }
 }
 
@@ -26,6 +32,9 @@ declare module 'next-auth/jwt' {
     id: string
     role: string
     needsProfileCompletion?: boolean
+    phone?: string | null
+    state?: string | null
+    city?: string | null
   }
 }
 

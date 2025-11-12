@@ -40,6 +40,9 @@ export const authOptions: NextAuthOptions = {
           name: user.name,
           role: user.role,
           needsProfileCompletion: user.needsProfileCompletion,
+          phone: user.phone,
+          state: user.state,
+          city: user.city
         }
       }
     }),
@@ -72,6 +75,9 @@ export const authOptions: NextAuthOptions = {
             user.id = newUser.id
             user.role = newUser.role
             user.needsProfileCompletion = true
+            user.phone = newUser.phone
+            user.state = newUser.state
+            user.city = newUser.city
           } else {
             // Usuário existe, verificar se precisa completar perfil
             user.id = existingUser.id
@@ -80,6 +86,9 @@ export const authOptions: NextAuthOptions = {
               !existingUser.fullName || 
               !existingUser.phone || 
               !existingUser.cpf
+            user.phone = existingUser.phone
+            user.state = existingUser.state
+            user.city = existingUser.city
           }
         } catch (error) {
           console.error('Erro ao processar login do Google:', error)
@@ -93,6 +102,9 @@ export const authOptions: NextAuthOptions = {
         token.role = user.role
         token.id = user.id
         token.needsProfileCompletion = user.needsProfileCompletion || false
+        token.phone = user.phone ?? null
+        token.state = user.state ?? null
+        token.city = user.city ?? null
       }
       
       // Se for login do Google, buscar dados atualizados do usuário
@@ -107,6 +119,9 @@ export const authOptions: NextAuthOptions = {
             !dbUser.fullName || 
             !dbUser.phone || 
             !dbUser.cpf
+          token.phone = dbUser.phone ?? null
+          token.state = dbUser.state ?? null
+          token.city = dbUser.city ?? null
         }
       }
       
@@ -117,6 +132,9 @@ export const authOptions: NextAuthOptions = {
         session.user.role = token.role as string
         session.user.id = token.id as string
         session.user.needsProfileCompletion = token.needsProfileCompletion as boolean
+        session.user.phone = (token.phone as string | null) ?? undefined
+        session.user.state = (token.state as string | null) ?? undefined
+        session.user.city = (token.city as string | null) ?? undefined
       }
       return session
     },

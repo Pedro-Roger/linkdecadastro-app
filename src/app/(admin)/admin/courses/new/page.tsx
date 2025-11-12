@@ -22,7 +22,24 @@ const courseSchema = z.object({
   ),
   status: z.enum(['ACTIVE', 'INACTIVE']).default('ACTIVE'),
   type: z.enum(['PRESENCIAL', 'ONLINE']).default('ONLINE'),
-  maxEnrollments: z.string().optional().transform((val) => val && val.trim() ? parseInt(val) : null),
+  maxEnrollments: z.string().optional().transform((val) => {
+    if (!val || !val.trim()) return null
+    const parsed = parseInt(val, 10)
+    return Number.isNaN(parsed) ? null : parsed
+  }),
+  waitlistEnabled: z.boolean().optional(),
+  waitlistLimit: z.string().optional().transform((val) => {
+    if (!val || !val.trim()) return 0
+    const parsed = parseInt(val, 10)
+    return Number.isNaN(parsed) ? 0 : parsed
+  }),
+  regionRestrictionEnabled: z.boolean().optional(),
+  allowAllRegions: z.boolean().optional(),
+  defaultRegionLimit: z.string().optional().transform((val) => {
+    if (!val || !val.trim()) return null
+    const parsed = parseInt(val, 10)
+    return Number.isNaN(parsed) ? null : parsed
+  }),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
   slug: z.string().optional().refine(
@@ -40,6 +57,36 @@ const courseSchema = z.object({
 
 type CourseFormData = z.infer<typeof courseSchema>
 
+const BRAZIL_STATES = [
+  { sigla: 'AC', nome: 'Acre' },
+  { sigla: 'AL', nome: 'Alagoas' },
+  { sigla: 'AP', nome: 'Amapá' },
+  { sigla: 'AM', nome: 'Amazonas' },
+  { sigla: 'BA', nome: 'Bahia' },
+  { sigla: 'CE', nome: 'Ceará' },
+  { sigla: 'DF', nome: 'Distrito Federal' },
+  { sigla: 'ES', nome: 'Espírito Santo' },
+  { sigla: 'GO', nome: 'Goiás' },
+  { sigla: 'MA', nome: 'Maranhão' },
+  { sigla: 'MT', nome: 'Mato Grosso' },
+  { sigla: 'MS', nome: 'Mato Grosso do Sul' },
+  { sigla: 'MG', nome: 'Minas Gerais' },
+  { sigla: 'PA', nome: 'Pará' },
+  { sigla: 'PB', nome: 'Paraíba' },
+  { sigla: 'PR', nome: 'Paraná' },
+  { sigla: 'PE', nome: 'Pernambuco' },
+  { sigla: 'PI', nome: 'Piauí' },
+  { sigla: 'RJ', nome: 'Rio de Janeiro' },
+  { sigla: 'RN', nome: 'Rio Grande do Norte' },
+  { sigla: 'RS', nome: 'Rio Grande do Sul' },
+  { sigla: 'RO', nome: 'Rondônia' },
+  { sigla: 'RR', nome: 'Roraima' },
+  { sigla: 'SC', nome: 'Santa Catarina' },
+  { sigla: 'SP', nome: 'São Paulo' },
+  { sigla: 'SE', nome: 'Sergipe' },
+  { sigla: 'TO', nome: 'Tocantins' }
+]
+
 export default function NewCoursePage() {
   const { data: session, status } = useSession()
   const router = useRouter()
@@ -48,13 +95,90 @@ export default function NewCoursePage() {
   const [uploading, setUploading] = useState(false)
   const [bannerPreview, setBannerPreview] = useState<string | null>(null)
   const [showFirstLesson, setShowFirstLesson] = useState(false)
+  const [regionQuotas, setRegionQuotas] = useState<
+    Array<{
+      state: string
+      city: string
+      limit: number
+      waitlistLimit: number
+    }>
+  >([])
+  const [newRegionQuota, setNewRegionQuota] = useState<{
+    state: string
+    city: string
+    limit: string
+    waitlistLimit: string
+  }>({
+    state: '',
+    city: '',
+    limit: '',
+    waitlistLimit: ''
+  })
+  const [regionQuotaError, setRegionQuotaError] = useState<string | null>(null)
 
-  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<CourseFormData>({
-    resolver: zodResolver(courseSchema)
+  const {
+    register,
+    handleSubmit,
+    watch,
+    setValue,
+    formState: { errors }
+  } = useForm<CourseFormData>({
+    resolver: zodResolver(courseSchema),
+    defaultValues: {
+      status: 'ACTIVE',
+      type: 'ONLINE',
+      waitlistEnabled: false,
+      waitlistLimit: 0,
+      regionRestrictionEnabled: false,
+      allowAllRegions: true
+    }
   })
 
   const bannerUrl = watch('bannerUrl')
   const firstLessonVideoUrl = watch('firstLessonVideoUrl')
+  const waitlistEnabled = watch('waitlistEnabled')
+  const regionRestrictionEnabled = watch('regionRestrictionEnabled')
+  const allowAllRegions = watch('allowAllRegions')
+
+  const handleAddRegionQuota = () => {
+    if (!newRegionQuota.state || !newRegionQuota.limit.trim()) {
+      setRegionQuotaError('Selecione o estado e informe o limite de vagas.')
+      return
+    }
+
+    const limitValue = parseInt(newRegionQuota.limit, 10)
+    if (Number.isNaN(limitValue) || limitValue <= 0) {
+      setRegionQuotaError('Informe um limite de vagas válido (maior que zero).')
+      return
+    }
+
+    const waitlistValue = newRegionQuota.waitlistLimit
+      ? parseInt(newRegionQuota.waitlistLimit, 10)
+      : 0
+
+    setRegionQuotas((prev) => [
+      ...prev,
+      {
+        state: newRegionQuota.state,
+        city: newRegionQuota.city.trim(),
+        limit: limitValue,
+        waitlistLimit:
+          Number.isNaN(waitlistValue) || waitlistValue < 0 ? 0 : waitlistValue
+      }
+    ])
+
+    setNewRegionQuota({
+      state: '',
+      city: '',
+      limit: '',
+      waitlistLimit: ''
+    })
+    setRegionQuotaError(null)
+  }
+
+  const handleRemoveRegionQuota = (index: number) => {
+    setRegionQuotas((prev) => prev.filter((_, quotaIndex) => quotaIndex !== index))
+  }
 
   // Função para extrair ID do YouTube e gerar thumbnail
   const extractYouTubeThumbnail = (url: string): string | null => {
@@ -161,6 +285,12 @@ export default function NewCoursePage() {
     setError(null)
 
     try {
+      if (data.regionRestrictionEnabled && regionQuotas.length === 0) {
+        setError('Adicione pelo menos uma região com limite de vagas ou desative a restrição regional.')
+        setSubmitting(false)
+        return
+      }
+
       // Capturar bannerUrl do formulário ou do preview
       // Se não houver banner fornecido, deixar undefined para que a API extraia do YouTube
       const finalBannerUrl = (data.bannerUrl && data.bannerUrl.trim()) || (bannerPreview && bannerPreview.trim()) || undefined
@@ -177,6 +307,20 @@ export default function NewCoursePage() {
         status: data.status || 'ACTIVE',
         type: data.type || 'ONLINE',
         maxEnrollments: data.maxEnrollments && typeof data.maxEnrollments === 'number' ? data.maxEnrollments : null,
+        waitlistEnabled: data.waitlistEnabled ?? false,
+        waitlistLimit:
+          typeof data.waitlistLimit === 'number' && data.waitlistLimit >= 0
+            ? data.waitlistLimit
+            : 0,
+        regionRestrictionEnabled: data.regionRestrictionEnabled ?? false,
+        allowAllRegions:
+          data.regionRestrictionEnabled ?? false
+            ? data.allowAllRegions ?? true
+            : true,
+        defaultRegionLimit:
+          typeof data.defaultRegionLimit === 'number' && data.defaultRegionLimit > 0
+            ? data.defaultRegionLimit
+            : null,
         startDate: data.startDate && data.startDate.trim() ? data.startDate : undefined,
         endDate: data.endDate && data.endDate.trim() ? data.endDate : undefined,
         slug: data.slug && data.slug.trim() ? data.slug.trim().toLowerCase() : undefined,
@@ -187,7 +331,16 @@ export default function NewCoursePage() {
           videoUrl: data.firstLessonVideoUrl.trim(),
           description: data.firstLessonDescription?.trim() || undefined,
           order: 0
-        } : undefined
+        } : undefined,
+        regionQuotas:
+          data.regionRestrictionEnabled
+            ? regionQuotas.map((quota) => ({
+                state: quota.state,
+                city: quota.city || null,
+                limit: quota.limit,
+                waitlistLimit: quota.waitlistLimit ?? 0
+              }))
+            : []
       }
 
       console.log('Payload completo:', payload)
@@ -397,6 +550,189 @@ export default function NewCoursePage() {
                 {errors.maxEnrollments && <p className="text-red-500 text-sm mt-1">{errors.maxEnrollments.message}</p>}
                 <p className="text-xs text-gray-500 mt-1">Deixe em branco para ilimitado</p>
               </div>
+            </div>
+
+            <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-[#003366]">Lista de Espera</h3>
+                  <p className="text-sm text-gray-500">
+                    Permita que interessados entrem em uma lista de espera quando as vagas acabarem.
+                  </p>
+                </div>
+                <label className="inline-flex items-center gap-2 text-sm font-medium text-gray-700">
+                  <input
+                    type="checkbox"
+                    {...register('waitlistEnabled')}
+                    className="h-5 w-5 rounded border-gray-300 text-[#FF6600] focus:ring-[#FF6600]"
+                  />
+                  Ativar lista de espera
+                </label>
+              </div>
+
+              {waitlistEnabled && (
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Limite de vagas na lista de espera
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    {...register('waitlistLimit')}
+                    className="w-full rounded-md border border-gray-300 px-4 py-2 text-gray-900 focus:border-transparent focus:ring-2 focus:ring-[#FF6600]"
+                    placeholder="Ex: 10"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Utilize 0 para ilimitado. Sugestão: abrir até 10 vagas extras.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm space-y-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-[#003366]">Restrição por Região</h3>
+                  <p className="text-sm text-gray-500">
+                    Defina limites de vagas por estado/cidade e controle inscrições fora das regiões alvo.
+                  </p>
+                </div>
+                <label className="inline-flex items-center gap-2 text-sm font-medium text-gray-700">
+                  <input
+                    type="checkbox"
+                    {...register('regionRestrictionEnabled')}
+                    className="h-5 w-5 rounded border-gray-300 text-[#FF6600] focus:ring-[#FF6600]"
+                  />
+                  Ativar restrição regional
+                </label>
+              </div>
+
+              {regionRestrictionEnabled && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                      <input
+                        type="checkbox"
+                        {...register('allowAllRegions')}
+                        className="h-5 w-5 rounded border-gray-300 text-[#FF6600] focus:ring-[#FF6600]"
+                      />
+                      Permitir inscrições fora das regiões listadas (ficarão pendentes)
+                    </label>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Limite padrão por região (opcional)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        {...register('defaultRegionLimit')}
+                        className="w-full rounded-md border border-gray-300 px-4 py-2 text-gray-900 focus:border-transparent focus:ring-2 focus:ring-[#FF6600]"
+                        placeholder="Ex: 30"
+                      />
+                      <p className="mt-1 text-xs text-gray-500">
+                        Caso definido, aplica um limite padrão para regiões não especificadas.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-md border border-dashed border-gray-300 p-4">
+                    <h4 className="text-sm font-semibold text-[#003366] mb-3">Adicionar limite por região</h4>
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
+                      <select
+                        value={newRegionQuota.state}
+                        onChange={(event) =>
+                          setNewRegionQuota((prev) => ({ ...prev, state: event.target.value }))
+                        }
+                        className="md:col-span-1 rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-transparent focus:ring-2 focus:ring-[#FF6600]"
+                      >
+                        <option value="">Estado</option>
+                        {BRAZIL_STATES.map((state) => (
+                          <option key={state.sigla} value={state.sigla}>
+                            {state.nome}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        value={newRegionQuota.city}
+                        onChange={(event) =>
+                          setNewRegionQuota((prev) => ({ ...prev, city: event.target.value }))
+                        }
+                        className="md:col-span-1 rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-transparent focus:ring-2 focus:ring-[#FF6600]"
+                        placeholder="Cidade (opcional)"
+                      />
+                      <input
+                        type="number"
+                        min="1"
+                        value={newRegionQuota.limit}
+                        onChange={(event) =>
+                          setNewRegionQuota((prev) => ({ ...prev, limit: event.target.value }))
+                        }
+                        className="rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-transparent focus:ring-2 focus:ring-[#FF6600]"
+                        placeholder="Vagas"
+                      />
+                      <input
+                        type="number"
+                        min="0"
+                        value={newRegionQuota.waitlistLimit}
+                        onChange={(event) =>
+                          setNewRegionQuota((prev) => ({
+                            ...prev,
+                            waitlistLimit: event.target.value
+                          }))
+                        }
+                        className="rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-transparent focus:ring-2 focus:ring-[#FF6600]"
+                        placeholder="Lista espera"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddRegionQuota}
+                        className="rounded-md bg-[#003366] px-4 py-2 text-white font-semibold transition-colors hover:bg-[#00264d]"
+                      >
+                        Adicionar
+                      </button>
+                    </div>
+                    {regionQuotaError && (
+                      <p className="mt-2 text-sm text-red-500">{regionQuotaError}</p>
+                    )}
+
+                    {regionQuotas.length > 0 && (
+                      <div className="mt-4 space-y-2">
+                        {regionQuotas.map((quota, index) => (
+                          <div
+                            key={`${quota.state}-${quota.city || 'all'}-${index}`}
+                            className="flex flex-col gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 md:flex-row md:items-center md:justify-between"
+                          >
+                            <div className="space-y-1">
+                              <p className="font-semibold text-[#003366]">
+                                {quota.state}
+                                {quota.city ? ` - ${quota.city}` : ' (Estado inteiro)'}
+                              </p>
+                              <p>
+                                Limite de vagas: <strong>{quota.limit}</strong> · Lista de espera:{' '}
+                                <strong>{quota.waitlistLimit}</strong>
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveRegionQuota(index)}
+                              className="inline-flex items-center gap-1 text-sm font-medium text-red-600 hover:text-red-700"
+                            >
+                              Remover
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {regionQuotas.length === 0 && (
+                      <p className="mt-3 text-xs text-gray-500">
+                        Defina ao menos uma região com limite para ativar a restrição.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div>

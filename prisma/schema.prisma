@@ -154,6 +154,11 @@ model Course {
   status        String     @default("ACTIVE")
   type          CourseType @default(ONLINE)
   maxEnrollments Int?
+  waitlistLimit  Int       @default(0)
+  waitlistEnabled Boolean  @default(false)
+  regionRestrictionEnabled Boolean @default(false)
+  allowAllRegions Boolean  @default(true)
+  defaultRegionLimit Int?
   startDate     DateTime?
   endDate       DateTime?
   slug          String?    @unique // URL personalizada
@@ -164,6 +169,7 @@ model Course {
   creator       User       @relation("CourseCreator", fields: [createdBy], references: [id])
   lessons       Lesson[]
   enrollments   Enrollment[]
+  regionQuotas  CourseRegionQuota[]
 
   @@map("courses")
 }
@@ -193,6 +199,11 @@ model Enrollment {
   courseId      String   @db.ObjectId
   progress      Int      @default(0) // Porcentagem de conclusão
   completedAt   DateTime?
+  status        EnrollmentStatus @default(CONFIRMED)
+  waitlistPosition Int?
+  regionQuotaId  String?  @db.ObjectId
+  eligibilityReason String?
+  whatsappNumber  String?
   
   // Dados adicionais do registro
   cpf           String?
@@ -207,9 +218,36 @@ model Enrollment {
 
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  regionQuota CourseRegionQuota? @relation(fields: [regionQuotaId], references: [id])
 
   @@unique([userId, courseId])
   @@map("enrollments")
+}
+
+model CourseRegionQuota {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  courseId       String   @db.ObjectId
+  state          String
+  city           String?
+  limit          Int
+  waitlistLimit  Int      @default(0)
+  currentCount   Int      @default(0)
+  waitlistCount  Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  course         Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  enrollments    Enrollment[]
+
+  @@unique([courseId, state, city])
+  @@map("course_region_quotas")
+}
+
+enum EnrollmentStatus {
+  CONFIRMED
+  WAITLIST
+  PENDING_REGION
+  REJECTED
 }
 
 model LessonProgress {

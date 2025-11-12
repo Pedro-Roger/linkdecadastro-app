@@ -17,6 +17,7 @@ const registerSchema = z.object({
   }),
   state: z.string().optional(),
   city: z.string().optional(),
+  phone: z.string().min(10, 'Informe um número de telefone válido').optional()
 })
 
 export async function POST(request: NextRequest) {
@@ -52,6 +53,7 @@ export async function POST(request: NextRequest) {
         hectares: data.participantType === 'PRODUTOR' && data.hectares ? (typeof data.hectares === 'number' ? data.hectares : parseFloat(data.hectares)) : null,
         state: data.state || null,
         city: data.city || null,
+        phone: data.phone || null
       },
       select: {
         id: true,

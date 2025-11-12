@@ -23,7 +23,12 @@ export async function GET(
       }
     })
 
-    return NextResponse.json({ enrolled: !!enrollment })
+    return NextResponse.json({
+      enrolled: !!enrollment,
+      status: enrollment?.status ?? null,
+      waitlistPosition: enrollment?.waitlistPosition ?? null,
+      eligibilityReason: enrollment?.eligibilityReason ?? null
+    })
   } catch (error) {
     console.error('Erro ao verificar inscrição:', error)
     return NextResponse.json({ enrolled: false })
