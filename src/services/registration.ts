@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma'
-import { ParticipantType } from '@prisma/client'
+import { ParticipantType, MunicipalityClassStatus } from '@prisma/client'
 
 export async function createRegistration(data: {
   eventId: string
@@ -41,39 +41,70 @@ export async function createRegistration(data: {
         eventId: data.eventId,
         municipality: data.city,
         state: data.state,
-        limit: 20, // Limite padrão
+        defaultLimit: 20
+      }
+    })
+  }
+
+  // Garantir turma ativa (classe) para o município
+  let activeClass = await prisma.municipalityClass.findFirst({
+    where: {
+      municipalityLimitId: municipalityLimit.id,
+      status: MunicipalityClassStatus.ACTIVE
+    },
+    orderBy: {
+      classNumber: 'desc'
+    }
+  })
+
+  if (!activeClass) {
+    activeClass = await prisma.municipalityClass.create({
+      data: {
+        municipalityLimitId: municipalityLimit.id,
+        classNumber: 1,
+        limit: municipalityLimit.defaultLimit,
         currentCount: 0
       }
     })
   }
 
-  // Verificar se atingiu o limite
-  let batchNumber = 1
-  if (municipalityLimit.currentCount >= municipalityLimit.limit) {
-    // Contar quantas turmas já existem para este município
-    const lastRegistration = await prisma.registration.findFirst({
-      where: {
-        eventId: data.eventId,
-        municipalityId: municipalityLimit.id
-      },
-      orderBy: { batchNumber: 'desc' }
+  // Se turma ativa atingiu limite, fecha e cria nova
+  if (activeClass.currentCount >= activeClass.limit) {
+    await prisma.municipalityClass.update({
+      where: { id: activeClass.id },
+      data: {
+        status: MunicipalityClassStatus.CLOSED,
+        closedAt: new Date()
+      }
     })
 
-    batchNumber = lastRegistration ? lastRegistration.batchNumber + 1 : 1
-  } else {
-    // Incrementar contador
-    await prisma.municipalityLimit.update({
-      where: { id: municipalityLimit.id },
-      data: { currentCount: { increment: 1 } }
+    activeClass = await prisma.municipalityClass.create({
+      data: {
+        municipalityLimitId: municipalityLimit.id,
+        classNumber: activeClass.classNumber + 1,
+        limit: municipalityLimit.defaultLimit,
+        currentCount: 0
+      }
     })
   }
+
+  // Incrementar contagem da turma ativa
+  await prisma.municipalityClass.update({
+    where: { id: activeClass.id },
+    data: {
+      currentCount: {
+        increment: 1
+      }
+    }
+  })
 
   // Criar registro
   const registration = await prisma.registration.create({
     data: {
       ...data,
       municipalityId: municipalityLimit.id,
-      batchNumber,
+      municipalityClassId: activeClass.id,
+      batchNumber: activeClass.classNumber,
       status: 'CONFIRMED'
     }
   })

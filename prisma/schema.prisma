@@ -97,16 +97,39 @@ model MunicipalityLimit {
   eventId         String   @db.ObjectId
   municipality    String
   state           String
-  limit           Int
-  currentCount    Int      @default(0)
+  defaultLimit    Int      @default(20)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   event           Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
   registrations   Registration[]
+  classes         MunicipalityClass[]
 
   @@unique([eventId, municipality, state])
   @@map("municipality_limits")
+}
+
+enum MunicipalityClassStatus {
+  ACTIVE
+  CLOSED
+}
+
+model MunicipalityClass {
+  id                String                   @id @default(auto()) @map("_id") @db.ObjectId
+  municipalityLimitId String                 @db.ObjectId
+  classNumber       Int
+  limit             Int
+  currentCount      Int                      @default(0)
+  status            MunicipalityClassStatus  @default(ACTIVE)
+  createdAt         DateTime                 @default(now())
+  closedAt          DateTime?
+  updatedAt         DateTime                 @updatedAt
+
+  municipalityLimit MunicipalityLimit        @relation(fields: [municipalityLimitId], references: [id], onDelete: Cascade)
+  registrations     Registration[]
+
+  @@unique([municipalityLimitId, classNumber])
+  @@map("municipality_classes")
 }
 
 model Registration {
@@ -114,6 +137,7 @@ model Registration {
   eventId         String            @db.ObjectId
   userId          String?           @db.ObjectId
   municipalityId  String?           @db.ObjectId
+  municipalityClassId String?       @db.ObjectId
   batchNumber     Int               @default(1)
   
   // Dados do formulário
@@ -137,6 +161,7 @@ model Registration {
   event           Event             @relation(fields: [eventId], references: [id], onDelete: Cascade)
   user            User?             @relation(fields: [userId], references: [id])
   municipality    MunicipalityLimit? @relation(fields: [municipalityId], references: [id])
+  municipalityClass MunicipalityClass? @relation(fields: [municipalityClassId], references: [id])
 
   @@map("registrations")
 }

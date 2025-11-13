@@ -37,6 +37,7 @@ export interface Registration {
   pondCount?: number
   waterDepth?: number
   batchNumber: number
+  municipalityClassId?: string
   status: RegistrationStatus
   createdAt: Date
 }

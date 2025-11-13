@@ -1,5 +1,7 @@
 'use client'
 
+import { APP_QUERO_CAMARAO_URL } from '@/constants/branding'
+
 export default function Footer() {
   return (
     <footer className="bg-[#003366] text-white py-8 md:py-12 mt-12 md:mt-16">
@@ -11,13 +13,24 @@ export default function Footer() {
               Cadastre-se, anuncie e acompanhe os preços atualizados do camarão em todo o Ceará.
             </p>
             <p className="text-gray-400 text-sm md:text-base">
-              Aplicativo Quero Camarão – <a href="#" className="text-[#FF6600] hover:underline">Clique aqui para baixar</a>.
+              Aplicativo Quero Camarão –{' '}
+              <a
+                href={APP_QUERO_CAMARAO_URL}
+                className="text-[#FF6600] hover:underline"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Clique aqui para baixar
+              </a>
+              .
             </p>
           </div>
           <div className="md:ml-8">
             <a
-              href="#"
+              href={APP_QUERO_CAMARAO_URL}
               className="bg-[#FF6600] px-6 md:px-8 py-3 md:py-4 rounded-md font-semibold hover:bg-[#e55a00] transition-colors text-base md:text-lg whitespace-nowrap inline-block"
+              target="_blank"
+              rel="noopener noreferrer"
             >
               Baixe agora o app
             </a>
