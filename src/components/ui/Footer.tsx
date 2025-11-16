@@ -1,8 +1,13 @@
-'use client'
-
-import { APP_QUERO_CAMARAO_URL } from '@/constants/branding'
+import { getAppStoreUrl } from '@/constants/branding'
+import { useEffect, useState } from 'react'
 
 export default function Footer() {
+  const [appUrl, setAppUrl] = useState<string>('https://querocamarao.com/app')
+
+  useEffect(() => {
+    setAppUrl(getAppStoreUrl())
+  }, [])
+
   return (
     <footer className="bg-[#003366] text-white py-8 md:py-12 mt-12 md:mt-16">
       <div className="container mx-auto px-4">
@@ -15,7 +20,7 @@ export default function Footer() {
             <p className="text-gray-400 text-sm md:text-base">
               Aplicativo Quero Camarão –{' '}
               <a
-                href={APP_QUERO_CAMARAO_URL}
+                href={appUrl}
                 className="text-[#FF6600] hover:underline"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -27,7 +32,7 @@ export default function Footer() {
           </div>
           <div className="md:ml-8">
             <a
-              href={APP_QUERO_CAMARAO_URL}
+              href={appUrl}
               className="bg-[#FF6600] px-6 md:px-8 py-3 md:py-4 rounded-md font-semibold hover:bg-[#e55a00] transition-colors text-base md:text-lg whitespace-nowrap inline-block"
               target="_blank"
               rel="noopener noreferrer"
@@ -37,7 +42,7 @@ export default function Footer() {
           </div>
         </div>
         <div className="mt-8 pt-6 border-t border-gray-600 text-center text-sm text-gray-400">
-          <p>&copy; {new Date().getFullYear()} Quero Cursos. Todos os direitos reservados.</p>
+          <p>&copy; {new Date().getFullYear()} Link de Cadastro. Todos os direitos reservados.</p>
         </div>
       </div>
     </footer>

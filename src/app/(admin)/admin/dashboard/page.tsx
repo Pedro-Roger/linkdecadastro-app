@@ -1,17 +1,20 @@
-'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import MobileNavbar from '@/components/ui/MobileNavbar'
 import Footer from '@/components/ui/Footer'
+import { apiFetch } from '@/lib/api'
+import { useAuth } from '@/lib/useAuth'
 
 export default function AdminDashboardPage() {
-  const { data: session, status } = useSession()
   const router = useRouter()
+  const { user, loading: authLoading, isAuthenticated } = useAuth({
+    requireAuth: true,
+    redirectTo: '/login',
+  })
   const [stats, setStats] = useState<any>(null)
   const [courses, setCourses] = useState<any[]>([])
   const [recentEnrollments, setRecentEnrollments] = useState<any[]>([])
@@ -19,42 +22,30 @@ export default function AdminDashboardPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [activeFilter, setActiveFilter] = useState<string>('all')
 
-  useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/login')
-    } else if (status === 'authenticated' && session?.user?.role !== 'ADMIN') {
-      router.push('/my-courses')
-    }
-  }, [status, session, router])
-
   const fetchStats = useCallback(async () => {
     try {
-      const [coursesRes, eventsRes] = await Promise.all([
-        fetch('/api/admin/courses'),
-        fetch('/api/events')
+      const [coursesData, events] = await Promise.all([
+        apiFetch<any[]>('/admin/courses', { auth: true }),
+        apiFetch<any[]>('/events', { auth: true }),
       ])
 
-      if (coursesRes.ok && eventsRes.ok) {
-        const coursesData = await coursesRes.json()
-        const events = await eventsRes.json()
-        
-        setCourses(coursesData)
-        
-        const totalEnrollments = coursesData.reduce((sum: number, course: any) => 
-          sum + (course._count?.enrollments || 0), 0
-        )
-        
-        setStats({
-          totalCourses: coursesData.length,
-          totalEvents: events.length,
-          activeCourses: coursesData.filter((c: any) => c.status === 'ACTIVE').length,
-          inactiveCourses: coursesData.filter((c: any) => c.status === 'INACTIVE').length,
-          activeEvents: events.filter((e: any) => e.status === 'ACTIVE').length,
-          totalEnrollments
-        })
+      setCourses(coursesData)
 
-        await fetchRecentEnrollments(coursesData)
-      }
+      const totalEnrollments = coursesData.reduce(
+        (sum: number, course: any) => sum + (course._count?.enrollments || 0),
+        0,
+      )
+
+      setStats({
+        totalCourses: coursesData.length,
+        totalEvents: events.length,
+        activeCourses: coursesData.filter((c: any) => c.status === 'ACTIVE').length,
+        inactiveCourses: coursesData.filter((c: any) => c.status === 'INACTIVE').length,
+        activeEvents: events.filter((e: any) => e.status === 'ACTIVE').length,
+        totalEnrollments,
+      })
+
+      await fetchRecentEnrollments(coursesData)
     } catch (error) {
       console.error(error)
     } finally {
@@ -63,23 +54,30 @@ export default function AdminDashboardPage() {
   }, [])
 
   useEffect(() => {
-    if (status === 'authenticated' && session?.user?.role === 'ADMIN') {
+    if (!authLoading) {
+      if (!isAuthenticated || user?.role !== 'ADMIN') {
+        router.push('/my-courses')
+        return
+      }
       fetchStats()
     }
-  }, [status, session, fetchStats])
+  }, [authLoading, isAuthenticated, user, fetchStats, router])
 
   async function fetchRecentEnrollments(coursesData: any[]) {
     try {
       const enrollmentsPromises = coursesData
         .slice(0, 5)
-        .map(course => 
-          fetch(`/api/admin/courses/${course.id}/enrollments`)
-            .then(res => res.ok ? res.json() : [])
-            .then(data => data.map((enrollment: any) => ({
-              ...enrollment,
-              courseTitle: course.title
-            })))
-            .catch(() => [])
+        .map((course) =>
+          apiFetch<any[]>(`/admin/courses/${course.id}/enrollments`, {
+            auth: true,
+          })
+            .then((data) =>
+              data.map((enrollment: any) => ({
+                ...enrollment,
+                courseTitle: course.title,
+              })),
+            )
+            .catch(() => []),
         )
 
       const enrollmentsArrays = await Promise.all(enrollmentsPromises)
@@ -135,7 +133,7 @@ export default function AdminDashboardPage() {
 
   const filteredCourses = filterCourses()
 
-  if (status === 'loading' || loading) {
+  if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-xl text-gray-600">Carregando...</div>
@@ -442,7 +440,7 @@ export default function AdminDashboardPage() {
       <Footer />
       
       {/* Espaçamento para navbar inferior no mobile */}
-      {session && <div className="md:hidden h-20" />}
+      {user && <div className="md:hidden h-20" />}
     </div>
   )
 }

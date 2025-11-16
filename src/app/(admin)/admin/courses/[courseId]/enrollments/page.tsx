@@ -1,7 +1,5 @@
-'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { useSession, signOut } from 'next-auth/react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -9,6 +7,8 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import NotificationBell from '@/components/notifications/NotificationBell'
 import Footer from '@/components/ui/Footer'
+import { apiFetch } from '@/lib/api'
+import { useAuth } from '@/lib/useAuth'
 
 interface Enrollment {
   id: string
@@ -27,38 +27,27 @@ interface Enrollment {
 }
 
 export default function CourseEnrollmentsPage() {
-  const { data: session, status } = useSession()
   const router = useRouter()
+  const { user, loading: authLoading, isAuthenticated, signOut } = useAuth({
+    requireAuth: true,
+    redirectTo: '/login',
+  })
   const params = useParams()
   const courseId = params.courseId as string
   const [enrollments, setEnrollments] = useState<Enrollment[]>([])
   const [course, setCourse] = useState<any>(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/login')
-    } else if (status === 'authenticated' && session?.user?.role !== 'ADMIN') {
-      router.push('/my-courses')
-    }
-  }, [status, session, router])
-
   const fetchData = useCallback(async () => {
     try {
-      const [enrollmentsRes, courseRes] = await Promise.all([
-        fetch(`/api/admin/courses/${courseId}/enrollments`),
-        fetch(`/api/admin/courses/${courseId}`)
+      const [enrollmentsData, courseData] = await Promise.all([
+        apiFetch<Enrollment[]>(`/admin/courses/${courseId}/enrollments`, {
+          auth: true,
+        }),
+        apiFetch<any>(`/admin/courses/${courseId}`, { auth: true }),
       ])
-
-      if (enrollmentsRes.ok) {
-        const data = await enrollmentsRes.json()
-        setEnrollments(data)
-      }
-
-      if (courseRes.ok) {
-        const courseData = await courseRes.json()
-        setCourse(courseData)
-      }
+      setEnrollments(enrollmentsData)
+      setCourse(courseData)
     } catch (error) {
       console.error(error)
     } finally {
@@ -67,14 +56,25 @@ export default function CourseEnrollmentsPage() {
   }, [courseId])
 
   useEffect(() => {
-    if (status === 'authenticated' && session?.user?.role === 'ADMIN' && courseId) {
-      fetchData()
+    if (!authLoading) {
+      if (!isAuthenticated || user?.role !== 'ADMIN') {
+        router.push('/my-courses')
+      } else if (courseId) {
+        fetchData()
+      }
     }
-  }, [status, session, courseId, fetchData])
+  }, [authLoading, isAuthenticated, user, courseId, fetchData, router])
 
   const handleExport = async () => {
     try {
-      const response = await fetch(`/api/admin/courses/${courseId}/export`)
+      const url = `${process.env.NEXT_PUBLIC_API_URL}/admin/courses/${courseId}/export`
+      const token =
+        typeof window !== 'undefined'
+          ? localStorage.getItem('token')
+          : null
+      const response = await fetch(url, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      })
       if (response.ok) {
         const blob = await response.blob()
         const url = window.URL.createObjectURL(blob)
@@ -94,7 +94,7 @@ export default function CourseEnrollmentsPage() {
     }
   }
 
-  if (status === 'loading' || loading) {
+  if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-xl">Carregando...</div>
@@ -111,7 +111,7 @@ export default function CourseEnrollmentsPage() {
             <Link href="/" className="flex items-center">
               <Image
                 src="/logo B.png"
-                alt="Quero Cursos"
+                alt="Link de Cadastro"
                 width={300}
                 height={100}
                 className="h-20 md:h-24 w-auto object-contain"
@@ -124,10 +124,10 @@ export default function CourseEnrollmentsPage() {
               <Link href="/admin/events" className="text-gray-700 hover:text-[#FF6600]">Eventos</Link>
               <NotificationBell />
               <Link href="/profile" className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-[#FF6600] text-white font-bold flex items-center justify-center">
-                {session?.user?.name?.charAt(0).toUpperCase() || 'A'}
+                {user?.name?.charAt(0).toUpperCase() || 'A'}
               </Link>
               <button
-                onClick={() => signOut({ callbackUrl: '/' })}
+                onClick={() => signOut()}
                 className="bg-red-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-red-600 transition-colors text-sm md:text-base"
               >
                 Sair

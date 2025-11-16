@@ -1,7 +1,5 @@
-'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { format } from 'date-fns'
@@ -9,9 +7,9 @@ import { ptBR } from 'date-fns/locale'
 import Footer from '@/components/ui/Footer'
 import MobileNavbar from '@/components/ui/MobileNavbar'
 import CourseEnrollmentModal from '@/components/modals/CourseEnrollmentModal'
+import { apiFetch } from '@/lib/api'
 
 export default function CoursesPage() {
-  const { data: session, status } = useSession()
   const router = useRouter()
   const [allCourses, setAllCourses] = useState<any[]>([])
   const [courses, setCourses] = useState<any[]>([])
@@ -29,16 +27,17 @@ export default function CoursesPage() {
   } | null>(null)
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/login')
-    }
-  }, [status, router])
+    const token =
+      typeof window !== 'undefined'
+        ? localStorage.getItem('token')
+        : null
 
-  useEffect(() => {
-    if (status === 'authenticated') {
-      fetchAllCourses()
+    if (!token) {
+      router.push('/login')
+      return
     }
-  }, [status])
+    fetchAllCourses()
+  }, [])
 
   const filterCourses = useCallback(() => {
     let filtered = [...allCourses]
@@ -89,13 +88,11 @@ export default function CoursesPage() {
 
   async function fetchAllCourses() {
     try {
-      const res = await fetch('/api/courses')
-      if (res.ok) {
-        const data = await res.json()
-        setAllCourses(data)
-      }
+      const data = await apiFetch<any[]>('/courses', { auth: true })
+      setAllCourses(data)
     } catch (error) {
       console.error('Erro ao buscar cursos:', error)
+      router.push('/login')
     } finally {
       setLoading(false)
     }
@@ -123,7 +120,11 @@ export default function CoursesPage() {
   }
 
   const handleEnroll = (courseId: string, courseTitle: string) => {
-    if (!session) {
+    const token =
+      typeof window !== 'undefined'
+        ? localStorage.getItem('token')
+        : null
+    if (!token) {
       router.push('/login')
       return
     }
@@ -181,7 +182,7 @@ export default function CoursesPage() {
     setTimeout(() => setEnrollmentFeedback(null), 8000)
   }
 
-  if (status === 'loading' || loading) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-xl">Carregando...</div>
@@ -394,7 +395,7 @@ export default function CoursesPage() {
       <Footer />
       
       {/* Espaçamento para navbar inferior no mobile */}
-      {session && <div className="md:hidden h-20" />}
+      <div className="md:hidden h-20" />
 
       {/* Modal de Inscrição */}
       <CourseEnrollmentModal

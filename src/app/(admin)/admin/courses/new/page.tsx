@@ -1,7 +1,5 @@
-'use client'
 
 import { useState, useEffect } from 'react'
-import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -9,6 +7,8 @@ import { z } from 'zod'
 import Link from 'next/link'
 import NotificationBell from '@/components/notifications/NotificationBell'
 import Footer from '@/components/ui/Footer'
+import { apiFetch } from '@/lib/api'
+import { useAuth } from '@/lib/useAuth'
 
 const courseSchema = z.object({
   title: z.string().min(1, 'Título é obrigatório'),
@@ -88,8 +88,11 @@ const BRAZIL_STATES = [
 ]
 
 export default function NewCoursePage() {
-  const { data: session, status } = useSession()
   const router = useRouter()
+  const { user, loading: authLoading, isAuthenticated, signOut } = useAuth({
+    requireAuth: true,
+    redirectTo: '/login',
+  })
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
@@ -237,9 +240,15 @@ export default function NewCoursePage() {
       formData.append('file', file)
 
       console.log('Enviando para API...')
-      const response = await fetch('/api/admin/upload', {
+      const uploadUrl = `${process.env.NEXT_PUBLIC_API_URL}/admin/upload`
+      const token =
+        typeof window !== 'undefined'
+          ? localStorage.getItem('token')
+          : null
+      const response = await fetch(uploadUrl, {
         method: 'POST',
-        body: formData
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        body: formData,
       })
 
       console.log('Resposta recebida:', response.status, response.statusText)
@@ -273,12 +282,12 @@ export default function NewCoursePage() {
   }
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/login')
-    } else if (status === 'authenticated' && session?.user?.role !== 'ADMIN') {
-      router.push('/my-courses')
+    if (!authLoading) {
+      if (!isAuthenticated || user?.role !== 'ADMIN') {
+        router.push('/my-courses')
+      }
     }
-  }, [status, session, router])
+  }, [authLoading, isAuthenticated, user, router])
 
   const onSubmit = async (data: CourseFormData) => {
     setSubmitting(true)
@@ -345,20 +354,11 @@ export default function NewCoursePage() {
 
       console.log('Payload completo:', payload)
 
-      const response = await fetch('/api/admin/courses', {
+      const course = await apiFetch<any>('/admin/courses', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        auth: true,
+        body: JSON.stringify(payload),
       })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        const errorMessage = errorData.error || 'Erro ao criar curso'
-        const errorDetails = errorData.details ? `\n\nDetalhes: ${JSON.stringify(errorData.details, null, 2)}` : ''
-        throw new Error(`${errorMessage}${errorDetails}`)
-      }
-
-      const course = await response.json()
       router.push(`/admin/courses/${course.id}/lessons`)
     } catch (err) {
       console.error('Erro ao criar curso:', err)
@@ -369,7 +369,7 @@ export default function NewCoursePage() {
     }
   }
 
-  if (status === 'loading') {
+  if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-xl">Carregando...</div>
@@ -386,7 +386,7 @@ export default function NewCoursePage() {
             <Link href="/" className="flex items-center">
               <img
                 src="/logo B.png"
-                alt="Quero Cursos"
+                alt="Link de Cadastro"
                 className="h-20 md:h-24 w-auto object-contain"
               />
             </Link>
@@ -396,10 +396,10 @@ export default function NewCoursePage() {
               <Link href="/admin/events" className="text-gray-700 hover:text-[#FF6600]">Eventos</Link>
               <NotificationBell />
               <Link href="/profile" className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-[#FF6600] text-white font-bold flex items-center justify-center">
-                {session?.user?.name?.charAt(0).toUpperCase() || 'A'}
+                {user?.name?.charAt(0).toUpperCase() || 'A'}
               </Link>
               <button
-                onClick={() => signOut({ callbackUrl: '/' })}
+                onClick={() => signOut()}
                 className="bg-red-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-red-600 transition-colors text-sm md:text-base"
               >
                 Sair

@@ -1,17 +1,17 @@
-'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import MobileNavbar from '@/components/ui/MobileNavbar'
 import Footer from '@/components/ui/Footer'
+import { apiFetch } from '@/lib/api'
+import { useAuth } from '@/lib/useAuth'
 
 export default function AdminCoursesPage() {
-  const { data: session, status } = useSession()
   const router = useRouter()
+  const { user, loading: authLoading, isAuthenticated } = useAuth({ requireAuth: true, redirectTo: '/login' })
   const [courses, setCourses] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
@@ -21,26 +21,19 @@ export default function AdminCoursesPage() {
   const [selectedCourse, setSelectedCourse] = useState<any>(null)
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/login')
-    } else if (status === 'authenticated' && session?.user?.role !== 'ADMIN') {
-      router.push('/my-courses')
+    if (!authLoading) {
+      if (!isAuthenticated || user?.role !== 'ADMIN') {
+        router.push('/my-courses')
+      } else {
+        fetchCourses()
+      }
     }
-  }, [status, session, router])
-
-  useEffect(() => {
-    if (status === 'authenticated' && session?.user?.role === 'ADMIN') {
-      fetchCourses()
-    }
-  }, [status, session])
+  }, [authLoading, isAuthenticated, user, router])
 
   async function fetchCourses() {
     try {
-      const res = await fetch('/api/admin/courses')
-      if (res.ok) {
-        const data = await res.json()
-        setCourses(data)
-      }
+      const data = await apiFetch<any[]>('/admin/courses', { auth: true })
+      setCourses(data)
     } catch (error) {
       console.error(error)
     } finally {
@@ -54,17 +47,12 @@ export default function AdminCoursesPage() {
     }
 
     try {
-      const res = await fetch(`/api/admin/courses/${courseId}`, {
-        method: 'DELETE'
+      await apiFetch(`/admin/courses/${courseId}`, {
+        method: 'DELETE',
+        auth: true,
       })
-
-      if (res.ok) {
-        fetchCourses()
-        alert('Curso excluído com sucesso!')
-      } else {
-        const errorData = await res.json()
-        alert(errorData.error || 'Erro ao excluir curso')
-      }
+      fetchCourses()
+      alert('Curso excluído com sucesso!')
     } catch (error) {
       console.error('Erro ao excluir curso:', error)
       alert('Erro ao excluir curso')
@@ -73,7 +61,14 @@ export default function AdminCoursesPage() {
 
   const handleExport = async (courseId: string, courseTitle: string) => {
     try {
-      const response = await fetch(`/api/admin/courses/${courseId}/export`)
+      const url = `${process.env.NEXT_PUBLIC_API_URL}/admin/courses/${courseId}/export`
+      const response = await fetch(url, {
+        headers: {
+          ...(typeof window !== 'undefined' && localStorage.getItem('token')
+            ? { Authorization: `Bearer ${localStorage.getItem('token')}` }
+            : {}),
+        },
+      })
       if (response.ok) {
         const blob = await response.blob()
         const url = window.URL.createObjectURL(blob)
@@ -106,7 +101,7 @@ export default function AdminCoursesPage() {
     return {
       url,
       bannerUrl,
-      message: `Confira o curso "${course.title}" na Quero Cursos: ${url}`
+      message: `Confira o curso "${course.title}" no Link de Cadastro: ${url}`
     }
   }
 
@@ -144,7 +139,7 @@ export default function AdminCoursesPage() {
 
     const shareData = {
       title: selectedCourse.title,
-      text: `Confira o curso "${selectedCourse.title}" na Quero Cursos.`,
+      text: `Confira o curso "${selectedCourse.title}" no Link de Cadastro.`,
       url: selectedShareData.url
     }
 
@@ -233,7 +228,7 @@ export default function AdminCoursesPage() {
     }).length
   }
 
-  if (status === 'loading' || loading) {
+  if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-xl text-gray-600">Carregando...</div>
@@ -576,7 +571,7 @@ export default function AdminCoursesPage() {
       <Footer />
       
       {/* Espaçamento para navbar inferior no mobile */}
-      {session && <div className="md:hidden h-20" />}
+      {isAuthenticated && <div className="md:hidden h-20" />}
     </div>
   )
 }

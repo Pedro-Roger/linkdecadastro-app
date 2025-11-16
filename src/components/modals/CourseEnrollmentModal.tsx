@@ -1,11 +1,10 @@
-'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { useSession, signIn } from 'next-auth/react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import type { EnrollmentStatus } from '@prisma/client'
+import { apiFetch } from '@/lib/api'
 
 const participantTypes = ['ESTUDANTE', 'PROFESSOR', 'PESQUISADOR', 'PRODUTOR'] as const
 
@@ -169,8 +168,7 @@ export default function CourseEnrollmentModal({
   courseTitle,
   onSuccess
 }: CourseEnrollmentModalProps) {
-  const { data: session } = useSession()
-  const needsAccount = !session
+  const needsAccount = false
 
   const enrollmentSchema = useMemo(() => createEnrollmentSchema(needsAccount), [needsAccount])
 
@@ -184,8 +182,8 @@ export default function CourseEnrollmentModal({
   } = useForm<EnrollmentFormData>({
     resolver: zodResolver(enrollmentSchema),
     defaultValues: {
-      name: session?.user?.name ?? '',
-      email: session?.user?.email ?? '',
+      name: '',
+      email: '',
       state: '',
       city: '',
       whatsappNumber: ''
@@ -211,12 +209,10 @@ export default function CourseEnrollmentModal({
       setError(null)
       reset((prev) => ({
         ...prev,
-        name: session?.user?.name ?? prev?.name ?? '',
-        email: session?.user?.email ?? prev?.email ?? '',
-        whatsappNumber: session?.user?.phone ?? prev?.whatsappNumber ?? ''
+        whatsappNumber: prev?.whatsappNumber ?? ''
       }))
     }
-  }, [isOpen, reset, session])
+  }, [isOpen, reset])
 
   useEffect(() => {
     if (isOpen && selectedState && selectedState.length === 2) {
@@ -242,7 +238,6 @@ export default function CourseEnrollmentModal({
         setStates(FALLBACK_STATES)
       }
     } catch (fetchError) {
-      console.error('Erro ao buscar estados:', fetchError)
       setStates(FALLBACK_STATES)
     } finally {
       setLoadingStates(false)
@@ -263,7 +258,6 @@ export default function CourseEnrollmentModal({
         setCities([])
       }
     } catch (fetchError) {
-      console.error('Erro ao buscar cidades:', fetchError)
       setCities([])
     } finally {
       setLoadingCities(false)
@@ -290,46 +284,9 @@ export default function CourseEnrollmentModal({
         : undefined
 
     try {
-      if (needsAccount) {
-        setIsRegistering(true)
-        const registerResponse = await fetch('/api/auth/register', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: data.name,
-            email: data.email,
-            password: data.password,
-            cpf,
-            birthDate: data.birthDate,
-            participantType: data.participantType,
-            hectares: data.participantType === 'PRODUTOR' ? hectares : undefined,
-            state: data.state,
-            city: data.city,
-            phone: whatsapp
-          })
-        })
-
-        if (!registerResponse.ok) {
-          const errorData = await registerResponse.json().catch(() => ({}))
-          throw new Error(errorData.error || 'Erro ao registrar usuário')
-        }
-
-        const signInResult = await signIn('credentials', {
-          email: data.email,
-          password: data.password,
-          redirect: false
-        })
-
-        if (!signInResult?.ok) {
-          throw new Error('Erro ao fazer login após registro')
-        }
-
-        setIsRegistering(false)
-      }
-
-      const enrollResponse = await fetch(`/api/courses/${courseId}/enroll`, {
+      const responseBody = await apiFetch<any>(`/courses/${courseId}/enroll`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        auth: true,
         body: JSON.stringify({
           cpf,
           birthDate: data.birthDate,
@@ -338,14 +295,8 @@ export default function CourseEnrollmentModal({
           state: data.state,
           city: data.city,
           whatsappNumber: whatsapp
-        })
+        }),
       })
-
-      const responseBody = await enrollResponse.json().catch(() => ({}))
-
-      if (!enrollResponse.ok) {
-        throw new Error(responseBody?.error || 'Erro ao inscrever no curso')
-      }
 
       const status = responseBody.enrollment?.status as EnrollmentStatus | undefined
       const waitlistPosition = responseBody.metadata?.waitlistPosition ?? null
@@ -373,8 +324,8 @@ export default function CourseEnrollmentModal({
       })
 
       reset({
-        name: needsAccount ? '' : responseBody.enrollment?.user?.name ?? session?.user?.name ?? '',
-        email: needsAccount ? '' : session?.user?.email ?? '',
+        name: '',
+        email: '',
         password: '',
         cpf: '',
         birthDate: '',
@@ -390,7 +341,6 @@ export default function CourseEnrollmentModal({
         metadata: responseBody.metadata
       })
     } catch (err) {
-      console.error('Erro ao processar inscrição:', err)
       setError(err instanceof Error ? err.message : 'Erro ao processar inscrição')
       setIsRegistering(false)
     } finally {
@@ -450,56 +400,6 @@ export default function CourseEnrollmentModal({
 
           {!result && (
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              {needsAccount && (
-                <>
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">
-                      Nome Completo *
-                    </label>
-                    <input
-                      {...register('name')}
-                      type="text"
-                      className="w-full rounded-md border border-gray-300 px-4 py-2 text-gray-900 focus:border-transparent focus:ring-2 focus:ring-[#FF6600]"
-                      autoComplete="name"
-                    />
-                    {errors.name && (
-                      <p className="mt-1 text-sm text-red-500">{errors.name.message}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">
-                      E-mail *
-                    </label>
-                    <input
-                      {...register('email')}
-                      type="email"
-                      className="w-full rounded-md border border-gray-300 px-4 py-2 text-gray-900 focus:border-transparent focus:ring-2 focus:ring-[#FF6600]"
-                      autoComplete="email"
-                    />
-                    {errors.email && (
-                      <p className="mt-1 text-sm text-red-500">{errors.email.message}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">
-                      Senha de acesso *
-                    </label>
-                    <input
-                      {...register('password')}
-                      type="password"
-                      className="w-full rounded-md border border-gray-300 px-4 py-2 text-gray-900 focus:border-transparent focus:ring-2 focus:ring-[#FF6600]"
-                      autoComplete="new-password"
-                    />
-                    <p className="mt-1 text-xs text-gray-500">Mínimo de 6 caracteres</p>
-                    {errors.password && (
-                      <p className="mt-1 text-sm text-red-500">{errors.password.message}</p>
-                    )}
-                  </div>
-                </>
-              )}
-
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">
                   CPF *
@@ -559,12 +459,19 @@ export default function CourseEnrollmentModal({
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
+                <label className="mb-2 block text-sm font-medium text-gray-700 md:text-base">
                   Você é: *
                 </label>
                 <select
                   {...register('participantType')}
-                  className="w-full rounded-md border border-gray-300 px-4 py-2 text-gray-900 focus:border-transparent focus:ring-2 focus:ring-[#FF6600]"
+                  className="w-full rounded-md border border-gray-300 px-4 py-3 text-base text-gray-900 focus:border-transparent focus:ring-2 focus:ring-[#FF6600] md:py-2 md:text-sm appearance-none bg-white cursor-pointer min-h-[48px] touch-manipulation"
+                  style={{
+                    backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+                    backgroundPosition: 'right 0.75rem center',
+                    backgroundRepeat: 'no-repeat',
+                    backgroundSize: '1.5em 1.5em',
+                    paddingRight: '2.5rem'
+                  }}
                 >
                   <option value="">Selecione...</option>
                   <option value="ESTUDANTE">Estudante</option>
@@ -598,13 +505,20 @@ export default function CourseEnrollmentModal({
 
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                  <label className="mb-2 block text-sm font-medium text-gray-700 md:text-base">
                     Estado *
                   </label>
                   <select
                     {...register('state')}
                     disabled={loadingStates}
-                    className="w-full rounded-md border border-gray-300 px-4 py-2 text-gray-900 focus:border-transparent focus:ring-2 focus:ring-[#FF6600] disabled:opacity-50"
+                    className="w-full rounded-md border border-gray-300 px-4 py-3 text-base text-gray-900 focus:border-transparent focus:ring-2 focus:ring-[#FF6600] disabled:opacity-50 md:py-2 md:text-sm appearance-none bg-white cursor-pointer min-h-[48px] touch-manipulation"
+                    style={{
+                      backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+                      backgroundPosition: 'right 0.75rem center',
+                      backgroundRepeat: 'no-repeat',
+                      backgroundSize: '1.5em 1.5em',
+                      paddingRight: '2.5rem'
+                    }}
                   >
                     <option value="">
                       {loadingStates ? 'Carregando estados...' : 'Selecione o estado...'}
@@ -621,13 +535,20 @@ export default function CourseEnrollmentModal({
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                  <label className="mb-2 block text-sm font-medium text-gray-700 md:text-base">
                     Cidade *
                   </label>
                   <select
                     {...register('city')}
                     disabled={!selectedState || loadingCities}
-                    className="w-full rounded-md border border-gray-300 px-4 py-2 text-gray-900 focus:border-transparent focus:ring-2 focus:ring-[#FF6600] disabled:opacity-50"
+                    className="w-full rounded-md border border-gray-300 px-4 py-3 text-base text-gray-900 focus:border-transparent focus:ring-2 focus:ring-[#FF6600] disabled:opacity-50 md:py-2 md:text-sm appearance-none bg-white cursor-pointer min-h-[48px] touch-manipulation"
+                    style={{
+                      backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+                      backgroundPosition: 'right 0.75rem center',
+                      backgroundRepeat: 'no-repeat',
+                      backgroundSize: '1.5em 1.5em',
+                      paddingRight: '2.5rem'
+                    }}
                   >
                     <option value="">
                       {loadingCities

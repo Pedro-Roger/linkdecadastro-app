@@ -1,7 +1,5 @@
-'use client'
 
 import Link from 'next/link'
-import { useSession } from 'next-auth/react'
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
@@ -9,6 +7,8 @@ import { ptBR } from 'date-fns/locale'
 import Footer from '@/components/ui/Footer'
 import MobileNavbar from '@/components/ui/MobileNavbar'
 import CourseEnrollmentModal from '@/components/modals/CourseEnrollmentModal'
+import { apiFetch } from '@/lib/api'
+import { useAuth } from '@/lib/useAuth'
 
 interface Course {
   id: string
@@ -28,8 +28,8 @@ interface Course {
 }
 
 export default function HomePage() {
-  const { data: session, status } = useSession()
   const router = useRouter()
+  const { user, isAuthenticated } = useAuth()
   const [courses, setCourses] = useState<Course[]>([])
   const [allCourses, setAllCourses] = useState<Course[]>([])
   const [loading, setLoading] = useState(true)
@@ -101,11 +101,8 @@ export default function HomePage() {
   const fetchAllCourses = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/courses')
-      if (response.ok) {
-        const data = await response.json()
-        setAllCourses(data)
-      }
+      const data = await apiFetch<Course[]>('/courses')
+      setAllCourses(data)
     } catch (error) {
       console.error('Erro ao buscar cursos:', error)
     } finally {
@@ -203,14 +200,6 @@ export default function HomePage() {
           return true
       }
     }).length
-  }
-
-  if (status === 'loading') {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#003366] to-[#FF6600]">
-        <div className="text-white text-xl">Carregando...</div>
-      </div>
-    )
   }
 
   return (
@@ -429,7 +418,7 @@ export default function HomePage() {
                     {/* Botão de Ação */}
                     <button
                       onClick={() => {
-                        if (!session) {
+                        if (!isAuthenticated) {
                           router.push('/login')
                         } else {
                           setEnrollmentModal({
@@ -454,7 +443,7 @@ export default function HomePage() {
       <Footer />
       
       {/* Espaçamento para navbar inferior no mobile */}
-      {session && <div className="md:hidden h-20" />}
+      {isAuthenticated && <div className="md:hidden h-20" />}
 
       {/* Modal de Inscrição */}
       <CourseEnrollmentModal

@@ -1,4 +1,3 @@
-'use client'
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
@@ -8,6 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import Footer from '@/components/ui/Footer'
 import MobileNavbar from '@/components/ui/MobileNavbar'
+import { apiFetch } from '@/lib/api'
 
 const registerSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório'),
@@ -180,9 +180,8 @@ export default function RegisterPage() {
     setLoading(true)
 
     try {
-      const response = await fetch('/api/auth/register', {
+      await apiFetch('/auth/register', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: data.name,
           email: data.email,
@@ -193,14 +192,8 @@ export default function RegisterPage() {
           hectares: data.participantType === 'PRODUTOR' ? data.hectares : undefined,
           state: data.state,
           city: data.city,
-        })
+        }),
       })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Erro ao cadastrar')
-      }
-
       router.push('/login?registered=true')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao cadastrar')
@@ -298,12 +291,19 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 mb-2 md:text-base">
                 Você é: *
               </label>
               <select
                 {...register('participantType')}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
+                className="w-full px-4 py-3 text-base border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900 md:py-2 md:text-sm appearance-none bg-white cursor-pointer min-h-[48px] touch-manipulation"
+                style={{
+                  backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+                  backgroundPosition: 'right 0.75rem center',
+                  backgroundRepeat: 'no-repeat',
+                  backgroundSize: '1.5em 1.5em',
+                  paddingRight: '2.5rem'
+                }}
               >
                 <option value="">Selecione...</option>
                 <option value="ESTUDANTE">Estudante</option>
@@ -333,13 +333,20 @@ export default function RegisterPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-2 md:text-base">
                   Estado *
                 </label>
                 <select
                   {...register('state')}
                   disabled={loadingStates}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900 disabled:opacity-50"
+                  className="w-full px-4 py-3 text-base border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900 disabled:opacity-50 md:py-2 md:text-sm appearance-none bg-white cursor-pointer min-h-[48px] touch-manipulation"
+                  style={{
+                    backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+                    backgroundPosition: 'right 0.75rem center',
+                    backgroundRepeat: 'no-repeat',
+                    backgroundSize: '1.5em 1.5em',
+                    paddingRight: '2.5rem'
+                  }}
                 >
                   <option value="">Selecione o estado...</option>
                   {states.map((state) => (
@@ -352,13 +359,20 @@ export default function RegisterPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-2 md:text-base">
                   Cidade *
                 </label>
                 <select
                   {...register('city')}
                   disabled={!selectedState || loadingCities}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900 disabled:opacity-50"
+                  className="w-full px-4 py-3 text-base border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900 disabled:opacity-50 md:py-2 md:text-sm appearance-none bg-white cursor-pointer min-h-[48px] touch-manipulation"
+                  style={{
+                    backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+                    backgroundPosition: 'right 0.75rem center',
+                    backgroundRepeat: 'no-repeat',
+                    backgroundSize: '1.5em 1.5em',
+                    paddingRight: '2.5rem'
+                  }}
                 >
                   <option value="">
                     {loadingCities ? 'Carregando...' : selectedState ? 'Selecione a cidade...' : 'Selecione o estado primeiro'}

@@ -1,13 +1,13 @@
-'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import MobileNavbar from '@/components/ui/MobileNavbar'
 import Footer from '@/components/ui/Footer'
+import { apiFetch } from '@/lib/api'
+import { useAuth } from '@/lib/useAuth'
 
 interface EventItem {
   id: string
@@ -30,10 +30,10 @@ interface ShareData {
 }
 
 export default function AdminEventsPage() {
-  const { data: session, status } = useSession()
   const router = useRouter()
+  const { user, loading, isAuthenticated } = useAuth({ requireAuth: true, redirectTo: '/login' })
   const [events, setEvents] = useState<EventItem[]>([])
-  const [loading, setLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE' | 'CLOSED'>('ALL')
@@ -51,34 +51,26 @@ export default function AdminEventsPage() {
   })
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/login')
-    } else if (status === 'authenticated' && session?.user?.role !== 'ADMIN') {
-      router.push('/my-courses')
+    if (!loading) {
+      if (!isAuthenticated || user?.role !== 'ADMIN') {
+        router.push('/my-courses')
+      } else {
+        fetchEvents()
+      }
     }
-  }, [status, session, router])
-
-  useEffect(() => {
-    if (status === 'authenticated' && session?.user?.role === 'ADMIN') {
-      fetchEvents()
-    }
-  }, [status, session])
+  }, [loading, isAuthenticated, user, router])
 
   async function fetchEvents() {
     try {
-      setLoading(true)
+      setIsLoading(true)
       setError(null)
-      const res = await fetch('/api/events')
-      if (!res.ok) {
-        throw new Error('Erro ao carregar eventos')
-      }
-      const data = await res.json()
+      const data = await apiFetch<EventItem[]>('/events', { auth: true })
       setEvents(data)
     } catch (err) {
       console.error(err)
       setError(err instanceof Error ? err.message : 'Erro ao carregar eventos')
     } finally {
-      setLoading(false)
+      setIsLoading(false)
     }
   }
 
@@ -111,7 +103,7 @@ export default function AdminEventsPage() {
     return {
       url,
       bannerUrl,
-      message: `Confira o link de cadastro "${eventItem.title}" na Quero Cursos: ${url}`,
+      message: `Confira o link de cadastro "${eventItem.title}" no Link de Cadastro: ${url}`,
     }
   }
 
@@ -173,9 +165,8 @@ export default function AdminEventsPage() {
     }
   }
 
-  const handleShareWhatsapp = () => {
-    if (!selectedShareData) return
-    const waUrl = `https://wa.me/?text=${encodeURIComponent(selectedShareData.message)}`
+  const handleShareWhatsapp = (shareData: ShareData) => {
+    const waUrl = `https://wa.me/?text=${encodeURIComponent(shareData.message)}`
     window.open(waUrl, '_blank', 'noopener,noreferrer')
   }
 
@@ -199,18 +190,11 @@ export default function AdminEventsPage() {
         payload.maxRegistrations = value
       }
 
-      const res = await fetch('/api/events', {
+      await apiFetch('/events', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        auth: true,
         body: JSON.stringify(payload),
       })
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => null)
-        throw new Error(data?.error ?? 'Erro ao criar evento')
-      }
 
       await fetchEvents()
       setCreateModalOpen(false)
@@ -224,18 +208,11 @@ export default function AdminEventsPage() {
 
   const handleUpdateStatus = async (eventItem: EventItem, newStatus: 'ACTIVE' | 'INACTIVE' | 'CLOSED') => {
     try {
-      const res = await fetch(`/api/admin/events/${eventItem.id}`, {
+      await apiFetch(`/admin/events/${eventItem.id}`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        auth: true,
         body: JSON.stringify({ status: newStatus }),
       })
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => null)
-        throw new Error(data?.error ?? 'Erro ao atualizar status')
-      }
 
       await fetchEvents()
     } catch (err) {
@@ -290,7 +267,7 @@ export default function AdminEventsPage() {
               </div>
             </div>
 
-            {loading ? (
+            {isLoading ? (
               <div className="py-16 text-center text-gray-500">Carregando links...</div>
             ) : error ? (
               <div className="py-16 text-center text-red-500">{error}</div>
@@ -370,7 +347,7 @@ export default function AdminEventsPage() {
                                 Compartilhar
                               </button>
                               <button
-                                onClick={() => handleShareWhatsapp(event)}
+                                onClick={() => handleShareWhatsapp(shareData)}
                                 className="rounded-md bg-green-600 px-3 py-1 text-xs font-semibold text-white transition-colors hover:bg-green-700"
                               >
                                 WhatsApp
@@ -557,7 +534,7 @@ export default function AdminEventsPage() {
                 Compartilhar agora
               </button>
               <button
-                onClick={handleShareWhatsapp}
+                onClick={() => selectedShareData && handleShareWhatsapp(selectedShareData)}
                 className="inline-flex items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-green-700"
               >
                 WhatsApp

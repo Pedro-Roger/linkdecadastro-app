@@ -9,7 +9,7 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: 'Quero Cursos',
+  title: 'Link de Cadastro',
   description: 'Sistema de cadastro e plataforma de cursos',
 }
 

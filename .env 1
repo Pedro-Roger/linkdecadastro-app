@@ -1,10 +1,1 @@
-# Database
-DATABASE_URL="mongodb+srv://plataforma_cursos_db_user:G5UGJgJDPNYeHpQV@cluster0.wi0woaa.mongodb.net/linkdecadastro?retryWrites=true&w=majority"
-
-# JWT Secret (para autenticação)
-JWT_SECRET="seu-jwt-secret-super-seguro-aqui-altere-em-producao"
-
-# Next Auth (se for usar)
-NEXTAUTH_URL="http://localhost:3000"
-NEXTAUTH_SECRET="seu-nextauth-secret-aqui-altere-em-producao"
-
+VITE_API_URL=http://localhost:3333

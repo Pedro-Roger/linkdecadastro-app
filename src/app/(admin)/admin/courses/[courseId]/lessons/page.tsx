@@ -1,14 +1,14 @@
-'use client'
 
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { useSession, signOut } from 'next-auth/react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import Link from 'next/link'
 import NotificationBell from '@/components/notifications/NotificationBell'
 import Footer from '@/components/ui/Footer'
+import { apiFetch } from '@/lib/api'
+import { useAuth } from '@/lib/useAuth'
 
 const lessonSchema = z.object({
   title: z.string().min(1, 'Título é obrigatório'),
@@ -30,8 +30,11 @@ type LessonFormData = z.infer<typeof lessonSchema>
 
 export default function CourseLessonsPage() {
   const params = useParams()
-  const { data: session, status } = useSession()
   const router = useRouter()
+  const { user, loading: authLoading, isAuthenticated, signOut } = useAuth({
+    requireAuth: true,
+    redirectTo: '/login',
+  })
   const courseId = params.courseId as string
   
   const [course, setCourse] = useState<any>(null)
@@ -100,18 +103,34 @@ export default function CourseLessonsPage() {
         throw new Error('Arquivo muito grande. Máximo: 5MB')
       }
 
-      // Fazer upload
       const formData = new FormData()
       formData.append('file', file)
 
-      const response = await fetch('/api/admin/upload', {
-        method: 'POST',
-        body: formData
-      })
+      const token =
+        typeof window !== 'undefined'
+          ? localStorage.getItem('token')
+          : null
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333'}/admin/upload`,
+        {
+          method: 'POST',
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          body: formData,
+        },
+      )
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Erro ao fazer upload')
+        let message = 'Erro ao fazer upload'
+        try {
+          const errorData = await response.json()
+          if (errorData?.error) {
+            message = errorData.error
+          }
+        } catch {
+          // ignore
+        }
+        throw new Error(message)
       }
 
       const data = await response.json()
@@ -125,45 +144,40 @@ export default function CourseLessonsPage() {
     }
   }
 
-  useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/login')
-    } else if (status === 'authenticated' && session?.user?.role !== 'ADMIN') {
-      router.push('/my-courses')
-    }
-  }, [status, session, router])
-
   const fetchCourse = useCallback(async () => {
     try {
-      const res = await fetch(`/api/admin/courses/${courseId}`)
-      if (res.ok) {
-        const data = await res.json()
-        setCourse(data)
-      }
+      const data = await apiFetch<any>(`/admin/courses/${courseId}`, {
+        auth: true,
+      })
+      setCourse(data)
     } catch (error) {
       console.error(error)
     }
-  }, [courseId, reset])
+  }, [courseId])
 
   const fetchLessons = useCallback(async () => {
     try {
-      const res = await fetch(`/api/admin/courses/${courseId}/lessons`)
-      if (res.ok) {
-        const data = await res.json()
-        setLessons(data)
-        reset({ order: data.length })
-      }
+      const data = await apiFetch<any[]>(
+        `/admin/courses/${courseId}/lessons`,
+        { auth: true },
+      )
+      setLessons(data)
+      reset({ order: data.length })
     } catch (error) {
       console.error(error)
     }
   }, [courseId, reset])
 
   useEffect(() => {
-    if (status === 'authenticated' && session?.user?.role === 'ADMIN' && courseId) {
-      fetchCourse()
-      fetchLessons()
+    if (!authLoading) {
+      if (!isAuthenticated || user?.role !== 'ADMIN') {
+        router.push('/my-courses')
+      } else if (courseId) {
+        fetchCourse()
+        fetchLessons()
+      }
     }
-  }, [status, session, courseId, fetchCourse, fetchLessons])
+  }, [authLoading, isAuthenticated, user, courseId, fetchCourse, fetchLessons, router])
 
   const onSubmit = async (data: LessonFormData) => {
     setSubmitting(true)
@@ -171,29 +185,20 @@ export default function CourseLessonsPage() {
 
     try {
       if (editingLesson) {
-        // Atualizar aula existente
-        const response = await fetch(`/api/admin/courses/${courseId}/lessons/${editingLesson}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data)
-        })
-
-        if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.error || 'Erro ao atualizar aula')
-        }
+        await apiFetch(
+          `/admin/courses/${courseId}/lessons/${editingLesson}`,
+          {
+            method: 'PUT',
+            auth: true,
+            body: JSON.stringify(data),
+          },
+        )
       } else {
-        // Criar nova aula
-        const response = await fetch(`/api/admin/courses/${courseId}/lessons`, {
+        await apiFetch(`/admin/courses/${courseId}/lessons`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data)
+          auth: true,
+          body: JSON.stringify(data),
         })
-
-        if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.error || 'Erro ao criar aula')
-        }
       }
 
       reset()
@@ -210,21 +215,20 @@ export default function CourseLessonsPage() {
 
   const handleEdit = async (lessonId: string) => {
     try {
-      const response = await fetch(`/api/admin/courses/${courseId}/lessons/${lessonId}`)
-      if (response.ok) {
-        const lesson = await response.json()
-        setValue('title', lesson.title)
-        setValue('description', lesson.description || '')
-        setValue('videoUrl', lesson.videoUrl)
-        setValue('bannerUrl', lesson.bannerUrl || '')
-        setValue('duration', lesson.duration || '')
-        setValue('order', lesson.order)
-        setEditingLesson(lessonId)
-        setBannerPreview(lesson.bannerUrl || null)
-        setShowForm(true)
-        // Scroll para o formulário
-        window.scrollTo({ top: 0, behavior: 'smooth' })
-      }
+      const lesson = await apiFetch<any>(
+        `/admin/courses/${courseId}/lessons/${lessonId}`,
+        { auth: true },
+      )
+      setValue('title', lesson.title)
+      setValue('description', lesson.description || '')
+      setValue('videoUrl', lesson.videoUrl)
+      setValue('bannerUrl', lesson.bannerUrl || '')
+      setValue('duration', lesson.duration || '')
+      setValue('order', lesson.order)
+      setEditingLesson(lessonId)
+      setBannerPreview(lesson.bannerUrl || null)
+      setShowForm(true)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (error) {
       console.error('Erro ao carregar aula:', error)
       setError('Erro ao carregar aula para edição')
@@ -237,15 +241,10 @@ export default function CourseLessonsPage() {
     }
 
     try {
-      const response = await fetch(`/api/admin/courses/${courseId}/lessons/${lessonId}`, {
-        method: 'DELETE'
+      await apiFetch(`/admin/courses/${courseId}/lessons/${lessonId}`, {
+        method: 'DELETE',
+        auth: true,
       })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Erro ao excluir aula')
-      }
-
       fetchLessons()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao excluir aula')
@@ -276,7 +275,7 @@ export default function CourseLessonsPage() {
             <Link href="/" className="flex items-center">
               <img
                 src="/logo B.png"
-                alt="Quero Cursos"
+                alt="Link de Cadastro"
                 className="h-20 md:h-24 w-auto object-contain"
               />
             </Link>
@@ -286,10 +285,10 @@ export default function CourseLessonsPage() {
               <Link href="/admin/events" className="text-gray-700 hover:text-[#FF6600]">Eventos</Link>
               <NotificationBell />
               <Link href="/profile" className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-[#FF6600] text-white font-bold flex items-center justify-center">
-                {session?.user?.name?.charAt(0).toUpperCase() || 'A'}
+                {user?.name?.charAt(0).toUpperCase() || 'A'}
               </Link>
               <button
-                onClick={() => signOut({ callbackUrl: '/' })}
+                onClick={() => signOut()}
                 className="bg-red-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-red-600 transition-colors text-sm md:text-base"
               >
                 Sair
@@ -319,24 +318,26 @@ export default function CourseLessonsPage() {
                 const bannerUrl = prompt('Digite a URL do banner do curso (ou deixe vazio para remover):')
                 if (bannerUrl !== null) {
                   try {
-                    const response = await fetch(`/api/admin/courses/${courseId}`, {
-                      method: 'PUT',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ bannerUrl: bannerUrl.trim() || null })
-                    })
-                    if (response.ok) {
-                      const updated = await response.json()
-                      setCourse(updated)
-                      alert('Banner do curso atualizado com sucesso!')
-                      // Recarregar a página para ver o banner atualizado
-                      window.location.reload()
-                    } else {
-                      const error = await response.json()
-                      alert(error.error || 'Erro ao atualizar banner')
-                    }
+                    const updated = await apiFetch<any>(
+                      `/admin/courses/${courseId}`,
+                      {
+                        method: 'PUT',
+                        auth: true,
+                        body: JSON.stringify({
+                          bannerUrl: bannerUrl.trim() || null,
+                        }),
+                      },
+                    )
+                    setCourse(updated)
+                    alert('Banner do curso atualizado com sucesso!')
+                    window.location.reload()
                   } catch (error) {
                     console.error('Erro ao atualizar banner:', error)
-                    alert('Erro ao atualizar banner')
+                    alert(
+                      error instanceof Error
+                        ? error.message
+                        : 'Erro ao atualizar banner',
+                    )
                   }
                 }
               }}

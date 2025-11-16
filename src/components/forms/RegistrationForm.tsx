@@ -1,10 +1,9 @@
-'use client'
 
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-
+import { apiFetch } from '@/lib/api'
 const registrationSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório'),
   cpf: z.string().min(11, 'CPF inválido').max(11, 'CPF inválido'),
@@ -46,17 +45,10 @@ export default function RegistrationForm({ eventId }: { eventId: string }) {
     setError(null)
 
     try {
-      const response = await fetch('/api/registrations', {
+      await apiFetch('/registrations', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...data, eventId })
+        body: JSON.stringify({ ...data, eventId }),
       })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Erro ao processar cadastro')
-      }
-
       setSuccess(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao processar cadastro')
@@ -178,12 +170,19 @@ export default function RegistrationForm({ eventId }: { eventId: string }) {
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-gray-700 mb-2 md:text-base">
           Selecione a opção que melhor descreve você *
         </label>
         <select
           {...register('participantType')}
-          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
+          className="w-full px-4 py-3 text-base border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900 md:py-2 md:text-sm appearance-none bg-white cursor-pointer min-h-[48px] touch-manipulation"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+            backgroundPosition: 'right 0.75rem center',
+            backgroundRepeat: 'no-repeat',
+            backgroundSize: '1.5em 1.5em',
+            paddingRight: '2.5rem'
+          }}
         >
           <option value="">Selecione...</option>
           <option value="PRODUTOR">Produtor</option>

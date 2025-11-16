@@ -1,4 +1,4 @@
-# Quero Cursos - Sistema de Cadastro e Plataforma de Cursos
+# Link de Cadastro - Sistema de Cadastro e Plataforma de Cursos
 
 Sistema completo de cadastro de eventos e plataforma de cursos com gamificação, comentários e notificações.
 
@@ -178,6 +178,42 @@ linkdecadastro-app/
 3. O sistema criará automaticamente um usuário se necessário
 4. Emails de confirmação serão enviados
 
+## ✅ Testes E2E
+
+Os testes de ponta a ponta utilizam [Playwright](https://playwright.dev/). Para executá-los:
+
+1. Crie um arquivo `.env.test` apontando para um banco dedicado de testes (MongoDB separado).
+2. Tenha certeza de que o banco pode ser resetado, pois o setup roda `npx prisma db push --force-reset`.
+
+### Rodando localmente
+
+Em um terminal, suba a aplicação (opcional, para acompanhar enquanto testa):
+
+```bash
+E2E_BASE_URL=http://localhost:3000 npm run dev
+```
+
+Em outro terminal, execute:
+
+```bash
+E2E_BASE_URL=http://localhost:3000 npm run test:e2e
+```
+
+O comando irá:
+- Resetar e popular o banco (`prisma db push --force-reset` + `npm run prisma:seed`);
+- Rodar os testes definidos na pasta `tests/e2e`.
+
+Para visualizar o navegador:
+
+```bash
+E2E_BASE_URL=http://localhost:3000 npm run test:e2e:headed
+```
+
+### Em CI
+
+Use o script `npm run start:e2e` para subir o Next em modo produção antes de executar `npm run test:e2e`.  
+Defina `E2E_BASE_URL` para o endereço usado nos testes (ex.: `http://127.0.0.1:3000`).
+
 ## 🔧 Tecnologias Utilizadas
 
 - **Next.js 14** - Framework React
@@ -211,7 +247,7 @@ O sistema suporta login pelo Google. Para configurar:
 
 2. **Configurar OAuth 2.0:**
    - Tipo de aplicativo: Aplicativo da Web
-   - Nome: Quero Cursos
+   - Nome: Link de Cadastro
    - URLs de redirecionamento autorizadas:
      - `http://localhost:3000/api/auth/callback/google` (desenvolvimento)
      - `https://seudominio.com/api/auth/callback/google` (produção)

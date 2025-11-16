@@ -1,13 +1,12 @@
-'use client'
 
 import { useState, useEffect } from 'react'
-import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import Link from 'next/link'
 import Image from 'next/image'
+import { apiFetch } from '@/lib/api'
 
 const profileSchema = z.object({
   fullName: z.string().min(3, 'Nome completo deve ter pelo menos 3 caracteres'),
@@ -18,7 +17,6 @@ const profileSchema = z.object({
 type ProfileFormData = z.infer<typeof profileSchema>
 
 export default function CompleteProfilePage() {
-  const { data: session, status, update } = useSession()
   const router = useRouter()
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -28,13 +26,16 @@ export default function CompleteProfilePage() {
   })
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
+    const token =
+      typeof window !== 'undefined'
+        ? localStorage.getItem('token')
+        : null
+
+    if (!token) {
       router.push('/login')
-    } else if (status === 'authenticated' && !session?.user?.needsProfileCompletion) {
-      // Se não precisa completar perfil, redirecionar
-      router.push(session.user.role === 'ADMIN' ? '/admin/dashboard' : '/my-courses')
+      return
     }
-  }, [status, session, router])
+  }, [router])
 
   const onSubmit = async (data: ProfileFormData) => {
     setSubmitting(true)
@@ -50,46 +51,25 @@ export default function CompleteProfilePage() {
       // Formatar telefone (remover caracteres não numéricos)
       const phone = data.phone.replace(/\D/g, '')
 
-      const response = await fetch('/api/user/complete-profile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fullName: data.fullName.trim(),
-          phone: phone,
-          cpf: cpf,
-        })
-      })
+      await apiFetch(
+        '/user/complete-profile',
+        {
+          method: 'POST',
+          auth: true,
+          body: JSON.stringify({
+            fullName: data.fullName.trim(),
+            phone: phone,
+            cpf: cpf,
+          }),
+        },
+      )
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Erro ao completar cadastro')
-      }
-
-      // Atualizar sessão
-      await update()
-      
-      // Aguardar um pouco para garantir que a sessão foi atualizada
-      setTimeout(() => {
-        const userRole = session?.user?.role || 'USER'
-        router.push(userRole === 'ADMIN' ? '/admin/dashboard' : '/my-courses')
-      }, 500)
+      router.push('/my-courses')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao completar cadastro')
     } finally {
       setSubmitting(false)
     }
-  }
-
-  if (status === 'loading') {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-xl">Carregando...</div>
-      </div>
-    )
-  }
-
-  if (status === 'unauthenticated') {
-    return null
   }
 
   return (
@@ -100,7 +80,7 @@ export default function CompleteProfilePage() {
           <Link href="/" className="flex items-center">
             <Image
               src="/logo B.png"
-              alt="Quero Cursos"
+              alt="Link de Cadastro"
               width={300}
               height={100}
               className="h-16 md:h-20 w-auto object-contain"
@@ -201,4 +181,3 @@ export default function CompleteProfilePage() {
     </div>
   )
 }
-

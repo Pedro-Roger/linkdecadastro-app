@@ -1,7 +1,5 @@
-'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -10,6 +8,8 @@ import Link from 'next/link'
 import Image from 'next/image'
 import NotificationBell from '@/components/notifications/NotificationBell'
 import Footer from '@/components/ui/Footer'
+import { apiFetch } from '@/lib/api'
+import { useAuth } from '@/lib/useAuth'
 
 const profileSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório'),
@@ -21,8 +21,11 @@ const profileSchema = z.object({
 type ProfileFormData = z.infer<typeof profileSchema>
 
 export default function ProfilePage() {
-  const { data: session, status } = useSession()
   const router = useRouter()
+  const { user: authUser, loading: authLoading, isAuthenticated, signOut } = useAuth({
+    requireAuth: true,
+    redirectTo: '/login',
+  })
   const [user, setUser] = useState<any>(null)
   const [stats, setStats] = useState<any>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -33,24 +36,21 @@ export default function ProfilePage() {
   })
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
+    if (!authLoading && !isAuthenticated) {
       router.push('/login')
     }
-  }, [status, router])
+  }, [authLoading, isAuthenticated, router])
 
   const fetchUser = useCallback(async () => {
     try {
-      const res = await fetch('/api/user/profile')
-      if (res.ok) {
-        const data = await res.json()
-        setUser(data)
-        reset({
-          name: data.name,
-          email: data.email,
-          bio: data.bio || '',
-          avatar: data.avatar || ''
-        })
-      }
+      const data = await apiFetch<any>('/user/profile', { auth: true })
+      setUser(data)
+      reset({
+        name: data.name,
+        email: data.email,
+        bio: data.bio || '',
+        avatar: data.avatar || ''
+      })
     } catch (error) {
       console.error(error)
     }
@@ -58,40 +58,33 @@ export default function ProfilePage() {
 
   const fetchStats = useCallback(async () => {
     try {
-      const res = await fetch('/api/user/stats')
-      if (res.ok) {
-        const data = await res.json()
-        setStats(data)
-      }
+      const data = await apiFetch<any>('/user/stats', { auth: true })
+      setStats(data)
     } catch (error) {
       console.error(error)
     }
   }, [])
 
   useEffect(() => {
-    if (status === 'authenticated') {
+    if (isAuthenticated) {
       fetchUser()
       fetchStats()
     }
-  }, [status, fetchUser, fetchStats])
+  }, [isAuthenticated, fetchUser, fetchStats])
 
   const onSubmit = async (data: ProfileFormData) => {
     setSubmitting(true)
     setSuccess(false)
 
     try {
-      const res = await fetch('/api/user/profile', {
+      const updated = await apiFetch<any>('/user/profile', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
+        auth: true,
+        body: JSON.stringify(data),
       })
-
-      if (res.ok) {
-        const updated = await res.json()
-        setUser(updated)
-        setSuccess(true)
-        setTimeout(() => setSuccess(false), 3000)
-      }
+      setUser(updated)
+      setSuccess(true)
+      setTimeout(() => setSuccess(false), 3000)
     } catch (error) {
       console.error('Erro ao atualizar perfil:', error)
     } finally {
@@ -99,7 +92,7 @@ export default function ProfilePage() {
     }
   }
 
-  if (status === 'loading' || !user) {
+  if (authLoading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-xl">Carregando...</div>
@@ -116,7 +109,7 @@ export default function ProfilePage() {
             <Link href="/" className="flex items-center">
               <Image
                 src="/logo B.png"
-                alt="Quero Cursos"
+                alt="Link de Cadastro"
                 width={300}
                 height={100}
                 className="h-20 md:h-24 w-auto object-contain"
@@ -131,7 +124,7 @@ export default function ProfilePage() {
                 {user.name.charAt(0).toUpperCase()}
               </Link>
               <button
-                onClick={() => signOut({ callbackUrl: '/' })}
+                onClick={() => signOut()}
                 className="bg-red-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-red-600 transition-colors text-sm md:text-base"
               >
                 Sair

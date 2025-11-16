@@ -1,10 +1,9 @@
-'use client'
 
 import { useState } from 'react'
-import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Footer from '@/components/ui/Footer'
+import { apiFetch } from '@/lib/api'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -19,36 +18,32 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      const result = await signIn('credentials', {
-        email,
-        password,
-        redirect: false
-      })
+      const result = await apiFetch<{ accessToken: string; user: any }>(
+        '/auth/login',
+        {
+          method: 'POST',
+          body: JSON.stringify({ email, password }),
+        },
+      )
 
-      if (result?.error) {
-        setError('Email ou senha inválidos')
-      } else {
-        router.push('/my-courses')
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('token', result.accessToken)
+        localStorage.setItem('user', JSON.stringify(result.user))
       }
-    } catch (err) {
-      setError('Erro ao fazer login')
+
+      router.push('/my-courses')
+    } catch (err: any) {
+      const errorMessage = err?.message || 'Erro ao fazer login. Verifique suas credenciais.';
+      setError(errorMessage);
+      console.error('Login error:', err);
     } finally {
       setLoading(false)
     }
   }
 
   const handleGoogleSignIn = async () => {
-    setError('')
-    setLoading(true)
-    try {
-      await signIn('google', {
-        callbackUrl: '/complete-profile',
-        redirect: true
-      })
-    } catch (err) {
-      setError('Erro ao fazer login com Google')
-      setLoading(false)
-    }
+    // TODO: implementar login com Google via backend Nest (OAuth)
+    setError('Login com Google ainda não está disponível nesta versão')
   }
 
   return (

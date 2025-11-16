@@ -1,46 +1,66 @@
-'use client'
 
 import { useEffect, useState } from 'react'
-import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import NotificationBell from '@/components/notifications/NotificationBell'
 import Footer from '@/components/ui/Footer'
+import { apiFetch } from '@/lib/api'
 
+interface User {
+  id: string
+  name: string
+  email: string
+}
 export default function MyCoursesPage() {
-  const { data: session, status } = useSession()
   const router = useRouter()
   const [courses, setCourses] = useState<any[]>([])
+  const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/login')
-    }
-  }, [status, router])
+    const storedUser =
+      typeof window !== 'undefined'
+        ? localStorage.getItem('user')
+        : null
 
-  useEffect(() => {
-    if (status === 'authenticated') {
-      fetchCourses()
+    const storedToken =
+      typeof window !== 'undefined'
+        ? localStorage.getItem('token')
+        : null
+
+    if (!storedUser || !storedToken) {
+      router.push('/login')
+      return
     }
-  }, [status])
+
+    setUser(JSON.parse(storedUser))
+    fetchCourses()
+  }, [])
 
   async function fetchCourses() {
     try {
-      const res = await fetch('/api/courses/my-courses')
-      if (res.ok) {
-        const data = await res.json()
-        setCourses(data)
-      }
+      const data = await apiFetch<any[]>('/courses/my-courses', {
+        auth: true,
+      })
+      setCourses(data)
     } catch (error) {
       console.error(error)
+      router.push('/login')
     } finally {
       setLoading(false)
     }
   }
 
-  if (status === 'loading' || loading) {
+  function handleSignOut() {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('token')
+      localStorage.removeItem('user')
+    }
+    router.push('/')
+  }
+
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-xl">Carregando...</div>
@@ -57,7 +77,7 @@ export default function MyCoursesPage() {
             <Link href="/" className="flex items-center">
               <Image
                 src="/logo B.png"
-                alt="Quero Cursos"
+                alt="Link de Cadastro"
                 width={300}
                 height={100}
                 className="h-20 md:h-24 w-auto object-contain"
@@ -69,10 +89,10 @@ export default function MyCoursesPage() {
               <Link href="/my-courses" className="text-[#FF6600] font-semibold">Meus Cursos</Link>
               <NotificationBell />
               <Link href="/profile" className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-[#FF6600] text-white font-bold flex items-center justify-center">
-                {session?.user?.name?.charAt(0).toUpperCase() || 'A'}
+                {user?.name?.charAt(0).toUpperCase() || 'A'}
               </Link>
               <button
-                onClick={() => signOut({ callbackUrl: '/' })}
+                onClick={handleSignOut}
                 className="bg-red-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-red-600 transition-colors text-sm md:text-base"
               >
                 Sair

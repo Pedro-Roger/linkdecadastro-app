@@ -1,39 +1,40 @@
-'use client'
-
-import { useState } from 'react'
-import { useSession, signOut } from 'next-auth/react'
-import Link from 'next/link'
-import Image from 'next/image'
-import { usePathname } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { Link, useLocation } from 'react-router-dom'
 import NotificationBell from '@/components/notifications/NotificationBell'
+import { useAuth } from '@/lib/useAuth'
 
 export default function MobileNavbar() {
-  const { data: session } = useSession()
-  const pathname = usePathname()
+  const { user, isAuthenticated, signOut } = useAuth()
+  const location = useLocation()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
 
-  const isActive = (path: string) => pathname === path
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setIsMenuOpen(false)
+      setIsUserMenuOpen(false)
+    }
+  }, [isAuthenticated])
+
+  const isActive = (path: string) => location.pathname === path
 
   return (
     <>
-      {/* Navbar Superior (Desktop) */}
+      
       <nav className="hidden md:block bg-white shadow-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-2">
           <div className="flex items-center justify-between">
-            <Link href="/" className="flex items-center">
-              <Image
+            <Link to="/" className="flex items-center">
+              <img
                 src="/logo B.png"
-                alt="Quero Cursos"
-                width={300}
-                height={100}
+                alt="Link de Cadastro"
                 className="h-20 md:h-24 w-auto object-contain"
-                priority
               />
             </Link>
             <div className="flex items-center gap-4">
               <Link
-                href="/courses"
+                to="/courses"
                 className={`font-medium transition-colors ${
                   isActive('/courses')
                     ? 'text-[#FF6600]'
@@ -42,20 +43,20 @@ export default function MobileNavbar() {
               >
                 Cursos
               </Link>
-              {session ? (
+              {isAuthenticated && user ? (
                 <>
                   <Link
-                    href={session.user.role === 'ADMIN' ? '/admin/dashboard' : '/my-courses'}
+                    to={user.role === 'ADMIN' ? '/admin/dashboard' : '/my-courses'}
                     className={`font-medium transition-colors ${
                       isActive('/my-courses') || isActive('/admin/dashboard')
                         ? 'text-[#FF6600]'
                         : 'text-[#003366] hover:text-[#FF6600]'
                     }`}
                   >
-                    {session.user.role === 'ADMIN' ? 'Dashboard' : 'Meus Cursos'}
+                    {user.role === 'ADMIN' ? 'Dashboard' : 'Meus Cursos'}
                   </Link>
                   <NotificationBell />
-                  {/* Menu Dropdown do Usuário */}
+                  
                   <div className="relative">
                     <button
                       onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
@@ -65,10 +66,10 @@ export default function MobileNavbar() {
                           : 'bg-gray-200 text-gray-700 hover:bg-[#FF6600] hover:text-white'
                       }`}
                     >
-                      {session.user?.name?.charAt(0).toUpperCase() || 'A'}
+                      {user.name?.charAt(0).toUpperCase() || 'A'}
                     </button>
 
-                    {/* Dropdown Menu */}
+                    
                     {isUserMenuOpen && (
                       <>
                         <div
@@ -78,11 +79,11 @@ export default function MobileNavbar() {
                         <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg z-50 border border-gray-200">
                           <div className="py-2">
                             <div className="px-4 py-3 border-b border-gray-200">
-                              <p className="text-sm font-semibold text-gray-900">{session.user?.name}</p>
-                              <p className="text-xs text-gray-500 truncate">{session.user?.email}</p>
+                              <p className="text-sm font-semibold text-gray-900">{user.name}</p>
+                              <p className="text-xs text-gray-500 truncate">{user.email}</p>
                             </div>
                             <Link
-                              href="/profile"
+                              to="/profile"
                               onClick={() => setIsUserMenuOpen(false)}
                               className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
                             >
@@ -93,24 +94,11 @@ export default function MobileNavbar() {
                                 Meu Perfil
                               </div>
                             </Link>
-                            <Link
-                              href="/settings"
-                              onClick={() => setIsUserMenuOpen(false)}
-                              className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-                            >
-                              <div className="flex items-center gap-2">
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                </svg>
-                                Configurações
-                              </div>
-                            </Link>
                             <div className="border-t border-gray-200 mt-2 pt-2">
                               <button
                                 onClick={() => {
                                   setIsUserMenuOpen(false)
-                                  signOut({ callbackUrl: '/' })
+                                  signOut()
                                 }}
                                 className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
                               >
@@ -131,13 +119,13 @@ export default function MobileNavbar() {
               ) : (
                 <>
                   <Link
-                    href="/login"
+                    to="/login"
                     className="text-[#003366] hover:text-[#FF6600] font-medium transition-colors"
                   >
                     Entrar
                   </Link>
                   <Link
-                    href="/register"
+                    to="/register"
                     className="bg-[#FF6600] text-white px-4 py-2 rounded-md font-semibold hover:bg-[#e55a00] transition-colors"
                   >
                     Cadastrar
@@ -149,18 +137,15 @@ export default function MobileNavbar() {
         </div>
       </nav>
 
-      {/* Navbar Superior Mobile (com menu hambúrguer) */}
+      
       <nav className="md:hidden bg-white shadow-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
-            <Link href="/" className="flex items-center" onClick={() => setIsMenuOpen(false)}>
-              <Image
+            <Link to="/" className="flex items-center" onClick={() => setIsMenuOpen(false)}>
+              <img
                 src="/logo B.png"
-                alt="Quero Cursos"
-                width={200}
-                height={80}
+                alt="Link de Cadastro"
                 className="h-16 w-auto object-contain"
-                priority
               />
             </Link>
             <button
@@ -193,7 +178,7 @@ export default function MobileNavbar() {
             </button>
           </div>
 
-          {/* Menu Dropdown Mobile */}
+          
           {isMenuOpen && (
             <>
               <div
@@ -203,7 +188,7 @@ export default function MobileNavbar() {
               <div className="absolute top-full left-0 right-0 bg-white border-t shadow-lg z-50 max-h-[calc(100vh-80px)] overflow-y-auto">
                 <div className="container mx-auto px-4 py-4 space-y-3">
                 <Link
-                  href="/courses"
+                  to="/courses"
                   onClick={() => setIsMenuOpen(false)}
                   className={`block py-3 px-4 rounded-lg font-medium transition-colors ${
                     isActive('/courses')
@@ -213,10 +198,10 @@ export default function MobileNavbar() {
                 >
                   📚 Cursos
                 </Link>
-                {session ? (
+                {isAuthenticated && user ? (
                   <>
                     <Link
-                      href={session.user.role === 'ADMIN' ? '/admin/dashboard' : '/my-courses'}
+                      to={user.role === 'ADMIN' ? '/admin/dashboard' : '/my-courses'}
                       onClick={() => setIsMenuOpen(false)}
                       className={`block py-3 px-4 rounded-lg font-medium transition-colors ${
                         isActive('/my-courses') || isActive('/admin/dashboard')
@@ -224,10 +209,10 @@ export default function MobileNavbar() {
                           : 'text-gray-700 hover:bg-gray-100'
                       }`}
                     >
-                      {session.user.role === 'ADMIN' ? '⚙️ Dashboard' : '📖 Meus Cursos'}
+                      {user.role === 'ADMIN' ? '⚙️ Dashboard' : '📖 Meus Cursos'}
                     </Link>
                     <Link
-                      href="/profile"
+                      to="/profile"
                       onClick={() => setIsMenuOpen(false)}
                       className={`block py-3 px-4 rounded-lg font-medium transition-colors ${
                         isActive('/profile')
@@ -241,7 +226,7 @@ export default function MobileNavbar() {
                       <button
                         onClick={() => {
                           setIsMenuOpen(false)
-                          signOut({ callbackUrl: '/' })
+                          signOut()
                         }}
                         className="w-full text-left py-3 px-4 rounded-lg font-medium text-red-600 hover:bg-red-50 transition-colors"
                       >
@@ -252,14 +237,14 @@ export default function MobileNavbar() {
                 ) : (
                   <>
                     <Link
-                      href="/login"
+                      to="/login"
                       onClick={() => setIsMenuOpen(false)}
                       className="block py-3 px-4 rounded-lg font-medium text-gray-700 hover:bg-gray-100 transition-colors"
                     >
                       🔐 Entrar
                     </Link>
                     <Link
-                      href="/register"
+                      to="/register"
                       onClick={() => setIsMenuOpen(false)}
                       className="block py-3 px-4 rounded-lg font-medium bg-[#FF6600] text-white text-center hover:bg-[#e55a00] transition-colors"
                     >
@@ -274,12 +259,12 @@ export default function MobileNavbar() {
         </div>
       </nav>
 
-      {/* Navbar Inferior Mobile (Bottom Navigation) */}
-      {session && (
+      
+      {isAuthenticated && user && (
         <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-50" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
           <div className="flex items-center justify-around px-2 py-2">
             <Link
-              href="/"
+              to="/"
               className={`flex flex-col items-center justify-center px-4 py-2 rounded-lg transition-colors ${
                 isActive('/')
                   ? 'text-[#FF6600]'
@@ -293,7 +278,7 @@ export default function MobileNavbar() {
             </Link>
 
             <Link
-              href="/courses"
+              to="/courses"
               className={`flex flex-col items-center justify-center px-4 py-2 rounded-lg transition-colors ${
                 isActive('/courses')
                   ? 'text-[#FF6600]'
@@ -306,9 +291,9 @@ export default function MobileNavbar() {
               <span className="text-xs font-medium">Cursos</span>
             </Link>
 
-            {session.user.role === 'ADMIN' ? (
+            {user.role === 'ADMIN' ? (
               <Link
-                href="/admin/dashboard"
+                to="/admin/dashboard"
                 className={`flex flex-col items-center justify-center px-4 py-2 rounded-lg transition-colors ${
                   isActive('/admin/dashboard') || isActive('/admin/courses')
                     ? 'text-[#FF6600]'
@@ -322,7 +307,7 @@ export default function MobileNavbar() {
               </Link>
             ) : (
               <Link
-                href="/my-courses"
+                to="/my-courses"
                 className={`flex flex-col items-center justify-center px-4 py-2 rounded-lg transition-colors ${
                   isActive('/my-courses')
                     ? 'text-[#FF6600]'
@@ -344,7 +329,7 @@ export default function MobileNavbar() {
             </div>
 
             <Link
-              href="/profile"
+              to="/profile"
               className={`flex flex-col items-center justify-center px-4 py-2 rounded-lg transition-colors ${
                 isActive('/profile')
                   ? 'text-[#FF6600]'
@@ -358,7 +343,7 @@ export default function MobileNavbar() {
                     : 'bg-gray-200 text-gray-700'
                 }`}
               >
-                {session.user?.name?.charAt(0).toUpperCase() || 'A'}
+                {user.name?.charAt(0).toUpperCase() || 'A'}
               </div>
               <span className="text-xs font-medium">Perfil</span>
             </Link>
@@ -366,9 +351,8 @@ export default function MobileNavbar() {
         </nav>
       )}
 
-      {/* Espaçamento para navbar inferior no mobile */}
-      {session && <div className="md:hidden h-20" />}
+      
+      {isAuthenticated && user && <div className="md:hidden h-20" />}
     </>
   )
 }
-

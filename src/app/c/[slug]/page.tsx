@@ -1,8 +1,6 @@
-'use client'
 
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { useSession } from 'next-auth/react'
 import ReactPlayer from 'react-player/youtube'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -10,11 +8,13 @@ import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import NotificationBell from '@/components/notifications/NotificationBell'
 import Footer from '@/components/ui/Footer'
+import { apiFetch } from '@/lib/api'
+import { useAuth } from '@/lib/useAuth'
 
 export default function CourseBySlugPage() {
   const params = useParams()
-  const { data: session, status } = useSession()
   const router = useRouter()
+  const { user, isAuthenticated } = useAuth()
   const slug = params.slug as string
   
   const [course, setCourse] = useState<any>(null)
@@ -26,35 +26,17 @@ export default function CourseBySlugPage() {
   const [loading, setLoading] = useState(true)
   const [enrolled, setEnrolled] = useState(false)
 
-  useEffect(() => {
-    if (slug) {
-      fetchCourse()
-    }
-  }, [slug])
-
-  useEffect(() => {
-    if (course && status === 'authenticated') {
-      checkEnrollment()
-      if (selectedLesson) {
-        fetchComments()
-        fetchProgress()
-      }
-    }
-  }, [course, selectedLesson, status])
-
   const fetchCourse = useCallback(async () => {
     try {
-      const res = await fetch(`/api/courses/slug/${slug}`)
-      if (res.ok) {
-        const data = await res.json()
-        // Debug: verificar se bannerUrl está presente
-        console.log('Curso recebido (slug):', { id: data.id, title: data.title, bannerUrl: data.bannerUrl })
-        setCourse(data)
-        if (data.lessons && data.lessons.length > 0) {
-          setSelectedLesson(data.lessons[0])
-        }
-      } else {
-        router.push('/')
+      const data = await apiFetch<any>(`/courses/slug/${slug}`)
+      console.log('Curso recebido (slug):', {
+        id: data.id,
+        title: data.title,
+        bannerUrl: data.bannerUrl,
+      })
+      setCourse(data)
+      if (data.lessons && data.lessons.length > 0) {
+        setSelectedLesson(data.lessons[0])
       }
     } catch (error) {
       console.error(error)
@@ -65,46 +47,45 @@ export default function CourseBySlugPage() {
   }, [slug, router])
 
   const checkEnrollment = useCallback(async () => {
-    if (!session || !course) return
+    if (!isAuthenticated || !course) return
     
     try {
-      const res = await fetch(`/api/courses/${course.id}/enrollments/check`)
-      if (res.ok) {
-        const data = await res.json()
-        setEnrolled(data.enrolled || false)
-      }
+      const data = await apiFetch<any>(
+        `/courses/${course.id}/enrollments/check`,
+        { auth: true },
+      )
+      setEnrolled(!!data.enrolled)
     } catch (error) {
       console.error(error)
     }
-  }, [session, course])
+  }, [isAuthenticated, course])
 
   const fetchComments = useCallback(async () => {
     if (!selectedLesson) return
     
     try {
-      const res = await fetch(`/api/lessons/${selectedLesson.id}/comments`)
-      if (res.ok) {
-        const data = await res.json()
-        setComments(data)
-      }
+      const data = await apiFetch<any[]>(
+        `/lessons/${selectedLesson.id}/comments`,
+      )
+      setComments(data)
     } catch (error) {
       console.error(error)
     }
   }, [selectedLesson])
 
   const fetchProgress = useCallback(async () => {
-    if (!selectedLesson || !session) return
+    if (!selectedLesson || !isAuthenticated) return
     
     try {
-      const res = await fetch(`/api/lessons/${selectedLesson.id}/progress`)
-      if (res.ok) {
-        const data = await res.json()
-        setProgress(data)
-      }
+      const data = await apiFetch<any>(
+        `/lessons/${selectedLesson.id}/progress`,
+        { auth: true },
+      )
+      setProgress(data)
     } catch (error) {
       console.error(error)
     }
-  }, [selectedLesson, session])
+  }, [selectedLesson, isAuthenticated])
 
   useEffect(() => {
     if (slug) {
@@ -113,33 +94,29 @@ export default function CourseBySlugPage() {
   }, [slug, fetchCourse])
 
   useEffect(() => {
-    if (course && status === 'authenticated') {
+    if (course && isAuthenticated) {
       checkEnrollment()
       if (selectedLesson) {
         fetchComments()
         fetchProgress()
       }
     }
-  }, [course, selectedLesson, status, checkEnrollment, fetchComments, fetchProgress])
+  }, [course, selectedLesson, isAuthenticated, checkEnrollment, fetchComments, fetchProgress])
 
   const handleEnroll = async () => {
-    if (!session) {
+    if (!isAuthenticated) {
       router.push('/login')
       return
     }
 
     try {
-      const res = await fetch(`/api/courses/${course.id}/enroll`, {
-        method: 'POST'
+      await apiFetch(`/courses/${course.id}/enroll`, {
+        method: 'POST',
+        auth: true,
+        body: JSON.stringify({}), // payload opcional
       })
-
-      if (res.ok) {
-        setEnrolled(true)
-        router.push(`/course/${course.id}`)
-      } else {
-        const errorData = await res.json()
-        alert(errorData.error || 'Erro ao inscrever no curso')
-      }
+      setEnrolled(true)
+      router.push(`/course/${course.id}`)
     } catch (error) {
       console.error('Erro ao inscrever:', error)
       alert('Erro ao inscrever no curso')
@@ -147,16 +124,16 @@ export default function CourseBySlugPage() {
   }
 
   const handleVideoProgress = async (progress: any) => {
-    if (!selectedLesson || !session || !progress.playedSeconds) return
+    if (!selectedLesson || !isAuthenticated || !progress.playedSeconds) return
 
     try {
-      await fetch(`/api/lessons/${selectedLesson.id}/progress`, {
+      await apiFetch(`/lessons/${selectedLesson.id}/progress`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        auth: true,
         body: JSON.stringify({
           watchedTime: Math.floor(progress.playedSeconds),
-          completed: progress.played >= 0.9
-        })
+          completed: progress.played >= 0.9,
+        }),
       })
     } catch (error) {
       console.error('Erro ao salvar progresso:', error)
@@ -165,20 +142,17 @@ export default function CourseBySlugPage() {
 
   const handleSubmitComment = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!selectedLesson || !session || !newComment.trim()) return
+    if (!selectedLesson || !isAuthenticated || !newComment.trim()) return
 
     setSubmittingComment(true)
     try {
-      const res = await fetch(`/api/lessons/${selectedLesson.id}/comments`, {
+      await apiFetch(`/lessons/${selectedLesson.id}/comments`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: newComment })
+        auth: true,
+        body: JSON.stringify({ content: newComment }),
       })
-
-      if (res.ok) {
-        setNewComment('')
-        fetchComments()
-      }
+      setNewComment('')
+      fetchComments()
     } catch (error) {
       console.error('Erro ao comentar:', error)
     } finally {
@@ -211,7 +185,7 @@ export default function CourseBySlugPage() {
             <Link href="/" className="flex items-center">
               <Image
                 src="/logo B.png"
-                alt="Quero Cursos"
+                alt="Link de Cadastro"
                 width={300}
                 height={100}
                 className="h-20 md:h-24 w-auto object-contain"
@@ -219,13 +193,13 @@ export default function CourseBySlugPage() {
               />
             </Link>
             <nav className="flex items-center space-x-4 md:space-x-6 text-sm md:text-base">
-              {session ? (
+              {isAuthenticated ? (
                 <>
                   <Link href="/courses" className="text-gray-700 hover:text-[#FF6600]">Cursos</Link>
                   <Link href="/my-courses" className="text-gray-700 hover:text-[#FF6600]">Meus Cursos</Link>
                   <NotificationBell />
                   <Link href="/profile" className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-[#FF6600] text-white font-bold flex items-center justify-center">
-                    {session.user?.name?.charAt(0).toUpperCase() || 'A'}
+                    {user?.name?.charAt(0).toUpperCase() || 'A'}
                   </Link>
                 </>
               ) : (
@@ -256,7 +230,7 @@ export default function CourseBySlugPage() {
 
       <div className="container mx-auto px-4 py-8">
 
-        {!enrolled && session ? (
+        {!enrolled && isAuthenticated ? (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
             <p className="text-blue-800 mb-4">Você precisa se inscrever neste curso para assistir às aulas.</p>
             <button
@@ -266,7 +240,7 @@ export default function CourseBySlugPage() {
               Inscrever-se no Curso
             </button>
           </div>
-        ) : !session ? (
+        ) : !isAuthenticated ? (
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-6">
             <p className="text-yellow-800 mb-4">Faça login para assistir às aulas deste curso.</p>
             <Link
