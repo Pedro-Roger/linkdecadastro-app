@@ -7,7 +7,7 @@ import { z } from 'zod'
 import Link from 'next/link'
 import NotificationBell from '@/components/notifications/NotificationBell'
 import Footer from '@/components/ui/Footer'
-import { apiFetch } from '@/lib/api'
+import { apiFetch, getApiUrl } from '@/lib/api'
 import { useAuth } from '@/lib/useAuth'
 
 const lessonSchema = z.object({
@@ -112,7 +112,7 @@ export default function CourseLessonsPage() {
           : null
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333'}/admin/upload`,
+        `${getApiUrl()}/admin/upload`,
         {
           method: 'POST',
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,

@@ -6,7 +6,7 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import MobileNavbar from '@/components/ui/MobileNavbar'
 import Footer from '@/components/ui/Footer'
-import { apiFetch } from '@/lib/api'
+import { apiFetch, getApiUrl } from '@/lib/api'
 import { useAuth } from '@/lib/useAuth'
 
 export default function AdminCoursesPage() {
@@ -61,7 +61,7 @@ export default function AdminCoursesPage() {
 
   const handleExport = async (courseId: string, courseTitle: string) => {
     try {
-      const url = `${process.env.NEXT_PUBLIC_API_URL}/admin/courses/${courseId}/export`
+      const url = `${getApiUrl()}/admin/courses/${courseId}/export`
       const response = await fetch(url, {
         headers: {
           ...(typeof window !== 'undefined' && localStorage.getItem('token')

@@ -1,5 +1,20 @@
 // Vite usa import.meta.env para variáveis de ambiente
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3333';
+// Também verifica window.APP_CONFIG para configuração dinâmica no servidor
+export const getApiUrl = (): string => {
+  // Prioridade 1: Configuração dinâmica do servidor (pode ser editada no cPanel)
+  if (typeof window !== 'undefined' && window.APP_CONFIG?.API_URL) {
+    return window.APP_CONFIG.API_URL;
+  }
+  // Prioridade 2: Variável de ambiente do build
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  // Fallback: URL de produção (para Hostgator sem variáveis de ambiente)
+  // Em desenvolvimento local, use VITE_API_URL=http://localhost:3333 no .env
+  return 'https://backend-linkdecadastro.onrender.com';
+};
+
+const API_URL = getApiUrl();
 
 interface ApiOptions extends RequestInit {
   auth?: boolean;
@@ -29,6 +44,8 @@ export async function apiFetch<T = any>(
   const res = await fetch(url, {
     ...options,
     headers: finalHeaders,
+    mode: 'cors', // Garante que usa CORS
+    // credentials: 'include' só se o backend permitir explicitamente
   });
 
   if (!res.ok) {

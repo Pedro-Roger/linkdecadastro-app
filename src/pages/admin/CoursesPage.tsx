@@ -4,7 +4,7 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import MobileNavbar from '@/components/ui/MobileNavbar'
 import Footer from '@/components/ui/Footer'
-import { apiFetch } from '@/lib/api'
+import { apiFetch, getApiUrl } from '@/lib/api'
 import { useAuth } from '@/lib/useAuth'
 
 export default function AdminCoursesPage() {
@@ -57,7 +57,7 @@ export default function AdminCoursesPage() {
 
   const handleExport = async (courseId: string, courseTitle: string) => {
     try {
-      const url = `${process.env.NEXT_PUBLIC_API_URL}/admin/courses/${courseId}/export`
+      const url = `${getApiUrl()}/admin/courses/${courseId}/export`
       const response = await fetch(url, {
         headers: {
           ...(typeof window !== 'undefined' && localStorage.getItem('token')
@@ -340,7 +340,7 @@ export default function AdminCoursesPage() {
             <p className="text-gray-600">Gerenciamento e moderação de cursos</p>
           </div>
           <Link
-            href="/admin/courses/new"
+            to="/admin/courses/new"
             className="bg-[#FF6600] text-white px-6 py-3 rounded-md font-semibold hover:bg-[#e55a00] transition-colors"
           >
             + Novo Curso
@@ -352,7 +352,7 @@ export default function AdminCoursesPage() {
             <p className="text-gray-500 text-lg mb-4">Nenhum curso encontrado.</p>
             <p className="text-gray-400 text-sm mb-4">Tente ajustar os filtros ou a busca.</p>
             <Link
-              href="/admin/courses/new"
+              to="/admin/courses/new"
               className="inline-block bg-[#FF6600] text-white px-6 py-3 rounded-md font-semibold hover:bg-[#e55a00] transition-colors"
             >
               Criar Primeiro Curso
@@ -399,14 +399,14 @@ export default function AdminCoursesPage() {
                   </div>
                   <div className="space-y-2">
                     <Link
-                      href={`/admin/courses/${course.id}/lessons`}
+                      to={`/admin/courses/${course.id}/lessons`}
                       className="block w-full bg-[#FF6600] text-white py-2 px-4 rounded-md font-semibold hover:bg-[#e55a00] transition-colors text-center text-sm"
                     >
                       Gerenciar Aulas
                     </Link>
                     <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
                       <Link
-                        href={`/admin/courses/${course.id}/enrollments`}
+                        to={`/admin/courses/${course.id}/enrollments`}
                         className="bg-blue-600 text-white py-2 px-3 rounded-md font-semibold hover:bg-blue-700 transition-colors text-center text-xs"
                       >
                         Inscritos ({course._count?.enrollments || 0})

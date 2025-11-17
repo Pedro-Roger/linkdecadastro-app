@@ -7,7 +7,7 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import NotificationBell from '@/components/notifications/NotificationBell'
 import Footer from '@/components/ui/Footer'
-import { apiFetch } from '@/lib/api'
+import { apiFetch, getApiUrl } from '@/lib/api'
 import { useAuth } from '@/lib/useAuth'
 
 interface Enrollment {
@@ -67,7 +67,7 @@ export default function CourseEnrollmentsPage() {
 
   const handleExport = async () => {
     try {
-      const url = `${process.env.NEXT_PUBLIC_API_URL}/admin/courses/${courseId}/export`
+      const url = `${getApiUrl()}/admin/courses/${courseId}/export`
       const token =
         typeof window !== 'undefined'
           ? localStorage.getItem('token')

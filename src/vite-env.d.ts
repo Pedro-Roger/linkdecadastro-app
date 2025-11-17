@@ -9,3 +9,10 @@ interface ImportMeta {
   readonly env: ImportMetaEnv
 }
 
+// Configuração dinâmica do servidor (pode ser editada no cPanel)
+interface Window {
+  APP_CONFIG?: {
+    API_URL: string
+  }
+}
+

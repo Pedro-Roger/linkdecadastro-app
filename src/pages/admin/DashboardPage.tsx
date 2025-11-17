@@ -284,7 +284,7 @@ export default function AdminDashboardPage() {
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           <Link
-            href="/admin/courses/new"
+            to="/admin/courses/new"
             className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow border-l-4 border-[#FF6600]"
           >
             <div className="flex items-center gap-3 mb-2">
@@ -297,7 +297,7 @@ export default function AdminDashboardPage() {
           </Link>
 
           <Link
-            href="/admin/courses"
+            to="/admin/courses"
             className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow border-l-4 border-blue-500"
           >
             <div className="flex items-center gap-3 mb-2">
@@ -310,7 +310,7 @@ export default function AdminDashboardPage() {
           </Link>
 
           <Link
-            href="/admin/events"
+            to="/admin/events"
             className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow border-l-4 border-green-500"
           >
             <div className="flex items-center gap-3 mb-2">
@@ -328,7 +328,7 @@ export default function AdminDashboardPage() {
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold text-[#003366]">Cursos Disponíveis</h2>
             <Link
-              href="/admin/courses"
+              to="/admin/courses"
               className="text-sm text-[#FF6600] hover:underline font-medium"
             >
               Ver todos →
@@ -372,7 +372,7 @@ export default function AdminDashboardPage() {
                     </div>
                     <div className="flex items-center gap-2 ml-4">
                       <Link
-                        href={`/admin/courses/${course.id}/lessons`}
+                        to={`/admin/courses/${course.id}/lessons`}
                         className="px-3 py-1 bg-[#FF6600] text-white text-sm rounded-md hover:bg-[#e55a00] transition-colors"
                       >
                         Gerenciar
@@ -390,7 +390,7 @@ export default function AdminDashboardPage() {
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold text-[#003366]">Inscrições Recentes</h2>
             <Link
-              href="/admin/courses"
+              to="/admin/courses"
               className="text-sm text-[#FF6600] hover:underline font-medium"
             >
               Ver todas →

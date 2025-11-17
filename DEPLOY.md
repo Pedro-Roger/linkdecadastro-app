@@ -48,15 +48,40 @@ Os arquivos serão gerados na pasta `dist/`.
 
    Isso é necessário para que o React Router funcione corretamente com rotas dinâmicas.
 
-## ⚙️ Variáveis de Ambiente
+## ⚙️ Configuração da URL da API
 
-Certifique-se de configurar a variável `NEXT_PUBLIC_API_URL` apontando para o backend Nest:
+### Opção 1: Configuração Dinâmica no Servidor (Recomendado)
 
-1. **Durante o build**, a variável `VITE_API_URL` (ou `NEXT_PUBLIC_API_URL`) será incorporada no bundle
-2. Ou configure via arquivo `.env.production`:
+Após fazer o upload dos arquivos para a Hostgator, você pode editar a URL da API diretamente no servidor:
+
+1. **Acesse o cPanel da Hostgator**
+2. **Abra o Gerenciador de Arquivos** (File Manager)
+3. **Navegue até `public_html`** (ou o diretório do seu domínio)
+4. **Abra o arquivo `config.js`** na raiz do `public_html`
+5. **Edite a URL da API**:
+   ```javascript
+   window.APP_CONFIG = {
+     API_URL: 'https://backend-linkdecadastro.onrender.com'
+   };
    ```
-   VITE_API_URL=https://seu-backend.com
-   ```
+6. **Salve o arquivo**
+
+✅ **Vantagem:** Você pode alterar a URL da API sem precisar fazer um novo build!
+
+### Opção 2: Configuração no Build
+
+Se preferir configurar durante o build, crie um arquivo `.env.production` na raiz do projeto:
+
+```
+VITE_API_URL=https://backend-linkdecadastro.onrender.com
+```
+
+Depois execute:
+```bash
+npm run build
+```
+
+⚠️ **Nota:** Com esta opção, você precisará fazer um novo build sempre que quiser alterar a URL da API.
 
 ## 📁 Estrutura Final
 

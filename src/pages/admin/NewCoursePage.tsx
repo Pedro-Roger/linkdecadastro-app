@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { Link, useNavigate } from 'react-router-dom'
 import NotificationBell from '@/components/notifications/NotificationBell'
 import Footer from '@/components/ui/Footer'
-import { apiFetch } from '@/lib/api'
+import { apiFetch, getApiUrl } from '@/lib/api'
 import { useAuth } from '@/lib/useAuth'
 
 const courseSchema = z.object({
@@ -230,7 +230,7 @@ export default function NewCoursePage() {
       const formData = new FormData()
       formData.append('file', file)
 
-      const uploadUrl = `${process.env.NEXT_PUBLIC_API_URL}/admin/upload`
+      const uploadUrl = `${getApiUrl()}/admin/upload`
       const token =
         typeof window !== 'undefined'
           ? localStorage.getItem('token')
@@ -392,7 +392,7 @@ export default function NewCoursePage() {
       <div className="container mx-auto px-4 py-8 pb-24 md:pb-8">
         <div className="max-w-3xl mx-auto">
           <Link
-            href="/admin/courses"
+            to="/admin/courses"
             className="text-[#FF6600] hover:underline mb-4 inline-block"
           >
             ← Voltar para Cursos

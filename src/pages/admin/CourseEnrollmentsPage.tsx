@@ -4,7 +4,7 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import NotificationBell from '@/components/notifications/NotificationBell'
 import Footer from '@/components/ui/Footer'
-import { apiFetch } from '@/lib/api'
+import { apiFetch, getApiUrl } from '@/lib/api'
 import { useAuth } from '@/lib/useAuth'
 
 interface Enrollment {
@@ -34,6 +34,34 @@ export default function CourseEnrollmentsPage() {
   const [enrollments, setEnrollments] = useState<Enrollment[]>([])
   const [course, setCourse] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [exportModalOpen, setExportModalOpen] = useState(false)
+  const [exportFormat, setExportFormat] = useState<'xlsx' | 'csv' | 'pdf'>('xlsx')
+  const [selectedFields, setSelectedFields] = useState<string[]>([
+    'number',
+    'name',
+    'email',
+    'status',
+    'progress',
+    'createdAt',
+  ])
+  const [exporting, setExporting] = useState(false)
+
+  const availableFields = [
+    { key: 'number', label: 'Nº' },
+    { key: 'name', label: 'Nome' },
+    { key: 'email', label: 'Email' },
+    { key: 'whatsapp', label: 'WhatsApp' },
+    { key: 'status', label: 'Status' },
+    { key: 'progress', label: 'Progresso (%)' },
+    { key: 'participantType', label: 'Tipo de Participante' },
+    { key: 'cpf', label: 'CPF' },
+    { key: 'state', label: 'Estado' },
+    { key: 'city', label: 'Cidade' },
+    { key: 'createdAt', label: 'Data de Inscrição' },
+    { key: 'completedAt', label: 'Data de Conclusão' },
+    { key: 'waitlistPosition', label: 'Posição na Lista de Espera' },
+    { key: 'eligibilityReason', label: 'Observações' },
+  ]
 
   const fetchData = useCallback(async () => {
     try {
@@ -61,9 +89,24 @@ export default function CourseEnrollmentsPage() {
     }
   }, [authLoading, isAuthenticated, user, courseId, fetchData, navigate])
 
+  const toggleField = (fieldKey: string) => {
+    setSelectedFields((prev) =>
+      prev.includes(fieldKey)
+        ? prev.filter((f) => f !== fieldKey)
+        : [...prev, fieldKey]
+    )
+  }
+
   const handleExport = async () => {
+    if (selectedFields.length === 0) {
+      alert('Selecione pelo menos um campo para exportar')
+      return
+    }
+
+    setExporting(true)
     try {
-      const url = `${process.env.NEXT_PUBLIC_API_URL}/admin/courses/${courseId}/export`
+      const fieldsParam = selectedFields.join(',')
+      const url = `${getApiUrl()}/admin/courses/${courseId}/export?format=${exportFormat}&fields=${encodeURIComponent(fieldsParam)}`
       const token =
         typeof window !== 'undefined'
           ? localStorage.getItem('token')
@@ -76,16 +119,21 @@ export default function CourseEnrollmentsPage() {
         const url = window.URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url
-        a.download = `inscritos-${course?.title?.replace(/[^a-z0-9]/gi, '-').toLowerCase() || 'curso'}.xlsx`
+        
+        const extension = exportFormat === 'pdf' ? 'pdf' : exportFormat === 'csv' ? 'csv' : 'xlsx'
+        a.download = `inscritos-${course?.title?.replace(/[^a-z0-9]/gi, '-').toLowerCase() || 'curso'}.${extension}`
         document.body.appendChild(a)
         a.click()
         window.URL.revokeObjectURL(url)
         document.body.removeChild(a)
+        setExportModalOpen(false)
       } else {
         alert('Erro ao exportar dados')
       }
     } catch (error) {
       alert('Erro ao exportar dados')
+    } finally {
+      setExporting(false)
     }
   }
 
@@ -134,7 +182,7 @@ export default function CourseEnrollmentsPage() {
       <div className="container mx-auto px-4 py-8 pb-24 md:pb-8">
         <div className="mb-6">
           <Link
-            href="/admin/courses"
+            to="/admin/courses"
             className="text-[#FF6600] hover:underline mb-4 inline-block"
           >
             ← Voltar para Cursos
@@ -149,13 +197,13 @@ export default function CourseEnrollmentsPage() {
               )}
             </div>
             <button
-              onClick={handleExport}
+              onClick={() => setExportModalOpen(true)}
               className="bg-green-600 text-white px-6 py-3 rounded-md font-semibold hover:bg-green-700 transition-colors flex items-center gap-2"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
-              Exportar Excel
+              Exportar Dados
             </button>
           </div>
         </div>
@@ -245,6 +293,154 @@ export default function CourseEnrollmentsPage() {
       </div>
 
       <Footer />
+
+      {/* Modal de Exportação */}
+      {exportModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-[#003366]">Exportar Dados dos Participantes</h2>
+                <button
+                  onClick={() => setExportModalOpen(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Seleção de Formato */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Formato de Exportação
+                </label>
+                <div className="grid grid-cols-3 gap-3">
+                  <button
+                    onClick={() => setExportFormat('xlsx')}
+                    className={`px-4 py-3 rounded-lg border-2 transition-colors ${
+                      exportFormat === 'xlsx'
+                        ? 'border-[#FF6600] bg-[#FF6600] text-white'
+                        : 'border-gray-300 hover:border-gray-400'
+                    }`}
+                  >
+                    <div className="font-semibold">Excel</div>
+                    <div className="text-xs mt-1">.xlsx</div>
+                  </button>
+                  <button
+                    onClick={() => setExportFormat('csv')}
+                    className={`px-4 py-3 rounded-lg border-2 transition-colors ${
+                      exportFormat === 'csv'
+                        ? 'border-[#FF6600] bg-[#FF6600] text-white'
+                        : 'border-gray-300 hover:border-gray-400'
+                    }`}
+                  >
+                    <div className="font-semibold">CSV</div>
+                    <div className="text-xs mt-1">.csv</div>
+                  </button>
+                  <button
+                    onClick={() => setExportFormat('pdf')}
+                    className={`px-4 py-3 rounded-lg border-2 transition-colors ${
+                      exportFormat === 'pdf'
+                        ? 'border-[#FF6600] bg-[#FF6600] text-white'
+                        : 'border-gray-300 hover:border-gray-400'
+                    }`}
+                  >
+                    <div className="font-semibold">PDF</div>
+                    <div className="text-xs mt-1">.pdf</div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Seleção de Campos */}
+              <div className="mb-6">
+                <div className="flex justify-between items-center mb-3">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Campos para Exportar
+                  </label>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setSelectedFields(availableFields.map((f) => f.key))}
+                      className="text-xs text-[#FF6600] hover:underline"
+                    >
+                      Selecionar Todos
+                    </button>
+                    <span className="text-xs text-gray-400">|</span>
+                    <button
+                      onClick={() => setSelectedFields(['number', 'name', 'email', 'status', 'progress', 'createdAt'])}
+                      className="text-xs text-[#FF6600] hover:underline"
+                    >
+                      Padrão
+                    </button>
+                    <span className="text-xs text-gray-400">|</span>
+                    <button
+                      onClick={() => setSelectedFields([])}
+                      className="text-xs text-[#FF6600] hover:underline"
+                    >
+                      Limpar
+                    </button>
+                  </div>
+                </div>
+                <div className="border border-gray-300 rounded-lg p-4 max-h-64 overflow-y-auto">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {availableFields.map((field) => (
+                      <label
+                        key={field.key}
+                        className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedFields.includes(field.key)}
+                          onChange={() => toggleField(field.key)}
+                          className="w-4 h-4 text-[#FF6600] border-gray-300 rounded focus:ring-[#FF6600]"
+                        />
+                        <span className="text-sm text-gray-700">{field.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  {selectedFields.length} campo(s) selecionado(s)
+                </p>
+              </div>
+
+              {/* Botões de Ação */}
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setExportModalOpen(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
+                  disabled={exporting}
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleExport}
+                  disabled={exporting || selectedFields.length === 0}
+                  className="px-6 py-2 bg-[#FF6600] text-white rounded-md hover:bg-[#e55a00] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {exporting ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Exportando...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      Exportar
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

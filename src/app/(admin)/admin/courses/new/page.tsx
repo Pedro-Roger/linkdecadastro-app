@@ -7,7 +7,7 @@ import { z } from 'zod'
 import Link from 'next/link'
 import NotificationBell from '@/components/notifications/NotificationBell'
 import Footer from '@/components/ui/Footer'
-import { apiFetch } from '@/lib/api'
+import { apiFetch, getApiUrl } from '@/lib/api'
 import { useAuth } from '@/lib/useAuth'
 
 const courseSchema = z.object({
@@ -240,7 +240,7 @@ export default function NewCoursePage() {
       formData.append('file', file)
 
       console.log('Enviando para API...')
-      const uploadUrl = `${process.env.NEXT_PUBLIC_API_URL}/admin/upload`
+      const uploadUrl = `${getApiUrl()}/admin/upload`
       const token =
         typeof window !== 'undefined'
           ? localStorage.getItem('token')
