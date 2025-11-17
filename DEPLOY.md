@@ -16,6 +16,42 @@ Os arquivos serão gerados na pasta `dist/`.
 
 ## 🚀 Deploy na Hostgator
 
+### Opção 1: Deploy Automático com Git (Recomendado) ⚡
+
+O projeto está configurado para deploy automático usando o Git Version Control do cPanel.
+
+#### Configuração Inicial:
+
+1. **Ajuste o arquivo `.cpanel.yml`**:
+   - Abra o arquivo `.cpanel.yml` na raiz do projeto
+   - Substitua `USUARIO` pelo seu usuário do cPanel
+   - O caminho normalmente é: `/home/seu_usuario/public_html/`
+   - Para descobrir seu usuário, acesse o cPanel e veja o caminho completo no File Manager
+
+2. **Configure o repositório Git no cPanel**:
+   - Acesse o cPanel da Hostgator
+   - Vá em **Files** → **Git Version Control**
+   - Crie um novo repositório ou conecte o existente
+   - Certifique-se de que o arquivo `.cpanel.yml` está commitado no repositório
+
+3. **Faça push para o repositório**:
+   ```bash
+   git add .cpanel.yml .htaccess
+   git commit -m "feat: adiciona configuração de deploy automático"
+   git push
+   ```
+
+4. **Deploy Automático**:
+   - Após fazer `git push`, o cPanel automaticamente:
+     - Instala as dependências
+     - Gera o build (`npm run build`)
+     - Copia os arquivos da pasta `dist/` para `public_html/`
+     - Configura as permissões corretas
+
+✅ **Vantagem:** A cada `git push`, o site é atualizado automaticamente!
+
+### Opção 2: Deploy Manual
+
 1. **Gere o build:**
    ```bash
    npm run build
@@ -31,20 +67,7 @@ Os arquivos serão gerados na pasta `dist/`.
 
    ⚠️ **Importante:** Faça upload do **conteúdo** da pasta `dist/`, não a pasta `dist/` em si.
 
-6. **Configure o `.htaccess`** (se necessário para React Router):
-
-   Crie um arquivo `.htaccess` na raiz do `public_html` com:
-
-   ```apache
-   <IfModule mod_rewrite.c>
-     RewriteEngine On
-     RewriteBase /
-     RewriteRule ^index\.html$ - [L]
-     RewriteCond %{REQUEST_FILENAME} !-f
-     RewriteCond %{REQUEST_FILENAME} !-d
-     RewriteRule . /index.html [L]
-   </IfModule>
-   ```
+6. **O arquivo `.htaccess`** já está incluído no repositório e será copiado automaticamente no deploy automático, ou você pode fazer upload manualmente.
 
    Isso é necessário para que o React Router funcione corretamente com rotas dinâmicas.
 

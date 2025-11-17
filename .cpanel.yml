@@ -1,0 +1,44 @@
+---
+deployment:
+  tasks:
+    # Define o caminho de deploy
+    # IMPORTANTE: Substitua 'USUARIO' pelo seu usuário do cPanel
+    # Para descobrir: acesse cPanel > File Manager e veja o caminho completo
+    # Exemplo: /home/seu_usuario/public_html/
+    - export DEPLOYPATH=/home/USUARIO/public_html/
+    
+    # Verifica se o Node.js está disponível
+    - which node || (echo "Node.js não encontrado. Instale Node.js no cPanel." && exit 1)
+    
+    # Navega para o diretório do repositório
+    - cd $GIT_REPO_ROOT
+    
+    # Instala dependências (necessário para o build)
+    - npm install --production=false
+    
+    # Gera o build do projeto
+    - npm run build
+    
+    # Verifica se o build foi gerado com sucesso
+    - test -d dist || (echo "Erro: pasta dist não foi criada pelo build" && exit 1)
+    
+    # Remove arquivos antigos do diretório de deploy (mantém .htaccess e config.js se existirem)
+    - if [ -f $DEPLOYPATH.htaccess ]; then /bin/cp $DEPLOYPATH.htaccess $DEPLOYPATH.htaccess.backup; fi
+    - if [ -f $DEPLOYPATHconfig.js ]; then /bin/cp $DEPLOYPATHconfig.js $DEPLOYPATHconfig.js.backup; fi
+    - /bin/rm -rf $DEPLOYPATH*
+    - if [ -f $DEPLOYPATH.htaccess.backup ]; then /bin/mv $DEPLOYPATH.htaccess.backup $DEPLOYPATH.htaccess; fi
+    - if [ -f $DEPLOYPATHconfig.js.backup ]; then /bin/mv $DEPLOYPATHconfig.js.backup $DEPLOYPATHconfig.js; fi
+    
+    # Copia todos os arquivos da pasta dist para public_html
+    - /bin/cp -R $GIT_REPO_ROOT/dist/* $DEPLOYPATH
+    
+    # Copia o arquivo .htaccess se existir no repositório (necessário para React Router)
+    - if [ -f $GIT_REPO_ROOT/.htaccess ]; then /bin/cp $GIT_REPO_ROOT/.htaccess $DEPLOYPATH; fi
+    
+    # Define permissões corretas
+    - /bin/chmod -R 755 $DEPLOYPATH
+    - /bin/find $DEPLOYPATH -type f -exec /bin/chmod 644 {} \;
+    
+    # Limpa arquivos temporários (opcional)
+    - echo "Deploy concluído com sucesso!"
+
