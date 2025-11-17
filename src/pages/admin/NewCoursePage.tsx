@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import NotificationBell from '@/components/notifications/NotificationBell'
 import Footer from '@/components/ui/Footer'
 import { apiFetch, getApiUrl } from '@/lib/api'
@@ -96,6 +96,8 @@ export default function NewCoursePage() {
   const [uploading, setUploading] = useState(false)
   const [bannerPreview, setBannerPreview] = useState<string | null>(null)
   const [showFirstLesson, setShowFirstLesson] = useState(false)
+  const [cloning, setCloning] = useState(false)
+  const [clonedLessons, setClonedLessons] = useState<any[]>([])
   const [regionQuotas, setRegionQuotas] = useState<
     Array<{
       state: string
@@ -266,13 +268,75 @@ export default function NewCoursePage() {
     }
   }
 
+  const cloneCourse = async (courseId: string) => {
+    setCloning(true)
+    try {
+      const course = await apiFetch<any>(`/admin/courses/${courseId}`, {
+        auth: true,
+      })
+
+      // Preencher formulário com dados do curso clonado
+      setValue('title', `${course.title} (Cópia)`)
+      if (course.description) setValue('description', course.description)
+      if (course.bannerUrl) {
+        setValue('bannerUrl', course.bannerUrl)
+        setBannerPreview(course.bannerUrl)
+      }
+      setValue('status', course.status || 'ACTIVE')
+      setValue('type', course.type || 'ONLINE')
+      if (course.maxEnrollments) setValue('maxEnrollments', String(course.maxEnrollments))
+      setValue('waitlistEnabled', course.waitlistEnabled || false)
+      if (course.waitlistLimit) setValue('waitlistLimit', String(course.waitlistLimit))
+      setValue('regionRestrictionEnabled', course.regionRestrictionEnabled || false)
+      setValue('allowAllRegions', course.allowAllRegions ?? true)
+      if (course.defaultRegionLimit) setValue('defaultRegionLimit', String(course.defaultRegionLimit))
+      // Não clonar datas e slug
+      // if (course.startDate) setValue('startDate', course.startDate)
+      // if (course.endDate) setValue('endDate', course.endDate)
+
+      // Preencher quotas regionais
+      if (course.regionQuotas && course.regionQuotas.length > 0) {
+        const quotas = course.regionQuotas.map((q: any) => ({
+          state: q.state,
+          city: q.city || '',
+          limit: q.limit,
+          waitlistLimit: q.waitlistLimit || 0,
+        }))
+        setRegionQuotas(quotas)
+      }
+
+      // Guardar aulas para clonagem após criação
+      if (course.lessons && course.lessons.length > 0) {
+        setClonedLessons(course.lessons)
+      }
+
+      // Se houver primeira aula, preencher campos
+      if (course.lessons && course.lessons.length > 0 && course.lessons[0]) {
+        const firstLesson = course.lessons[0]
+        setShowFirstLesson(true)
+        if (firstLesson.title) setValue('firstLessonTitle', firstLesson.title)
+        if (firstLesson.description) setValue('firstLessonDescription', firstLesson.description)
+        if (firstLesson.videoUrl) setValue('firstLessonVideoUrl', firstLesson.videoUrl)
+        if (firstLesson.bannerUrl) setValue('firstLessonBannerUrl', firstLesson.bannerUrl)
+        if (firstLesson.duration) setValue('firstLessonDuration', firstLesson.duration)
+      }
+    } catch (error) {
+      console.error('Erro ao clonar curso:', error)
+      alert('Erro ao carregar curso para clonagem')
+    } finally {
+      setCloning(false)
+    }
+  }
+
   useEffect(() => {
     if (!authLoading) {
       if (!isAuthenticated || user?.role !== 'ADMIN') {
         navigate('/my-courses')
+      } else if (cloneCourseId) {
+        cloneCourse(cloneCourseId)
       }
     }
-  }, [authLoading, isAuthenticated, user, navigate])
+  }, [authLoading, isAuthenticated, user, navigate, cloneCourseId])
 
   const onSubmit = async (data: CourseFormData) => {
     setSubmitting(true)
@@ -340,6 +404,31 @@ export default function NewCoursePage() {
         auth: true,
         body: JSON.stringify(payload),
       })
+
+      // Se há aulas clonadas além da primeira, criar elas também
+      if (clonedLessons.length > 1) {
+        try {
+          const lessonsToCreate = clonedLessons.slice(1) // Pular a primeira (já criada)
+          for (const lesson of lessonsToCreate) {
+            await apiFetch(`/admin/courses/${course.id}/lessons`, {
+              method: 'POST',
+              auth: true,
+              body: JSON.stringify({
+                title: lesson.title,
+                description: lesson.description || undefined,
+                videoUrl: lesson.videoUrl || undefined,
+                bannerUrl: lesson.bannerUrl || undefined,
+                duration: lesson.duration || undefined,
+                order: lesson.order,
+              }),
+            })
+          }
+        } catch (error) {
+          console.error('Erro ao clonar aulas:', error)
+          // Não bloquear navegação se houver erro ao clonar aulas
+        }
+      }
+
       navigate(`/admin/courses/${course.id}/lessons`)
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao criar curso'
@@ -349,10 +438,12 @@ export default function NewCoursePage() {
     }
   }
 
-  if (authLoading) {
+  if (authLoading || cloning) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-xl">Carregando...</div>
+        <div className="text-xl">
+          {cloning ? 'Carregando curso para clonagem...' : 'Carregando...'}
+        </div>
       </div>
     )
   }

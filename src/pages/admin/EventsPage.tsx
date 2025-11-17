@@ -332,6 +332,18 @@ export default function AdminEventsPage() {
                           </td>
                           <td className="px-4 py-3 align-top">
                             <div className="flex flex-col gap-2">
+                              <Link
+                                to={`/admin/events/${event.id}/registrations`}
+                                className="rounded-md bg-[#FF6600] px-3 py-1 text-xs font-semibold text-white transition-colors hover:bg-[#e55a00] text-center"
+                              >
+                                Ver Registros
+                              </Link>
+                              <Link
+                                to={`/admin/events/${event.id}/classes`}
+                                className="rounded-md bg-[#003366] px-3 py-1 text-xs font-semibold text-white transition-colors hover:bg-[#00264d] text-center"
+                              >
+                                Ver Turmas
+                              </Link>
                               <button
                                 onClick={() => openShareModal(event)}
                                 className="rounded-md bg-[#003366] px-3 py-1 text-xs font-semibold text-white transition-colors hover:bg-[#00264d]"
