@@ -5,6 +5,8 @@ import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import NotificationBell from '@/components/notifications/NotificationBell'
 import Footer from '@/components/ui/Footer'
+import Toast from '@/components/ui/Toast'
+import CourseEnrollmentModal from '@/components/modals/CourseEnrollmentModal'
 import { apiFetch } from '@/lib/api'
 import { useAuth } from '@/lib/useAuth'
 
@@ -22,6 +24,8 @@ export default function CourseBySlugPage() {
   const [progress, setProgress] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [enrolled, setEnrolled] = useState(false)
+  const [enrollmentModalOpen, setEnrollmentModalOpen] = useState(false)
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' | 'warning' } | null>(null)
 
   const fetchCourse = useCallback(async () => {
     try {
@@ -91,22 +95,58 @@ export default function CourseBySlugPage() {
     }
   }, [course, selectedLesson, isAuthenticated, checkEnrollment, fetchComments, fetchProgress])
 
-  const handleEnroll = async () => {
+  const handleEnrollClick = () => {
     if (!isAuthenticated) {
       navigate('/login')
       return
     }
+    setEnrollmentModalOpen(true)
+  }
 
-    try {
-      await apiFetch(`/courses/${course.id}/enroll`, {
-        method: 'POST',
-        auth: true,
-        body: JSON.stringify({}), // payload opcional
-      })
+  const handleEnrollmentSuccess = (payload?: {
+    enrollment: any
+    metadata?: { waitlistPosition?: number | null }
+  }) => {
+    setEnrollmentModalOpen(false)
+    
+    if (payload?.enrollment) {
+      const status = payload.enrollment.status as string | undefined
       setEnrolled(true)
-      navigate(`/course/${course.id}`)
-    } catch (error) {
-      alert('Erro ao inscrever no curso')
+      
+      if (status === 'WAITLIST') {
+        const waitlistPosition = payload.metadata?.waitlistPosition
+        setToast({
+          message: waitlistPosition && waitlistPosition > 0
+            ? `Você entrou na lista de espera. Posição atual: ${waitlistPosition}.`
+            : 'Você entrou na lista de espera deste curso. Aguarde a aprovação do administrador.',
+          type: 'info'
+        })
+      } else if (status === 'PENDING_REGION') {
+        setToast({
+          message: payload.enrollment.eligibilityReason || 'Cadastro registrado, aguardando confirmação da equipe.',
+          type: 'warning'
+        })
+      } else if (status === 'REJECTED') {
+        setToast({
+          message: payload.enrollment.eligibilityReason || 'Sua inscrição foi registrada, mas não pôde ser aprovada automaticamente.',
+          type: 'warning'
+        })
+      } else {
+        setToast({
+          message: 'Inscrição realizada com sucesso! Você já pode acessar o conteúdo do curso.',
+          type: 'success'
+        })
+      }
+    } else {
+      setToast({
+        message: 'Solicitação enviada. Verifique seus cursos em alguns instantes.',
+        type: 'info'
+      })
+    }
+    
+    // Atualizar status de inscrição
+    if (course) {
+      checkEnrollment()
     }
   }
 
@@ -218,17 +258,17 @@ export default function CourseBySlugPage() {
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
             <p className="text-blue-800 mb-4">Você precisa se inscrever neste curso para assistir às aulas.</p>
             <button
-              onClick={handleEnroll}
+              onClick={handleEnrollClick}
               className="bg-[#FF6600] text-white px-6 py-3 rounded-md font-semibold hover:bg-[#e55a00] transition-colors"
             >
-              Inscrever-se no Curso
+              Cadastrar-se no Curso
             </button>
           </div>
         ) : !isAuthenticated ? (
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-6">
             <p className="text-yellow-800 mb-4">Faça login para assistir às aulas deste curso.</p>
             <Link
-              href="/login"
+              to="/login"
               className="bg-[#FF6600] text-white px-6 py-3 rounded-md font-semibold hover:bg-[#e55a00] transition-colors inline-block"
             >
               Fazer Login
@@ -374,6 +414,27 @@ export default function CourseBySlugPage() {
       </div>
 
       <Footer />
+
+      {/* Modal de Inscrição */}
+      {course && (
+        <CourseEnrollmentModal
+          isOpen={enrollmentModalOpen}
+          onClose={() => setEnrollmentModalOpen(false)}
+          courseId={course.id}
+          courseTitle={course.title}
+          onSuccess={handleEnrollmentSuccess}
+        />
+      )}
+
+      {/* Toast de Notificação */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          isVisible={!!toast}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   )
 }
