@@ -54,3 +54,4 @@ Após configurar, faça o deploy do backend e teste novamente. O erro de CORS de
 - `http://localhost:3000` (desenvolvimento)
 - `http://localhost:5173` (desenvolvimento Vite)
 
+
