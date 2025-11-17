@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import type { EnrollmentStatus } from '@prisma/client'
 import { apiFetch } from '@/lib/api'
+import { useAuth } from '@/lib/useAuth'
 
 const participantTypes = ['ESTUDANTE', 'PROFESSOR', 'PESQUISADOR', 'PRODUTOR'] as const
 
@@ -169,6 +170,7 @@ export default function CourseEnrollmentModal({
   onSuccess
 }: CourseEnrollmentModalProps) {
   const needsAccount = false
+  const { user } = useAuth()
 
   const enrollmentSchema = useMemo(() => createEnrollmentSchema(needsAccount), [needsAccount])
 
@@ -203,16 +205,81 @@ export default function CourseEnrollmentModal({
   const [result, setResult] = useState<EnrollmentResult | null>(null)
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && user) {
+      fetchStates()
+      setResult(null)
+      setError(null)
+      
+      // Busca os dados completos do perfil do usuário
+      const fetchUserProfile = async () => {
+        try {
+          const userProfile = await apiFetch<any>('/user/profile', { auth: true })
+          
+          // Preenche automaticamente os dados do usuário logado
+          const userData: Partial<EnrollmentFormData> = {}
+          
+          if (userProfile.phone) {
+            userData.whatsappNumber = userProfile.phone
+          }
+          
+          if (userProfile.state) {
+            userData.state = userProfile.state
+            // Busca as cidades do estado automaticamente
+            fetchCities(userProfile.state)
+          }
+          
+          if (userProfile.city) {
+            userData.city = userProfile.city
+          }
+          
+          if (userProfile.participantType) {
+            userData.participantType = userProfile.participantType as any
+          }
+          
+          if (userProfile.hectares) {
+            userData.hectares = String(userProfile.hectares)
+          }
+          
+          reset((prev) => ({
+            ...prev,
+            ...userData
+          }))
+        } catch (error) {
+          // Se não conseguir buscar o perfil, usa apenas os dados básicos do localStorage
+          console.error('Erro ao buscar perfil do usuário:', error)
+          
+          const basicData: Partial<EnrollmentFormData> = {
+            whatsappNumber: (user as any)?.phone || ''
+          }
+          
+          if ((user as any)?.state) {
+            basicData.state = (user as any).state
+            fetchCities((user as any).state)
+          }
+          
+          if ((user as any)?.city) {
+            basicData.city = (user as any).city
+          }
+          
+          reset((prev) => ({
+            ...prev,
+            ...basicData
+          }))
+        }
+      }
+      
+      fetchUserProfile()
+    } else if (isOpen) {
+      // Se não houver usuário, apenas busca estados
       fetchStates()
       setResult(null)
       setError(null)
       reset((prev) => ({
         ...prev,
-        whatsappNumber: prev?.whatsappNumber ?? ''
+        whatsappNumber: ''
       }))
     }
-  }, [isOpen, reset])
+  }, [isOpen, reset, user])
 
   useEffect(() => {
     if (isOpen && selectedState && selectedState.length === 2) {
