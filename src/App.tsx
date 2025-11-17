@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react'
 import { Routes, Route } from 'react-router-dom'
+import { ErrorBoundary } from './components/ErrorBoundary'
 
 const HomePage = lazy(() => import('./pages/HomePage'))
 const LoginPage = lazy(() => import('./pages/auth/LoginPage'))
@@ -31,7 +32,7 @@ function LoadingFallback() {
 
 function App() {
   return (
-    <div>
+    <ErrorBoundary>
       <Suspense fallback={<LoadingFallback />}>
         <Routes>
           <Route path="/" element={<HomePage />} />
@@ -58,7 +59,7 @@ function App() {
           <Route path="/admin/events/:eventId/classes" element={<EventClassesPage />} />
         </Routes>
       </Suspense>
-    </div>
+    </ErrorBoundary>
   )
 }
 

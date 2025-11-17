@@ -17,6 +17,7 @@ export default function AdminDashboardPage() {
   const [courses, setCourses] = useState<any[]>([])
   const [recentEnrollments, setRecentEnrollments] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [activeFilter, setActiveFilter] = useState<string>('all')
 
@@ -45,6 +46,10 @@ export default function AdminDashboardPage() {
 
       await fetchRecentEnrollments(coursesData)
     } catch (error) {
+      console.error('Erro ao buscar estatísticas:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao carregar dados do dashboard'
+      setError(errorMessage)
+      setLoading(false)
     } finally {
       setLoading(false)
     }
@@ -58,7 +63,8 @@ export default function AdminDashboardPage() {
       }
       fetchStats()
     }
-  }, [authLoading, isAuthenticated, user, fetchStats, navigate])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, isAuthenticated, user, navigate])
 
   async function fetchRecentEnrollments(coursesData: any[]) {
     try {
@@ -86,6 +92,7 @@ export default function AdminDashboardPage() {
       
       setRecentEnrollments(recent)
     } catch (error) {
+      console.error('Erro ao buscar inscrições recentes:', error)
     }
   }
 
@@ -133,6 +140,27 @@ export default function AdminDashboardPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-xl text-gray-600">Carregando...</div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center p-8">
+          <h1 className="text-2xl font-bold text-red-600 mb-4">Erro ao carregar dashboard</h1>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button
+            onClick={() => {
+              setError(null)
+              setLoading(true)
+              fetchStats()
+            }}
+            className="bg-[#FF6600] text-white px-6 py-3 rounded-md font-semibold hover:bg-[#e55a00] transition-colors"
+          >
+            Tentar novamente
+          </button>
+        </div>
       </div>
     )
   }

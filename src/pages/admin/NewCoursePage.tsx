@@ -87,6 +87,8 @@ const BRAZIL_STATES = [
 
 export default function NewCoursePage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const cloneCourseId = searchParams.get('clone')
   const { user, loading: authLoading, isAuthenticated, signOut } = useAuth({
     requireAuth: true,
     redirectTo: '/login',
@@ -332,10 +334,13 @@ export default function NewCoursePage() {
     if (!authLoading) {
       if (!isAuthenticated || user?.role !== 'ADMIN') {
         navigate('/my-courses')
-      } else if (cloneCourseId) {
+        return
+      }
+      if (cloneCourseId) {
         cloneCourse(cloneCourseId)
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, isAuthenticated, user, navigate, cloneCourseId])
 
   const onSubmit = async (data: CourseFormData) => {
