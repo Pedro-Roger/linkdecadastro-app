@@ -2,8 +2,7 @@
 deployment:
   tasks:
     # Define o caminho de deploy
-    # Usuário do cPanel: pedroroger
-    - export DEPLOYPATH=/home/pedroroger/public_html/
+    - export DEPLOYPATH=/home2/hg722e44/public_html/
     
     # Verifica se o Node.js está disponível
     - which node || (echo "Node.js não encontrado. Instale Node.js no cPanel." && exit 1)
