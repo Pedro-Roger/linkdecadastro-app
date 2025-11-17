@@ -24,10 +24,10 @@ deployment:
     
     # Remove arquivos antigos do diretório de deploy (mantém .htaccess e config.js se existirem)
     - if [ -f $DEPLOYPATH.htaccess ]; then /bin/cp $DEPLOYPATH.htaccess $DEPLOYPATH.htaccess.backup; fi
-    - if [ -f $DEPLOYPATHconfig.js ]; then /bin/cp $DEPLOYPATHconfig.js $DEPLOYPATHconfig.js.backup; fi
+    - if [ -f $DEPLOYPATH/config.js ]; then /bin/cp $DEPLOYPATH/config.js $DEPLOYPATH/config.js.backup; fi
     - /bin/rm -rf $DEPLOYPATH*
     - if [ -f $DEPLOYPATH.htaccess.backup ]; then /bin/mv $DEPLOYPATH.htaccess.backup $DEPLOYPATH.htaccess; fi
-    - if [ -f $DEPLOYPATHconfig.js.backup ]; then /bin/mv $DEPLOYPATHconfig.js.backup $DEPLOYPATHconfig.js; fi
+    - if [ -f $DEPLOYPATH/config.js.backup ]; then /bin/mv $DEPLOYPATH/config.js.backup $DEPLOYPATH/config.js; fi
     
     # Copia todos os arquivos da pasta dist para public_html
     - /bin/cp -R $GIT_REPO_ROOT/dist/* $DEPLOYPATH
