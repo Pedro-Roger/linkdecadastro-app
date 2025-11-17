@@ -1,16 +1,25 @@
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import Footer from '@/components/ui/Footer'
-import { apiFetch } from '@/lib/api'
+import { apiFetch, getApiUrl } from '@/lib/api'
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    // Verifica se há erro na URL (vindo do callback do Google)
+    const urlError = searchParams.get('error')
+    if (urlError === 'google_auth_failed') {
+      setError('Erro ao fazer login com Google. Tente novamente.')
+    }
+  }, [searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -42,8 +51,9 @@ export default function LoginPage() {
   }
 
   const handleGoogleSignIn = async () => {
-    // TODO: implementar login com Google via backend Nest (OAuth)
-    setError('Login com Google ainda não está disponível nesta versão')
+    const apiUrl = getApiUrl()
+    // Redireciona para o endpoint do Google OAuth no backend
+    window.location.href = `${apiUrl}/auth/google`
   }
 
   return (
