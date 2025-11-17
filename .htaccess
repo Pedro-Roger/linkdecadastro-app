@@ -2,6 +2,10 @@
   RewriteEngine On
   RewriteBase /
   
+  # Remove barras duplas da URL
+  RewriteCond %{REQUEST_URI} ^(.*)//(.*)$
+  RewriteRule . %1/%2 [R=301,L]
+  
   # Não reescrever arquivos e diretórios existentes
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
