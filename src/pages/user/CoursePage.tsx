@@ -5,6 +5,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import NotificationBell from '@/components/notifications/NotificationBell'
 import Footer from '@/components/ui/Footer'
+import LoadingScreen from '@/components/ui/LoadingScreen'
 import { apiFetch } from '@/lib/api'
 
 export default function CoursePage() {
@@ -207,11 +208,7 @@ export default function CoursePage() {
   }
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-xl">Carregando...</div>
-      </div>
-    )
+    return <LoadingScreen />
   }
 
   if (!course) {

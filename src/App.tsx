@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import { ErrorBoundary } from './components/ErrorBoundary'
+import LoadingScreen from './components/ui/LoadingScreen'
 
 const HomePage = lazy(() => import('./pages/HomePage'))
 const LoginPage = lazy(() => import('./pages/auth/LoginPage'))
@@ -23,11 +24,7 @@ const CourseBySlugPage = lazy(() => import('./pages/CourseBySlugPage'))
 const RegisterByLinkPage = lazy(() => import('./pages/RegisterByLinkPage'))
 
 function LoadingFallback() {
-  return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="text-xl text-gray-600">Carregando...</div>
-    </div>
-  )
+  return <LoadingScreen />
 }
 
 function App() {

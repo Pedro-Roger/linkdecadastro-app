@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import RegistrationForm from '@/components/forms/RegistrationForm'
 import Footer from '@/components/ui/Footer'
+import LoadingScreen from '@/components/ui/LoadingScreen'
 import { apiFetch } from '@/lib/api'
 
 export default function RegisterPage() {
@@ -27,11 +28,7 @@ export default function RegisterPage() {
   }, [linkId])
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#003366] to-[#FF6600]">
-        <div className="text-white text-xl">Carregando...</div>
-      </div>
-    )
+    return <LoadingScreen />
   }
 
   if (!event) {

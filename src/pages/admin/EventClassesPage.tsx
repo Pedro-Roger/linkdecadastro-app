@@ -4,6 +4,7 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import MobileNavbar from '@/components/ui/MobileNavbar'
 import Footer from '@/components/ui/Footer'
+import LoadingScreen from '@/components/ui/LoadingScreen'
 import { apiFetch } from '@/lib/api'
 import { useAuth } from '@/lib/useAuth'
 
@@ -158,11 +159,7 @@ export default function EventClassesPage() {
   }
 
   if (authLoading || loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-xl text-gray-600">Carregando...</div>
-      </div>
-    )
+    return <LoadingScreen />
   }
 
   if (!regionsData) {

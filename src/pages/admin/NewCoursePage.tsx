@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import NotificationBell from '@/components/notifications/NotificationBell'
 import Footer from '@/components/ui/Footer'
+import LoadingScreen from '@/components/ui/LoadingScreen'
 import { apiFetch, getApiUrl } from '@/lib/api'
 import { useAuth } from '@/lib/useAuth'
 
@@ -444,13 +445,7 @@ export default function NewCoursePage() {
   }
 
   if (authLoading || cloning) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-xl">
-          {cloning ? 'Carregando curso para clonagem...' : 'Carregando...'}
-        </div>
-      </div>
-    )
+    return <LoadingScreen />
   }
 
   return (

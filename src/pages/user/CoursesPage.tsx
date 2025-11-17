@@ -4,6 +4,7 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import Footer from '@/components/ui/Footer'
 import MobileNavbar from '@/components/ui/MobileNavbar'
+import LoadingScreen from '@/components/ui/LoadingScreen'
 import CourseEnrollmentModal from '@/components/modals/CourseEnrollmentModal'
 import { apiFetch } from '@/lib/api'
 
@@ -180,11 +181,7 @@ export default function CoursesPage() {
   }
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-xl">Carregando...</div>
-      </div>
-    )
+    return <LoadingScreen />
   }
 
   return (
