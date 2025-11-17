@@ -22,6 +22,7 @@ const UserCoursePage = lazy(() => import('./pages/user/CoursePage'))
 const UserProfilePage = lazy(() => import('./pages/user/ProfilePage'))
 const CourseBySlugPage = lazy(() => import('./pages/CourseBySlugPage'))
 const RegisterByLinkPage = lazy(() => import('./pages/RegisterByLinkPage'))
+const GoogleCallbackPage = lazy(() => import('./pages/auth/GoogleCallbackPage'))
 
 function LoadingFallback() {
   return <LoadingScreen />
@@ -39,6 +40,7 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/complete-profile" element={<CompleteProfilePage />} />
+          <Route path="/auth/google/callback" element={<GoogleCallbackPage />} />
 
           <Route path="/courses" element={<UserCoursesPage />} />
           <Route path="/my-courses" element={<UserMyCoursesPage />} />

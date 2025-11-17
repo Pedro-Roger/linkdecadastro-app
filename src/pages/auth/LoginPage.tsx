@@ -1,14 +1,23 @@
-import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import Footer from '@/components/ui/Footer'
-import { apiFetch } from '@/lib/api'
+import { apiFetch, getApiUrl } from '@/lib/api'
 
 export default function LoginPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    // Verifica se há erro na URL (vindo do callback do Google)
+    const urlError = searchParams.get('error')
+    if (urlError === 'google_auth_failed') {
+      setError('Erro ao fazer login com Google. Tente novamente.')
+    }
+  }, [searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -40,8 +49,9 @@ export default function LoginPage() {
   }
 
   const handleGoogleSignIn = async () => {
-
-    setError('Login com Google ainda não está disponível nesta versão')
+    const apiUrl = getApiUrl()
+    // Redireciona para o endpoint do Google OAuth no backend
+    window.location.href = `${apiUrl}/auth/google`
   }
 
   return (
