@@ -2,21 +2,36 @@
   RewriteEngine On
   RewriteBase /
   
-  # Remove barras duplas da URL
+  # Remove barras duplas da URL primeiro
   RewriteCond %{REQUEST_URI} ^(.*)//(.*)$
   RewriteRule . %1/%2 [R=301,L]
   
-  # Não reescrever arquivos e diretórios existentes
+  # Não reescrever arquivos físicos existentes (imagens, CSS, JS, etc)
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
   
-  # Não reescrever se for um arquivo de API ou assets
+  # Não reescrever se for um arquivo estático
+  RewriteCond %{REQUEST_URI} !\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|json|xml|txt|pdf|zip)$
+  
+  # Não reescrever requisições para API (se houver)
   RewriteCond %{REQUEST_URI} !^/api/
-  RewriteCond %{REQUEST_URI} !\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$
   
   # Redirecionar tudo para index.html (SPA)
-  RewriteRule . /index.html [L]
+  # Isso permite que o React Router gerencie todas as rotas no cliente
+  RewriteRule ^(?!index\.html$).* /index.html [L]
 </IfModule>
+
+# Configuração adicional para garantir que index.html seja servido
+DirectoryIndex index.html
+
+# Prevenir listagem de diretórios
+Options -Indexes
+
+# Segurança: não permitir acesso a arquivos ocultos
+<FilesMatch "^\.">
+  Order allow,deny
+  Deny from all
+</FilesMatch>
 
 # Configurações de cache para assets
 <IfModule mod_expires.c>
