@@ -421,11 +421,11 @@ export default function NewCoursePage() {
         body: JSON.stringify(payload),
       })
 
-      // Se há aulas clonadas além da primeira, criar elas também
-      if (clonedLessons.length > 1) {
+      // Se há aulas clonadas (além da primeira que já foi criada com o curso), criar elas também
+      if (clonedLessons.length > 0) {
         try {
-          const lessonsToCreate = clonedLessons.slice(1) // Pular a primeira (já criada)
-          for (const lesson of lessonsToCreate) {
+          // clonedLessons já contém apenas as aulas após a primeira (feito no cloneCourse)
+          for (const lesson of clonedLessons) {
             await apiFetch(`/admin/courses/${course.id}/lessons`, {
               method: 'POST',
               auth: true,
