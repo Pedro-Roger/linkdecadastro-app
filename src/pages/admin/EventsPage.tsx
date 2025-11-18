@@ -4,7 +4,7 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import MobileNavbar from '@/components/ui/MobileNavbar'
 import Footer from '@/components/ui/Footer'
-import { apiFetch, getApiUrl } from '@/lib/api'
+import { apiFetch, getApiUrl, normalizeImageUrl } from '@/lib/api'
 import { useAuth } from '@/lib/useAuth'
 
 interface EventItem {
@@ -500,7 +500,7 @@ export default function AdminEventsPage() {
               <div className="flex items-center justify-center">
                 {selectedShareData.bannerUrl ? (
                   <img
-                    src={selectedShareData.bannerUrl} alt={`Banner do evento ${selectedEvent.title}`}
+                    src={normalizeImageUrl(selectedShareData.bannerUrl)} alt={`Banner do evento ${selectedEvent.title}`}
                     className="h-32 w-32 rounded-lg object-cover shadow-sm"
                     referrerPolicy="no-referrer"
                   />
