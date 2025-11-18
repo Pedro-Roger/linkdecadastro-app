@@ -5,7 +5,7 @@ import { ptBR } from 'date-fns/locale'
 import Footer from '@/components/ui/Footer'
 import MobileNavbar from '@/components/ui/MobileNavbar'
 import CourseEnrollmentModal from '@/components/modals/CourseEnrollmentModal'
-import { apiFetch } from '@/lib/api'
+import { apiFetch, normalizeImageUrl } from '@/lib/api'
 import { useAuth } from '@/lib/useAuth'
 
 interface Course {
@@ -320,7 +320,7 @@ export default function HomePage() {
                   {course.bannerUrl && course.bannerUrl.trim() ? (
                     <div className="relative w-full h-[386px] overflow-hidden bg-gray-200">
                       <img
-                        src={course.bannerUrl} alt={`Banner do curso ${course.title}`}
+                        src={normalizeImageUrl(course.bannerUrl)} alt={`Banner do curso ${course.title}`}
                         className="w-full h-full min-w-full min-h-full object-cover"
                         style={{ objectFit: 'cover', objectPosition: 'center' }}
                         onError={(e) => {

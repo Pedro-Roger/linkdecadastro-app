@@ -6,7 +6,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import NotificationBell from '@/components/notifications/NotificationBell'
 import Footer from '@/components/ui/Footer'
 import LoadingScreen from '@/components/ui/LoadingScreen'
-import { apiFetch, getApiUrl } from '@/lib/api'
+import { apiFetch, getApiUrl, normalizeImageUrl } from '@/lib/api'
 import { useAuth } from '@/lib/useAuth'
 
 const courseSchema = z.object({
@@ -589,7 +589,7 @@ export default function NewCoursePage() {
                   <div className="mt-3">
                     <p className="text-sm text-gray-600 mb-2">Preview:</p>
                     <img
-                      src={bannerUrl || bannerPreview || ''}
+                      src={normalizeImageUrl(bannerUrl || bannerPreview || '')}
                       alt="Preview do banner"
                       className="w-full h-48 object-cover rounded-md border border-gray-300"
                       onError={() => setBannerPreview(null)}

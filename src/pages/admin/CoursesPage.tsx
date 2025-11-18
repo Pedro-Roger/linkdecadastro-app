@@ -5,7 +5,7 @@ import { ptBR } from 'date-fns/locale'
 import MobileNavbar from '@/components/ui/MobileNavbar'
 import Footer from '@/components/ui/Footer'
 import LoadingScreen from '@/components/ui/LoadingScreen'
-import { apiFetch, getApiUrl } from '@/lib/api'
+import { apiFetch, getApiUrl, normalizeImageUrl } from '@/lib/api'
 import { useAuth } from '@/lib/useAuth'
 
 export default function AdminCoursesPage() {
@@ -90,8 +90,8 @@ export default function AdminCoursesPage() {
     const url = origin ? `${origin}${path}` : path
 
     let bannerUrl: string | undefined = course.bannerUrl
-    if (bannerUrl && bannerUrl.startsWith('/')) {
-      bannerUrl = origin ? `${origin}${bannerUrl}` : bannerUrl
+    if (bannerUrl) {
+      bannerUrl = normalizeImageUrl(bannerUrl)
     }
 
     return {
@@ -151,8 +151,12 @@ export default function AdminCoursesPage() {
   }
 
   const shareWhatsApp = () => {
-    if (!selectedShareData) return
-    const waUrl = `https://wa.me/?text=${encodeURIComponent(selectedShareData.message)}`
+    if (!selectedShareData || !selectedCourse) return
+    
+    // Usa a URL de preview que contém as meta tags Open Graph para WhatsApp
+    const previewUrl = `${getApiUrl()}/share/course/${selectedCourse.id}`
+    const message = `${selectedCourse.title}${selectedCourse.description ? `\n\n${selectedCourse.description.substring(0, 150)}${selectedCourse.description.length > 150 ? '...' : ''}` : ''}\n\n${previewUrl}`
+    const waUrl = `https://wa.me/?text=${encodeURIComponent(message)}`
 
     if (typeof window !== 'undefined') {
       window.open(waUrl, '_blank', 'noopener,noreferrer')
@@ -365,7 +369,7 @@ export default function AdminCoursesPage() {
                 {course.bannerUrl && course.bannerUrl.trim() ? (
                   <div className="relative w-full h-[386px] overflow-hidden bg-gray-200">
                     <img
-                      src={course.bannerUrl} alt={`Banner do curso ${course.title}`}
+                      src={normalizeImageUrl(course.bannerUrl)} alt={`Banner do curso ${course.title}`}
                       className="w-full h-full min-w-full min-h-full object-cover"
                       style={{ objectFit: 'cover', objectPosition: 'center' }}
                       onError={(e) => {
@@ -492,7 +496,7 @@ export default function AdminCoursesPage() {
               <div className="flex items-center justify-center">
                 {selectedShareData.bannerUrl ? (
                   <img
-                    src={selectedShareData.bannerUrl} alt={`Banner do curso ${selectedCourse.title}`}
+                    src={normalizeImageUrl(selectedShareData.bannerUrl)} alt={`Banner do curso ${selectedCourse.title}`}
                     className="h-32 w-32 rounded-lg object-cover shadow-sm"
                     referrerPolicy="no-referrer"
                   />

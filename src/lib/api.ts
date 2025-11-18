@@ -66,4 +66,33 @@ export async function apiFetch<T = any>(
   return (await res.json()) as T;
 }
 
-
+/**
+ * Normaliza URLs de imagens para garantir que sejam acessíveis
+ * Se a URL começa com /uploads/, adiciona a URL base da API
+ * URLs completas (http/https) são retornadas como estão
+ */
+export const normalizeImageUrl = (url: string | null | undefined): string => {
+  if (!url || !url.trim()) {
+    return '';
+  }
+  
+  const trimmedUrl = url.trim();
+  
+  // Se já é uma URL completa (http/https), retorna como está
+  if (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://')) {
+    return trimmedUrl;
+  }
+  
+  // Se começa com /uploads/, adiciona a URL base da API
+  if (trimmedUrl.startsWith('/uploads/')) {
+    return `${getApiUrl()}${trimmedUrl}`;
+  }
+  
+  // Se começa com /, assume que é relativa ao frontend (assets locais)
+  if (trimmedUrl.startsWith('/')) {
+    return trimmedUrl;
+  }
+  
+  // Caso contrário, retorna como está
+  return trimmedUrl;
+};

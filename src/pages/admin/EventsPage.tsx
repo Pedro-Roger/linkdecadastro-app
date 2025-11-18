@@ -4,7 +4,7 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import MobileNavbar from '@/components/ui/MobileNavbar'
 import Footer from '@/components/ui/Footer'
-import { apiFetch } from '@/lib/api'
+import { apiFetch, getApiUrl } from '@/lib/api'
 import { useAuth } from '@/lib/useAuth'
 
 interface EventItem {
@@ -160,8 +160,14 @@ export default function AdminEventsPage() {
     }
   }
 
-  const handleShareWhatsapp = (shareData: ShareData) => {
-    const waUrl = `https://wa.me/?text=${encodeURIComponent(shareData.message)}`
+  const handleShareWhatsapp = (shareData: ShareData, event?: EventItem) => {
+    // Se tiver evento, usa URL de preview com Open Graph para WhatsApp
+    let message = shareData.message
+    if (event) {
+      const previewUrl = `${getApiUrl()}/share/event/${event.id}`
+      message = `${event.title}${event.description ? `\n\n${event.description.substring(0, 150)}${event.description.length > 150 ? '...' : ''}` : ''}\n\n${previewUrl}`
+    }
+    const waUrl = `https://wa.me/?text=${encodeURIComponent(message)}`
     window.open(waUrl, '_blank', 'noopener,noreferrer')
   }
 
@@ -351,7 +357,7 @@ export default function AdminEventsPage() {
                                 Compartilhar
                               </button>
                               <button
-                                onClick={() => handleShareWhatsapp(shareData)}
+                                onClick={() => handleShareWhatsapp(shareData, event)}
                                 className="rounded-md bg-green-600 px-3 py-1 text-xs font-semibold text-white transition-colors hover:bg-green-700"
                               >
                                 WhatsApp
@@ -537,7 +543,7 @@ export default function AdminEventsPage() {
                 Compartilhar agora
               </button>
               <button
-                onClick={() => selectedShareData && handleShareWhatsapp(selectedShareData)}
+                onClick={() => selectedShareData && selectedEvent && handleShareWhatsapp(selectedShareData, selectedEvent)}
                 className="inline-flex items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-green-700"
               >
                 WhatsApp

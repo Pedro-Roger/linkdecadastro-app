@@ -6,7 +6,7 @@ import { z } from 'zod'
 import NotificationBell from '@/components/notifications/NotificationBell'
 import Footer from '@/components/ui/Footer'
 import LoadingScreen from '@/components/ui/LoadingScreen'
-import { apiFetch, getApiUrl } from '@/lib/api'
+import { apiFetch, getApiUrl, normalizeImageUrl } from '@/lib/api'
 import { useAuth } from '@/lib/useAuth'
 
 const lessonSchema = z.object({
@@ -459,7 +459,7 @@ export default function CourseLessonsPage() {
                       <p className="text-sm text-gray-600 mb-2">Preview do banner:</p>
                       <div className="relative w-full h-48 border border-gray-300 rounded-md overflow-hidden">
                         <img
-                          src={bannerPreview}
+                          src={normalizeImageUrl(bannerPreview)}
                           alt="Preview do banner"
                           className="w-full h-full object-cover"
                           onError={() => setBannerPreview(null)}
@@ -558,7 +558,7 @@ export default function CourseLessonsPage() {
                       {lesson.bannerUrl && (
                         <div className="relative w-24 h-16 flex-shrink-0 rounded overflow-hidden border border-gray-200">
                           <img
-                            src={lesson.bannerUrl} alt={lesson.title}
+                            src={normalizeImageUrl(lesson.bannerUrl)} alt={lesson.title}
                             className="w-full h-full object-cover"
                           />
                         </div>

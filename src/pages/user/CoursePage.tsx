@@ -6,7 +6,7 @@ import { ptBR } from 'date-fns/locale'
 import NotificationBell from '@/components/notifications/NotificationBell'
 import Footer from '@/components/ui/Footer'
 import LoadingScreen from '@/components/ui/LoadingScreen'
-import { apiFetch } from '@/lib/api'
+import { apiFetch, normalizeImageUrl, getApiUrl } from '@/lib/api'
 
 export default function CoursePage() {
   const params = useParams()
@@ -119,8 +119,8 @@ export default function CoursePage() {
     const url = origin ? `${origin}${path}` : path
 
     let bannerUrl: string | undefined = course.bannerUrl
-    if (bannerUrl && bannerUrl.startsWith('/')) {
-      bannerUrl = origin ? `${origin}${bannerUrl}` : bannerUrl
+    if (bannerUrl) {
+      bannerUrl = normalizeImageUrl(bannerUrl)
     }
 
     const message = `Confira o curso "${course.title}" no Link de Cadastro: ${url}`
@@ -154,14 +154,17 @@ export default function CoursePage() {
   }, [courseShareData, course])
 
   const handleShareWhatsapp = useCallback(() => {
-    if (!courseShareData) return
+    if (!courseShareData || !course) return
 
-    const waUrl = `https://wa.me/?text=${encodeURIComponent(courseShareData.message)}`
+    // Usa a URL de preview que contém as meta tags Open Graph para WhatsApp
+    const previewUrl = `${getApiUrl()}/share/course/${course.id}`
+    const message = `${course.title}${course.description ? `\n\n${course.description.substring(0, 150)}${course.description.length > 150 ? '...' : ''}` : ''}\n\n${previewUrl}`
+    const waUrl = `https://wa.me/?text=${encodeURIComponent(message)}`
 
     if (typeof window !== 'undefined') {
       window.open(waUrl, '_blank', 'noopener,noreferrer')
     }
-  }, [courseShareData])
+  }, [courseShareData, course])
 
   const handleCopyLink = useCallback(async () => {
     if (!courseShareData) return
@@ -482,7 +485,7 @@ export default function CoursePage() {
               <div className="flex items-center justify-center">
                 {courseShareData.bannerUrl ? (
                   <img
-                    src={courseShareData.bannerUrl} alt={`Banner do curso ${course.title}`}
+                    src={normalizeImageUrl(courseShareData.bannerUrl)} alt={`Banner do curso ${course.title}`}
                     className="h-32 w-32 rounded-lg object-cover shadow-sm"
                     referrerPolicy="no-referrer"
                   />

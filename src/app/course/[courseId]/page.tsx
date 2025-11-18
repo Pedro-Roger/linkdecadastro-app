@@ -8,7 +8,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import NotificationBell from '@/components/notifications/NotificationBell'
 import Footer from '@/components/ui/Footer'
-import { apiFetch } from '@/lib/api'
+import { apiFetch, getApiUrl } from '@/lib/api'
 
 export default function CoursePage() {
   const params = useParams()
@@ -161,14 +161,17 @@ export default function CoursePage() {
   }, [courseShareData, course])
 
   const handleShareWhatsapp = useCallback(() => {
-    if (!courseShareData) return
+    if (!courseShareData || !course) return
 
-    const waUrl = `https://wa.me/?text=${encodeURIComponent(courseShareData.message)}`
+    // Usa a URL de preview que contém as meta tags Open Graph para WhatsApp
+    const previewUrl = `${getApiUrl()}/share/course/${course.id}`
+    const message = `${course.title}${course.description ? `\n\n${course.description.substring(0, 150)}${course.description.length > 150 ? '...' : ''}` : ''}\n\n${previewUrl}`
+    const waUrl = `https://wa.me/?text=${encodeURIComponent(message)}`
 
     if (typeof window !== 'undefined') {
       window.open(waUrl, '_blank', 'noopener,noreferrer')
     }
-  }, [courseShareData])
+  }, [courseShareData, course])
 
   const handleCopyLink = useCallback(async () => {
     if (!courseShareData) return
