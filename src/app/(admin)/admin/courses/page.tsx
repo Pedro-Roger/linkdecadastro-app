@@ -6,7 +6,7 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import MobileNavbar from '@/components/ui/MobileNavbar'
 import Footer from '@/components/ui/Footer'
-import { apiFetch, getApiUrl } from '@/lib/api'
+import { apiFetch, getApiUrl, normalizeImageUrl } from '@/lib/api'
 import { useAuth } from '@/lib/useAuth'
 
 export default function AdminCoursesPage() {
@@ -19,6 +19,7 @@ export default function AdminCoursesPage() {
   const [shareModalOpen, setShareModalOpen] = useState(false)
   const [shareCopyStatus, setShareCopyStatus] = useState<'idle' | 'success'>('idle')
   const [selectedCourse, setSelectedCourse] = useState<any>(null)
+  const [imageError, setImageError] = useState(false)
 
   useEffect(() => {
     if (!authLoading) {
@@ -93,10 +94,7 @@ export default function AdminCoursesPage() {
     const path = course.slug ? `/c/${course.slug}` : `/course/${course.id}`
     const url = origin ? `${origin}${path}` : path
 
-    let bannerUrl: string | undefined = course.bannerUrl
-    if (bannerUrl && bannerUrl.startsWith('/')) {
-      bannerUrl = origin ? `${origin}${bannerUrl}` : bannerUrl
-    }
+    const bannerUrl = normalizeImageUrl(course.bannerUrl)
 
     return {
       url,
@@ -113,6 +111,7 @@ export default function AdminCoursesPage() {
   const openShareModal = (course: any) => {
     setSelectedCourse(course)
     setShareCopyStatus('idle')
+    setImageError(false)
     setShareModalOpen(true)
   }
 
@@ -156,12 +155,13 @@ export default function AdminCoursesPage() {
     }
   }
 
-  const shareWhatsApp = () => {
-    if (!selectedShareData || !selectedCourse) return
+  const shareWhatsApp = (course?: any) => {
+    const courseToShare = course || selectedCourse
+    if (!courseToShare) return
     
     // Usa a URL de preview que contém as meta tags Open Graph para WhatsApp
-    const previewUrl = `${getApiUrl()}/share/course/${selectedCourse.id}`
-    const message = `${selectedCourse.title}${selectedCourse.description ? `\n\n${selectedCourse.description.substring(0, 150)}${selectedCourse.description.length > 150 ? '...' : ''}` : ''}\n\n${previewUrl}`
+    const previewUrl = `${getApiUrl()}/share/course/${courseToShare.id}`
+    const message = `${courseToShare.title}${courseToShare.description ? `\n\n${courseToShare.description.substring(0, 150)}${courseToShare.description.length > 150 ? '...' : ''}` : ''}\n\n${previewUrl}`
     const waUrl = `https://wa.me/?text=${encodeURIComponent(message)}`
 
     if (typeof window !== 'undefined') {
@@ -448,7 +448,7 @@ export default function AdminCoursesPage() {
                         Compartilhar
                       </button>
                       <button
-                        onClick={() => openShareModal(course)}
+                        onClick={() => shareWhatsApp(course)}
                         className="bg-green-600 text-white py-2 px-3 rounded-md font-semibold hover:bg-green-700 transition-colors text-xs flex items-center justify-center gap-1"
                       >
                         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
@@ -494,12 +494,13 @@ export default function AdminCoursesPage() {
 
             <div className="grid gap-4 px-6 py-4 md:grid-cols-[160px,1fr]">
               <div className="flex items-center justify-center">
-                {selectedShareData.bannerUrl ? (
+                {selectedShareData.bannerUrl && !imageError ? (
                   <img
                     src={selectedShareData.bannerUrl}
                     alt={`Banner do curso ${selectedCourse.title}`}
                     className="h-32 w-32 rounded-lg object-cover shadow-sm"
                     referrerPolicy="no-referrer"
+                    onError={() => setImageError(true)}
                   />
                 ) : (
                   <div className="flex h-32 w-32 items-center justify-center rounded-lg bg-gradient-to-br from-[#003366] to-[#FF6600] text-center text-xs font-semibold text-white">
