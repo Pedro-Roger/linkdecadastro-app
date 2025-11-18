@@ -2,36 +2,69 @@
   RewriteEngine On
   RewriteBase /
   
-  # Remove barras duplas da URL primeiro
-  RewriteCond %{REQUEST_URI} ^(.*)//(.*)$
-  RewriteRule . %1/%2 [R=301,L]
+  # Remove barras duplas da URL primeiro (redirecionamento permanente)
+  RewriteCond %{REQUEST_URI} ^(.*)//+(.*)$
+  RewriteRule ^(.*)$ %1/%2 [R=301,L]
   
-  # Não reescrever arquivos físicos existentes (imagens, CSS, JS, etc)
-  RewriteCond %{REQUEST_FILENAME} !-f
-  RewriteCond %{REQUEST_FILENAME} !-d
+  # NÃO reescrever se for um arquivo físico existente
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
   
-  # Não reescrever se for um arquivo estático
-  RewriteCond %{REQUEST_URI} !\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|json|xml|txt|pdf|zip)$
+  # NÃO reescrever arquivos estáticos (assets)
+  RewriteCond %{REQUEST_URI} \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|json|xml|txt|pdf|zip|webp|webm|mp4)$ [NC]
+  RewriteRule ^ - [L]
   
-  # Não reescrever requisições para API (se houver)
-  RewriteCond %{REQUEST_URI} !^/api/
+  # NÃO reescrever diretórios especiais
+  RewriteCond %{REQUEST_URI} ^/(api|assets|images|fonts|_next|static)/ [NC]
+  RewriteRule ^ - [L]
   
-  # Redirecionar tudo para index.html (SPA)
-  # Isso permite que o React Router gerencie todas as rotas no cliente
-  RewriteRule ^(?!index\.html$).* /index.html [L]
+  # NÃO reescrever se já for index.html
+  RewriteCond %{REQUEST_URI} ^/index\.html$ [NC]
+  RewriteRule ^ - [L]
+  
+  # Redirecionar TUDO para index.html (React Router SPA)
+  # Esta é a regra mais importante - permite que todas as rotas sejam servidas pelo React
+  RewriteRule ^ index.html [L]
 </IfModule>
 
-# Configuração adicional para garantir que index.html seja servido
+# Força o index.html como página padrão
 DirectoryIndex index.html
 
 # Prevenir listagem de diretórios
-Options -Indexes
+Options -Indexes +FollowSymLinks
 
-# Segurança: não permitir acesso a arquivos ocultos
+# Segurança: não permitir acesso a arquivos ocultos (exceto .well-known)
 <FilesMatch "^\.">
   Order allow,deny
   Deny from all
 </FilesMatch>
+
+# Permitir acesso ao .well-known (para certificados SSL, etc)
+<FilesMatch "^\.well-known">
+  Order allow,deny
+  Allow from all
+</FilesMatch>
+
+# Headers de segurança e cache
+<IfModule mod_headers.c>
+  # Headers de segurança
+  Header set X-Content-Type-Options "nosniff"
+  Header set X-Frame-Options "SAMEORIGIN"
+  Header set X-XSS-Protection "1; mode=block"
+  
+  # Cache para assets estáticos
+  <FilesMatch "\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+  
+  # Sem cache para index.html (para sempre ter a versão mais recente)
+  <FilesMatch "index\.html$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+    Header set Pragma "no-cache"
+    Header set Expires "0"
+  </FilesMatch>
+</IfModule>
 
 # Configurações de cache para assets
 <IfModule mod_expires.c>
@@ -41,7 +74,21 @@ Options -Indexes
   ExpiresByType image/gif "access plus 1 year"
   ExpiresByType image/png "access plus 1 year"
   ExpiresByType image/svg+xml "access plus 1 year"
+  ExpiresByType image/webp "access plus 1 year"
   ExpiresByType text/css "access plus 1 month"
   ExpiresByType application/javascript "access plus 1 month"
+  ExpiresByType application/x-javascript "access plus 1 month"
+  ExpiresByType font/woff "access plus 1 year"
+  ExpiresByType font/woff2 "access plus 1 year"
+  ExpiresByType font/ttf "access plus 1 year"
+  ExpiresByType font/eot "access plus 1 year"
+  ExpiresByType application/font-woff "access plus 1 year"
+  ExpiresByType application/font-woff2 "access plus 1 year"
+</IfModule>
+
+# Tipo MIME para arquivos JavaScript (alguns servidores podem não reconhecer)
+<IfModule mod_mime.c>
+  AddType application/javascript js
+  AddType text/css css
 </IfModule>
 

@@ -28,7 +28,7 @@ deployment:
     - /bin/cp -R $GIT_REPO_ROOT/dist/* $DEPLOYPATH
     
     # Copia o arquivo .htaccess do repositório (SEMPRE usa a versão do repositório)
-    - if [ -f $GIT_REPO_ROOT/.htaccess ]; then /bin/cp $GIT_REPO_ROOT/.htaccess $DEPLOYPATH.htaccess && echo ".htaccess copiado com sucesso"; else echo "Aviso: .htaccess não encontrado no repositório"; fi
+    - if [ -f $GIT_REPO_ROOT/.htaccess ]; then /bin/cp $GIT_REPO_ROOT/.htaccess $DEPLOYPATH/.htaccess && echo ".htaccess copiado com sucesso"; else echo "Aviso: .htaccess não encontrado no repositório"; fi
     
     # Define permissões corretas
     - /bin/chmod -R 755 $DEPLOYPATH
