@@ -273,10 +273,15 @@ export default function NewCoursePage() {
 
   const cloneCourse = async (courseId: string) => {
     setCloning(true)
+    setError(null)
     try {
       const course = await apiFetch<any>(`/admin/courses/${courseId}`, {
         auth: true,
       })
+
+      if (!course) {
+        throw new Error('Curso não encontrado')
+      }
 
       // Preencher formulário com dados do curso clonado
       setValue('title', `${course.title} (Cópia)`)
@@ -293,10 +298,8 @@ export default function NewCoursePage() {
       setValue('regionRestrictionEnabled', course.regionRestrictionEnabled || false)
       setValue('allowAllRegions', course.allowAllRegions ?? true)
       if (course.defaultRegionLimit) setValue('defaultRegionLimit', String(course.defaultRegionLimit))
-      // Não clonar datas e slug
-      // if (course.startDate) setValue('startDate', course.startDate)
-      // if (course.endDate) setValue('endDate', course.endDate)
-
+      // Não clonar datas e slug (deixa vazio para o usuário definir)
+      
       // Preencher quotas regionais
       if (course.regionQuotas && course.regionQuotas.length > 0) {
         const quotas = course.regionQuotas.map((q: any) => ({
@@ -310,7 +313,10 @@ export default function NewCoursePage() {
 
       // Guardar aulas para clonagem após criação
       if (course.lessons && course.lessons.length > 0) {
-        setClonedLessons(course.lessons)
+        // Armazena todas as aulas menos a primeira (que será criada junto com o curso)
+        setClonedLessons(course.lessons.slice(1))
+      } else {
+        setClonedLessons([])
       }
 
       // Se houver primeira aula, preencher campos
@@ -320,12 +326,16 @@ export default function NewCoursePage() {
         if (firstLesson.title) setValue('firstLessonTitle', firstLesson.title)
         if (firstLesson.description) setValue('firstLessonDescription', firstLesson.description)
         if (firstLesson.videoUrl) setValue('firstLessonVideoUrl', firstLesson.videoUrl)
-        if (firstLesson.bannerUrl) setValue('firstLessonBannerUrl', firstLesson.bannerUrl)
+        if (firstLesson.bannerUrl) setValue('bannerUrl', firstLesson.bannerUrl)
         if (firstLesson.duration) setValue('firstLessonDuration', firstLesson.duration)
+      } else {
+        setShowFirstLesson(false)
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao clonar curso:', error)
-      alert('Erro ao carregar curso para clonagem')
+      const errorMessage = error?.message || 'Erro ao carregar curso para clonagem. Verifique se você tem permissão.'
+      setError(errorMessage)
+      alert(errorMessage)
     } finally {
       setCloning(false)
     }
