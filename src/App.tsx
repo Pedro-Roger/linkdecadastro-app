@@ -23,6 +23,7 @@ const UserProfilePage = lazy(() => import('./pages/user/ProfilePage'))
 const CourseBySlugPage = lazy(() => import('./pages/CourseBySlugPage'))
 const RegisterByLinkPage = lazy(() => import('./pages/RegisterByLinkPage'))
 const GoogleCallbackPage = lazy(() => import('./pages/auth/GoogleCallbackPage'))
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
 
 function LoadingFallback() {
   return <LoadingScreen />
@@ -56,6 +57,9 @@ function App() {
           <Route path="/admin/events" element={<AdminEventsPage />} />
           <Route path="/admin/events/:eventId/registrations" element={<EventRegistrationsPage />} />
           <Route path="/admin/events/:eventId/classes" element={<EventClassesPage />} />
+          
+          {/* Rota 404 - deve ser a última */}
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </Suspense>
     </ErrorBoundary>

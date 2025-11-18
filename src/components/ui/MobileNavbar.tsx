@@ -8,7 +8,7 @@ export default function MobileNavbar() {
   const location = useLocation()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
-
+  const [isScrolled, setIsScrolled] = useState(false)
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -16,6 +16,15 @@ export default function MobileNavbar() {
       setIsUserMenuOpen(false)
     }
   }, [isAuthenticated])
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 10)
+    }
+
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
 
   const isActive = (path: string) => location.pathname === path
 
@@ -138,14 +147,16 @@ export default function MobileNavbar() {
       </nav>
 
       
-      <nav className="md:hidden bg-white shadow-sm sticky top-0 z-50">
+      <nav className={`md:hidden bg-white sticky top-0 z-50 transition-all duration-300 ${
+        isScrolled ? 'shadow-lg' : 'shadow-sm'
+      }`}>
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
-            <Link to="/" className="flex items-center" onClick={() => setIsMenuOpen(false)}>
+            <Link to="/" className="flex items-center flex-shrink-0" onClick={() => setIsMenuOpen(false)}>
               <img
                 src="/logo B.png"
                 alt="Link de Cadastro"
-                className="h-16 w-auto object-contain"
+                className="h-14 md:h-16 w-auto object-contain"
               />
             </Link>
             <button
@@ -184,8 +195,9 @@ export default function MobileNavbar() {
               <div
                 className="fixed inset-0 bg-black bg-opacity-50 z-40"
                 onClick={() => setIsMenuOpen(false)}
+                style={{ top: '73px' }}
               />
-              <div className="absolute top-full left-0 right-0 bg-white border-t shadow-lg z-50 max-h-[calc(100vh-80px)] overflow-y-auto">
+              <div className="fixed top-[73px] left-0 right-0 bg-white border-t shadow-xl z-50 max-h-[calc(100vh-73px)] overflow-y-auto">
                 <div className="container mx-auto px-4 py-4 space-y-3">
                 <Link
                   to="/courses"
@@ -261,8 +273,17 @@ export default function MobileNavbar() {
 
       
       {isAuthenticated && user && (
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-50" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-          <div className="flex items-center justify-around px-2 py-2">
+        <nav 
+          className={`md:hidden fixed bottom-0 left-0 right-0 bg-white border-t z-50 transition-all duration-300 ${
+            isScrolled ? 'shadow-2xl' : 'shadow-lg'
+          }`}
+          style={{ 
+            paddingBottom: 'calc(env(safe-area-inset-bottom) + 0.5rem)',
+            backdropFilter: 'blur(10px)',
+            backgroundColor: 'rgba(255, 255, 255, 0.98)'
+          }}
+        >
+          <div className="flex items-center justify-around px-2 py-2 max-w-screen-xl mx-auto">
             <Link
               to="/"
               className={`flex flex-col items-center justify-center px-4 py-2 rounded-lg transition-colors ${
