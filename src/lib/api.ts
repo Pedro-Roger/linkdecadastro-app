@@ -93,6 +93,12 @@ export const normalizeImageUrl = (url: string | null | undefined): string => {
     return trimmedUrl;
   }
   
+  // Se parece ser apenas um nome de arquivo (contém extensão de imagem e não tem /)
+  // Assumimos que é um arquivo em /uploads/banners/
+  if (/\.(jpg|jpeg|png|gif|webp|svg)$/i.test(trimmedUrl) && !trimmedUrl.includes('/')) {
+    return `${getApiUrl()}/uploads/banners/${trimmedUrl}`;
+  }
+  
   // Caso contrário, retorna como está
   return trimmedUrl;
 };

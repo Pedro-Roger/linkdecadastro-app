@@ -379,7 +379,7 @@ export default function AdminCoursesPage() {
                 {course.bannerUrl && course.bannerUrl.trim() ? (
                   <div className="relative w-full h-[386px] overflow-hidden bg-gray-200">
                     <img
-                      src={course.bannerUrl}
+                      src={normalizeImageUrl(course.bannerUrl)}
                       alt={`Banner do curso ${course.title}`}
                       className="w-full h-full min-w-full min-h-full object-cover"
                       style={{ objectFit: 'cover', objectPosition: 'center' }}
