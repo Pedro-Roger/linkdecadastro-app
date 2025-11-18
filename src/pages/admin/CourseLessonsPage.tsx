@@ -27,6 +27,75 @@ const lessonSchema = z.object({
 
 type LessonFormData = z.infer<typeof lessonSchema>
 
+const courseEditSchema = z.object({
+  title: z.string().min(1, 'Título é obrigatório'),
+  description: z.string().optional(),
+  bannerUrl: z.string().optional().or(z.literal('')).transform((val) => {
+    return val && val.trim() ? val.trim() : undefined
+  }).refine(
+    (val) => !val || val.startsWith('/') || val.startsWith('http://') || val.startsWith('https://'),
+    { message: 'URL inválida' }
+  ),
+  status: z.enum(['ACTIVE', 'INACTIVE']).default('ACTIVE'),
+  type: z.enum(['PRESENCIAL', 'ONLINE']).default('ONLINE'),
+  maxEnrollments: z.string().optional().transform((val) => {
+    if (!val || !val.trim()) return null
+    const parsed = parseInt(val, 10)
+    return Number.isNaN(parsed) ? null : parsed
+  }),
+  waitlistEnabled: z.boolean().optional(),
+  waitlistLimit: z.string().optional().transform((val) => {
+    if (!val || !val.trim()) return 0
+    const parsed = parseInt(val, 10)
+    return Number.isNaN(parsed) ? 0 : parsed
+  }),
+  regionRestrictionEnabled: z.boolean().optional(),
+  allowAllRegions: z.boolean().optional(),
+  defaultRegionLimit: z.string().optional().transform((val) => {
+    if (!val || !val.trim()) return null
+    const parsed = parseInt(val, 10)
+    return Number.isNaN(parsed) ? null : parsed
+  }),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  slug: z.string().optional().refine(
+    (val) => !val || /^[a-z0-9-]+$/.test(val),
+    { message: 'URL personalizada deve conter apenas letras minúsculas, números e hífens' }
+  ),
+})
+
+type CourseEditFormData = z.infer<typeof courseEditSchema>
+
+const BRAZIL_STATES = [
+  { sigla: 'AC', nome: 'Acre' },
+  { sigla: 'AL', nome: 'Alagoas' },
+  { sigla: 'AP', nome: 'Amapá' },
+  { sigla: 'AM', nome: 'Amazonas' },
+  { sigla: 'BA', nome: 'Bahia' },
+  { sigla: 'CE', nome: 'Ceará' },
+  { sigla: 'DF', nome: 'Distrito Federal' },
+  { sigla: 'ES', nome: 'Espírito Santo' },
+  { sigla: 'GO', nome: 'Goiás' },
+  { sigla: 'MA', nome: 'Maranhão' },
+  { sigla: 'MT', nome: 'Mato Grosso' },
+  { sigla: 'MS', nome: 'Mato Grosso do Sul' },
+  { sigla: 'MG', nome: 'Minas Gerais' },
+  { sigla: 'PA', nome: 'Pará' },
+  { sigla: 'PB', nome: 'Paraíba' },
+  { sigla: 'PR', nome: 'Paraná' },
+  { sigla: 'PE', nome: 'Pernambuco' },
+  { sigla: 'PI', nome: 'Piauí' },
+  { sigla: 'RJ', nome: 'Rio de Janeiro' },
+  { sigla: 'RN', nome: 'Rio Grande do Norte' },
+  { sigla: 'RS', nome: 'Rio Grande do Sul' },
+  { sigla: 'RO', nome: 'Rondônia' },
+  { sigla: 'RR', nome: 'Roraima' },
+  { sigla: 'SC', nome: 'Santa Catarina' },
+  { sigla: 'SP', nome: 'São Paulo' },
+  { sigla: 'SE', nome: 'Sergipe' },
+  { sigla: 'TO', nome: 'Tocantins' }
+]
+
 export default function CourseLessonsPage() {
   const params = useParams()
   const navigate = useNavigate()
@@ -44,6 +113,30 @@ export default function CourseLessonsPage() {
   const [error, setError] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [bannerPreview, setBannerPreview] = useState<string | null>(null)
+  const [showCourseEdit, setShowCourseEdit] = useState(false)
+  const [editingCourse, setEditingCourse] = useState(false)
+  const [courseEditError, setCourseEditError] = useState<string | null>(null)
+  const [regionQuotas, setRegionQuotas] = useState<
+    Array<{
+      id?: string
+      state: string
+      city: string
+      limit: number
+      waitlistLimit: number
+    }>
+  >([])
+  const [newRegionQuota, setNewRegionQuota] = useState<{
+    state: string
+    city: string
+    limit: string
+    waitlistLimit: string
+  }>({
+    state: '',
+    city: '',
+    limit: '',
+    waitlistLimit: ''
+  })
+  const [regionQuotaError, setRegionQuotaError] = useState<string | null>(null)
 
   const { register, handleSubmit, formState: { errors }, reset, setValue, watch } = useForm<LessonFormData>({
     resolver: zodResolver(lessonSchema),
@@ -51,6 +144,30 @@ export default function CourseLessonsPage() {
       order: 0
     }
   })
+
+  const { 
+    register: registerCourse, 
+    handleSubmit: handleSubmitCourse, 
+    formState: { errors: courseErrors }, 
+    reset: resetCourse, 
+    setValue: setCourseValue, 
+    watch: watchCourse 
+  } = useForm<CourseEditFormData>({
+    resolver: zodResolver(courseEditSchema),
+    defaultValues: {
+      status: 'ACTIVE',
+      type: 'ONLINE',
+      waitlistEnabled: false,
+      waitlistLimit: 0,
+      regionRestrictionEnabled: false,
+      allowAllRegions: true
+    }
+  })
+
+  const waitlistEnabled = watchCourse('waitlistEnabled')
+  const regionRestrictionEnabled = watchCourse('regionRestrictionEnabled')
+  const allowAllRegions = watchCourse('allowAllRegions')
+  const courseBannerUrl = watchCourse('bannerUrl')
 
   const videoUrl = watch('videoUrl')
   const bannerUrl = watch('bannerUrl')
@@ -86,16 +203,15 @@ export default function CourseLessonsPage() {
     }
   }, [videoUrl, bannerUrl, setValue])
 
-  const handleFileUpload = async (file: File) => {
+  const handleFileUpload = async (file: File, isCourseBanner = false) => {
     setUploading(true)
     setError(null)
+    setCourseEditError(null)
 
     try {
-
       if (!file.type.startsWith('image/')) {
         throw new Error('Apenas imagens são permitidas')
       }
-
 
       const maxSize = 5 * 1024 * 1024 // 5MB
       if (file.size > maxSize) {
@@ -127,20 +243,69 @@ export default function CourseLessonsPage() {
             message = errorData.error
           }
         } catch {
-
+          // ignore
         }
         throw new Error(message)
       }
 
       const data = await response.json()
 
-      setValue('bannerUrl', data.url, { shouldValidate: true })
-      setBannerPreview(data.url)
+      if (isCourseBanner) {
+        setCourseValue('bannerUrl', data.url, { shouldValidate: true })
+        setBannerPreview(data.url)
+      } else {
+        setValue('bannerUrl', data.url, { shouldValidate: true })
+        setBannerPreview(data.url)
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao fazer upload')
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao fazer upload'
+      if (isCourseBanner) {
+        setCourseEditError(errorMessage)
+      } else {
+        setError(errorMessage)
+      }
     } finally {
       setUploading(false)
     }
+  }
+
+  const handleAddRegionQuota = () => {
+    if (!newRegionQuota.state || !newRegionQuota.limit.trim()) {
+      setRegionQuotaError('Selecione o estado e informe o limite de vagas.')
+      return
+    }
+
+    const limitValue = parseInt(newRegionQuota.limit, 10)
+    if (Number.isNaN(limitValue) || limitValue <= 0) {
+      setRegionQuotaError('Informe um limite de vagas válido (maior que zero).')
+      return
+    }
+
+    const waitlistValue = newRegionQuota.waitlistLimit
+      ? parseInt(newRegionQuota.waitlistLimit, 10)
+      : 0
+
+    setRegionQuotas((prev) => [
+      ...prev,
+      {
+        state: newRegionQuota.state,
+        city: newRegionQuota.city.trim(),
+        limit: limitValue,
+        waitlistLimit: Number.isNaN(waitlistValue) || waitlistValue < 0 ? 0 : waitlistValue
+      }
+    ])
+
+    setNewRegionQuota({
+      state: '',
+      city: '',
+      limit: '',
+      waitlistLimit: ''
+    })
+    setRegionQuotaError(null)
+  }
+
+  const handleRemoveRegionQuota = (index: number) => {
+    setRegionQuotas((prev) => prev.filter((_, quotaIndex) => quotaIndex !== index))
   }
 
   const fetchCourse = useCallback(async () => {
@@ -149,9 +314,102 @@ export default function CourseLessonsPage() {
         auth: true,
       })
       setCourse(data)
+      
+      // Preencher formulário de edição do curso
+      if (data) {
+        setCourseValue('title', data.title)
+        setCourseValue('description', data.description || '')
+        setCourseValue('bannerUrl', data.bannerUrl || '')
+        setCourseValue('status', data.status || 'ACTIVE')
+        setCourseValue('type', data.type || 'ONLINE')
+        setCourseValue('maxEnrollments', data.maxEnrollments ? String(data.maxEnrollments) : '')
+        setCourseValue('waitlistEnabled', data.waitlistEnabled || false)
+        setCourseValue('waitlistLimit', data.waitlistLimit ? String(data.waitlistLimit) : '0')
+        setCourseValue('regionRestrictionEnabled', data.regionRestrictionEnabled || false)
+        setCourseValue('allowAllRegions', data.allowAllRegions ?? true)
+        setCourseValue('defaultRegionLimit', data.defaultRegionLimit ? String(data.defaultRegionLimit) : '')
+        setCourseValue('startDate', data.startDate ? data.startDate.split('T')[0] : '')
+        setCourseValue('endDate', data.endDate ? data.endDate.split('T')[0] : '')
+        setCourseValue('slug', data.slug || '')
+        
+        if (data.bannerUrl) {
+          setBannerPreview(data.bannerUrl)
+        }
+        
+        // Preencher quotas regionais
+        if (data.regionQuotas && data.regionQuotas.length > 0) {
+          setRegionQuotas(data.regionQuotas.map((q: any) => ({
+            id: q.id,
+            state: q.state,
+            city: q.city || '',
+            limit: q.limit,
+            waitlistLimit: q.waitlistLimit || 0,
+          })))
+        } else {
+          setRegionQuotas([])
+        }
+      }
     } catch (error) {
     }
-  }, [courseId])
+  }, [courseId, setCourseValue])
+
+  const onCourseEditSubmit = useCallback(async (data: CourseEditFormData) => {
+    setEditingCourse(true)
+    setCourseEditError(null)
+
+    try {
+      if (data.regionRestrictionEnabled && regionQuotas.length === 0) {
+        setCourseEditError('Adicione pelo menos uma região com limite de vagas ou desative a restrição regional.')
+        setEditingCourse(false)
+        return
+      }
+
+      const finalBannerUrl = (data.bannerUrl && data.bannerUrl.trim()) || (bannerPreview && bannerPreview.trim()) || undefined
+
+      const payload: any = {
+        title: data.title,
+        description: data.description || undefined,
+        bannerUrl: finalBannerUrl,
+        status: data.status || 'ACTIVE',
+        type: data.type || 'ONLINE',
+        maxEnrollments: data.maxEnrollments && typeof data.maxEnrollments === 'number' ? data.maxEnrollments : null,
+        waitlistEnabled: data.waitlistEnabled ?? false,
+        waitlistLimit: typeof data.waitlistLimit === 'number' && data.waitlistLimit >= 0 ? data.waitlistLimit : 0,
+        regionRestrictionEnabled: data.regionRestrictionEnabled ?? false,
+        allowAllRegions: data.regionRestrictionEnabled ?? false ? data.allowAllRegions ?? true : true,
+        defaultRegionLimit: typeof data.defaultRegionLimit === 'number' && data.defaultRegionLimit > 0 ? data.defaultRegionLimit : null,
+        startDate: data.startDate && data.startDate.trim() ? data.startDate : undefined,
+        endDate: data.endDate && data.endDate.trim() ? data.endDate : undefined,
+        slug: data.slug && data.slug.trim() ? data.slug.trim().toLowerCase() : undefined,
+        regionQuotas: data.regionRestrictionEnabled
+          ? regionQuotas.map((quota) => ({
+              id: quota.id || null,
+              state: quota.state,
+              city: quota.city || null,
+              limit: quota.limit,
+              waitlistLimit: quota.waitlistLimit ?? 0
+            }))
+          : []
+      }
+
+      const updated = await apiFetch<any>(`/admin/courses/${courseId}`, {
+        method: 'PUT',
+        auth: true,
+        body: JSON.stringify(payload),
+      })
+
+      setCourse(updated)
+      setShowCourseEdit(false)
+      alert('Curso atualizado com sucesso!')
+      fetchCourse() // Recarregar dados
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao atualizar curso'
+      setCourseEditError(errorMessage)
+      alert(errorMessage)
+    } finally {
+      setEditingCourse(false)
+    }
+  }, [courseId, regionQuotas, bannerPreview, fetchCourse])
 
   const fetchLessons = useCallback(async () => {
     try {
@@ -298,7 +556,7 @@ export default function CourseLessonsPage() {
           >
             ← Voltar para Cursos
           </Link>
-          <div className="flex justify-between items-start">
+          <div className="flex justify-between items-start mb-4">
             <div>
               <h1 className="text-3xl font-bold text-[#003366]">
                 {course?.title || 'Carregando...'}
@@ -306,37 +564,353 @@ export default function CourseLessonsPage() {
               <p className="text-gray-600 mt-2">{course?.description}</p>
             </div>
             <button
-              onClick={async () => {
-                const bannerUrl = prompt('Digite a URL do banner do curso (ou deixe vazio para remover):')
-                if (bannerUrl !== null) {
-                  try {
-                    const updated = await apiFetch<any>(
-                      `/admin/courses/${courseId}`,
-                      {
-                        method: 'PUT',
-                        auth: true,
-                        body: JSON.stringify({
-                          bannerUrl: bannerUrl.trim() || null,
-                        }),
-                      },
-                    )
-                    setCourse(updated)
-                    alert('Banner do curso atualizado com sucesso!')
-                    window.location.reload()
-                  } catch (error) {
-                    alert(
-                      error instanceof Error
-                        ? error.message
-                        : 'Erro ao atualizar banner',
-                    )
-                  }
-                }
-              }}
-              className="bg-blue-600 text-white px-4 py-2 rounded-md font-semibold hover:bg-blue-700 transition-colors text-sm"
+              onClick={() => setShowCourseEdit(!showCourseEdit)}
+              className="bg-[#FF6600] text-white px-6 py-2 rounded-md font-semibold hover:bg-[#e55a00] transition-colors"
             >
-              📸 Atualizar Banner do Curso
+              {showCourseEdit ? '✕ Fechar Edição' : '✏️ Editar Curso'}
             </button>
           </div>
+
+          {showCourseEdit && (
+            <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+              <h2 className="text-2xl font-bold text-[#003366] mb-6">Editar Curso</h2>
+              <form onSubmit={handleSubmitCourse(onCourseEditSubmit)} className="space-y-6">
+                {courseEditError && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+                    {courseEditError}
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Título do Curso *
+                  </label>
+                  <input
+                    {...registerCourse('title')}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
+                  />
+                  {courseErrors.title && <p className="text-red-500 text-sm mt-1">{courseErrors.title.message}</p>}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Descrição (opcional)
+                  </label>
+                  <textarea
+                    {...registerCourse('description')}
+                    rows={4}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
+                    placeholder="Descreva o curso..."
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Banner do Curso (opcional)
+                  </label>
+                  <p className="text-xs text-gray-500 mb-2">
+                    Formatos aceitos: JPG, PNG, GIF. Tamanho máximo: 5MB.
+                  </p>
+                  <div className="space-y-3">
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) {
+                          handleFileUpload(file, true)
+                        }
+                      }}
+                      disabled={uploading}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900 disabled:opacity-50"
+                    />
+                    {uploading && <p className="text-sm text-blue-600">Fazendo upload...</p>}
+                    <input
+                      type="text"
+                      {...registerCourse('bannerUrl')}
+                      placeholder="Ou informe a URL do banner"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
+                      onChange={(e) => {
+                        const value = e.target.value.trim() || ''
+                        setCourseValue('bannerUrl', value, { shouldValidate: false })
+                        if (value) setBannerPreview(value)
+                      }}
+                    />
+                    {(courseBannerUrl || bannerPreview) && (
+                      <div className="mt-3">
+                        <p className="text-sm text-gray-600 mb-2">Preview:</p>
+                        <img
+                          src={normalizeImageUrl(courseBannerUrl || bannerPreview || '')}
+                          alt="Preview do banner"
+                          className="w-full h-48 object-cover rounded-md border border-gray-300"
+                          onError={() => setBannerPreview(null)}
+                        />
+                      </div>
+                    )}
+                  </div>
+                  {courseErrors.bannerUrl && <p className="text-red-500 text-sm mt-1">{courseErrors.bannerUrl.message}</p>}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Status *
+                    </label>
+                    <select
+                      {...registerCourse('status')}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
+                    >
+                      <option value="ACTIVE">Ativo</option>
+                      <option value="INACTIVE">Inativo</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Tipo *
+                    </label>
+                    <select
+                      {...registerCourse('type')}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
+                    >
+                      <option value="ONLINE">Online</option>
+                      <option value="PRESENCIAL">Presencial</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Limite de Vagas (opcional)
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      {...registerCourse('maxEnrollments')}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
+                      placeholder="Ex: 50"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Deixe em branco para ilimitado</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Data de Início (opcional)
+                    </label>
+                    <input
+                      type="date"
+                      {...registerCourse('startDate')}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Data de Término (opcional)
+                    </label>
+                    <input
+                      type="date"
+                      {...registerCourse('endDate')}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    URL Personalizada (opcional)
+                  </label>
+                  <input
+                    type="text"
+                    {...registerCourse('slug')}
+                    placeholder="ex: meu-curso-online"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Apenas letras minúsculas, números e hífens</p>
+                  {courseErrors.slug && <p className="text-red-500 text-sm mt-1">{courseErrors.slug.message}</p>}
+                </div>
+
+                <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="text-lg font-semibold text-[#003366]">Lista de Espera</h3>
+                      <p className="text-sm text-gray-500">Permita que interessados entrem em uma lista de espera</p>
+                    </div>
+                    <label className="inline-flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        {...registerCourse('waitlistEnabled')}
+                        className="h-5 w-5 rounded border-gray-300 text-[#FF6600] focus:ring-[#FF6600]"
+                      />
+                      Ativar
+                    </label>
+                  </div>
+                  {waitlistEnabled && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Limite de vagas na lista de espera
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        {...registerCourse('waitlistLimit')}
+                        className="w-full rounded-md border border-gray-300 px-4 py-2 text-gray-900 focus:border-transparent focus:ring-2 focus:ring-[#FF6600]"
+                        placeholder="Ex: 10"
+                      />
+                      <p className="mt-1 text-xs text-gray-500">Use 0 para ilimitado</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-semibold text-[#003366]">Restrição por Região</h3>
+                      <p className="text-sm text-gray-500">Defina limites de vagas por estado/cidade</p>
+                    </div>
+                    <label className="inline-flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        {...registerCourse('regionRestrictionEnabled')}
+                        className="h-5 w-5 rounded border-gray-300 text-[#FF6600] focus:ring-[#FF6600]"
+                      />
+                      Ativar
+                    </label>
+                  </div>
+
+                  {regionRestrictionEnabled && (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                          <input
+                            type="checkbox"
+                            {...registerCourse('allowAllRegions')}
+                            className="h-5 w-5 rounded border-gray-300 text-[#FF6600] focus:ring-[#FF6600]"
+                          />
+                          Permitir inscrições fora das regiões listadas
+                        </label>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Limite padrão por região (opcional)
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            {...registerCourse('defaultRegionLimit')}
+                            className="w-full rounded-md border border-gray-300 px-4 py-2 text-gray-900 focus:border-transparent focus:ring-2 focus:ring-[#FF6600]"
+                            placeholder="Ex: 30"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="rounded-md border border-dashed border-gray-300 p-4">
+                        <h4 className="text-sm font-semibold text-[#003366] mb-3">Adicionar limite por região</h4>
+                        {regionQuotaError && (
+                          <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded mb-3 text-sm">
+                            {regionQuotaError}
+                          </div>
+                        )}
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                          <select
+                            value={newRegionQuota.state}
+                            onChange={(e) => setNewRegionQuota({ ...newRegionQuota, state: e.target.value })}
+                            className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] text-gray-900"
+                          >
+                            <option value="">Estado *</option>
+                            {BRAZIL_STATES.map((state) => (
+                              <option key={state.sigla} value={state.sigla}>
+                                {state.nome}
+                              </option>
+                            ))}
+                          </select>
+                          <input
+                            type="text"
+                            value={newRegionQuota.city}
+                            onChange={(e) => setNewRegionQuota({ ...newRegionQuota, city: e.target.value })}
+                            placeholder="Cidade (opcional)"
+                            className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] text-gray-900"
+                          />
+                          <input
+                            type="number"
+                            min="1"
+                            value={newRegionQuota.limit}
+                            onChange={(e) => setNewRegionQuota({ ...newRegionQuota, limit: e.target.value })}
+                            placeholder="Limite de vagas *"
+                            className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] text-gray-900"
+                          />
+                          <div className="flex gap-2">
+                            <input
+                              type="number"
+                              min="0"
+                              value={newRegionQuota.waitlistLimit}
+                              onChange={(e) => setNewRegionQuota({ ...newRegionQuota, waitlistLimit: e.target.value })}
+                              placeholder="Lista espera"
+                              className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] text-gray-900"
+                            />
+                            <button
+                              type="button"
+                              onClick={handleAddRegionQuota}
+                              className="bg-[#FF6600] text-white px-4 py-2 rounded-md hover:bg-[#e55a00] transition-colors text-sm whitespace-nowrap"
+                            >
+                              Adicionar
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {regionQuotas.length > 0 && (
+                        <div className="mt-4">
+                          <h4 className="text-sm font-semibold text-[#003366] mb-2">Regiões configuradas:</h4>
+                          <div className="space-y-2">
+                            {regionQuotas.map((quota, index) => (
+                              <div key={index} className="flex items-center justify-between bg-gray-50 p-3 rounded-md">
+                                <div>
+                                  <span className="font-medium">{quota.state}</span>
+                                  {quota.city && <span> - {quota.city}</span>}
+                                  <span className="text-gray-600 ml-2">({quota.limit} vagas</span>
+                                  {quota.waitlistLimit > 0 && <span>, {quota.waitlistLimit} lista de espera</span>}
+                                  <span>)</span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveRegionQuota(index)}
+                                  className="text-red-600 hover:text-red-800 text-sm"
+                                >
+                                  Remover
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-3 pt-4 border-t">
+                  <button
+                    type="submit"
+                    disabled={editingCourse}
+                    className="flex-1 bg-[#FF6600] text-white py-2 px-4 rounded-md font-semibold hover:bg-[#e55a00] transition-colors disabled:opacity-50"
+                  >
+                    {editingCourse ? 'Salvando...' : 'Salvar Alterações'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCourseEdit(false)
+                      fetchCourse() // Recarregar dados originais
+                    }}
+                    className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
         </div>
 
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
@@ -426,7 +1000,7 @@ export default function CourseLessonsPage() {
                       onChange={(e) => {
                         const file = e.target.files?.[0]
                         if (file) {
-                          handleFileUpload(file)
+                          handleFileUpload(file, false)
                         }
                       }}
                       disabled={uploading}
