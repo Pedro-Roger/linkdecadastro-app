@@ -2,30 +2,26 @@
   RewriteEngine On
   RewriteBase /
   
-  # Remove barras duplas da URL primeiro (redirecionamento permanente)
+  # Remove barras duplas da URL (redirecionamento permanente)
   RewriteCond %{REQUEST_URI} ^(.*)//+(.*)$
   RewriteRule ^(.*)$ %1/%2 [R=301,L]
   
-  # NÃO reescrever se for um arquivo físico existente
+  # NÃO reescrever se for um arquivo ou diretório físico existente
   RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
   
-  # NÃO reescrever arquivos estáticos (assets)
-  RewriteCond %{REQUEST_URI} \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|json|xml|txt|pdf|zip|webp|webm|mp4)$ [NC]
+  # NÃO reescrever arquivos estáticos por extensão
+  RewriteCond %{REQUEST_URI} \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|json|xml|txt|pdf|zip|webp|webm|mp4|map)$ [NC]
   RewriteRule ^ - [L]
   
-  # NÃO reescrever diretórios especiais
-  RewriteCond %{REQUEST_URI} ^/(api|assets|images|fonts|_next|static)/ [NC]
-  RewriteRule ^ - [L]
-  
-  # NÃO reescrever se já for index.html
-  RewriteCond %{REQUEST_URI} ^/index\.html$ [NC]
+  # NÃO reescrever diretórios de assets e APIs
+  RewriteCond %{REQUEST_URI} ^/(assets|api|images|fonts|_next|static|uploads)/ [NC]
   RewriteRule ^ - [L]
   
   # Redirecionar TUDO para index.html (React Router SPA)
-  # Esta é a regra mais importante - permite que todas as rotas sejam servidas pelo React
-  RewriteRule ^ index.html [L]
+  # Esta é a regra CRÍTICA - permite que todas as rotas do React Router funcionem
+  RewriteRule ^ index.html [L,QSA]
 </IfModule>
 
 # Força o index.html como página padrão

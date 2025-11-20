@@ -166,12 +166,8 @@ export default function AdminEventsPage() {
   }
 
   const handleShareWhatsapp = (shareData: ShareData, event?: EventItem) => {
-    // Se tiver evento, usa URL de preview com Open Graph para WhatsApp
-    let message = shareData.message
-    if (event) {
-      const previewUrl = `${getApiUrl()}/share/event/${event.id}`
-      message = `${event.title}${event.description ? `\n\n${event.description.substring(0, 150)}${event.description.length > 150 ? '...' : ''}` : ''}\n\n${previewUrl}`
-    }
+    // Usa a URL do frontend que funciona corretamente
+    const message = shareData.message
     const waUrl = `https://wa.me/?text=${encodeURIComponent(message)}`
     window.open(waUrl, '_blank', 'noopener,noreferrer')
   }

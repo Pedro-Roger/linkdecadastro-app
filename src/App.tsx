@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import LoadingScreen from './components/ui/LoadingScreen'
+import ProtectedUserRoute from './components/ProtectedUserRoute'
 
 const HomePage = lazy(() => import('./pages/HomePage'))
 const LoginPage = lazy(() => import('./pages/auth/LoginPage'))
@@ -43,10 +44,10 @@ function App() {
           <Route path="/complete-profile" element={<CompleteProfilePage />} />
           <Route path="/auth/google/callback" element={<GoogleCallbackPage />} />
 
-          <Route path="/courses" element={<UserCoursesPage />} />
-          <Route path="/my-courses" element={<UserMyCoursesPage />} />
-          <Route path="/course/:courseId" element={<UserCoursePage />} />
-          <Route path="/profile" element={<UserProfilePage />} />
+          <Route path="/courses" element={<ProtectedUserRoute><UserCoursesPage /></ProtectedUserRoute>} />
+          <Route path="/my-courses" element={<ProtectedUserRoute><UserMyCoursesPage /></ProtectedUserRoute>} />
+          <Route path="/course/:courseId" element={<ProtectedUserRoute><UserCoursePage /></ProtectedUserRoute>} />
+          <Route path="/profile" element={<ProtectedUserRoute><UserProfilePage /></ProtectedUserRoute>} />
 
           <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
           <Route path="/admin/courses" element={<AdminCoursesPage />} />

@@ -38,7 +38,12 @@ export default function LoginPage() {
         localStorage.setItem('user', JSON.stringify(result.user))
       }
 
-      navigate('/my-courses')
+      // Redireciona admin para /admin/courses, usuários normais para /my-courses
+      if (result.user?.role === 'ADMIN') {
+        navigate('/admin/courses')
+      } else {
+        navigate('/my-courses')
+      }
     } catch (err: any) {
       const errorMessage = err?.message || 'Erro ao fazer login. Verifique suas credenciais.';
       setError(errorMessage);

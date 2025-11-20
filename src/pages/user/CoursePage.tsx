@@ -156,9 +156,8 @@ export default function CoursePage() {
   const handleShareWhatsapp = useCallback(() => {
     if (!courseShareData || !course) return
 
-    // Usa a URL de preview que contém as meta tags Open Graph para WhatsApp
-    const previewUrl = `${getApiUrl()}/share/course/${course.id}`
-    const message = `${course.title}${course.description ? `\n\n${course.description.substring(0, 150)}${course.description.length > 150 ? '...' : ''}` : ''}\n\n${previewUrl}`
+    // Usa a URL do frontend que funciona corretamente
+    const message = `${course.title}${course.description ? `\n\n${course.description.substring(0, 150)}${course.description.length > 150 ? '...' : ''}` : ''}\n\n${courseShareData.url}`
     const waUrl = `https://wa.me/?text=${encodeURIComponent(message)}`
 
     if (typeof window !== 'undefined') {

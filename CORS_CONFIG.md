@@ -1,4 +1,4 @@
-# Configuração de CORS no Backend
+git # Configuração de CORS no Backend
 
 ## Problema
 O backend está bloqueando requisições do domínio `https://linkdecadastro.com.br` por falta de configuração de CORS.

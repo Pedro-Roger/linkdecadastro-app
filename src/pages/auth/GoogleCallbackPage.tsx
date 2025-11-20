@@ -20,6 +20,9 @@ export default function GoogleCallbackPage() {
         // Redireciona para completar perfil se necessário
         if (user.needsProfileCompletion) {
           navigate('/complete-profile')
+        } else if (user.role === 'ADMIN') {
+          // Admin redireciona para /admin/courses
+          navigate('/admin/courses')
         } else {
           navigate('/my-courses')
         }

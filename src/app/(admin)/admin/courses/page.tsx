@@ -113,6 +113,11 @@ export default function AdminCoursesPage() {
     setShareCopyStatus('idle')
     setImageError(false)
     setShareModalOpen(true)
+    // Debug: verificar URL normalizada
+    const shareData = buildShareData(course)
+    if (shareData.bannerUrl) {
+      console.log('URL do banner normalizada:', shareData.bannerUrl)
+    }
   }
 
   const closeShareModal = () => {
@@ -159,9 +164,10 @@ export default function AdminCoursesPage() {
     const courseToShare = course || selectedCourse
     if (!courseToShare) return
     
-    // Usa a URL de preview que contém as meta tags Open Graph para WhatsApp
-    const previewUrl = `${getApiUrl()}/share/course/${courseToShare.id}`
-    const message = `${courseToShare.title}${courseToShare.description ? `\n\n${courseToShare.description.substring(0, 150)}${courseToShare.description.length > 150 ? '...' : ''}` : ''}\n\n${previewUrl}`
+    // Usa a URL do frontend que funciona corretamente
+    const shareData = buildShareData(courseToShare)
+    const description = courseToShare.description ? `\n\n${courseToShare.description.substring(0, 150)}${courseToShare.description.length > 150 ? '...' : ''}` : ''
+    const message = `${courseToShare.title}${description}\n\n${shareData.url}`
     const waUrl = `https://wa.me/?text=${encodeURIComponent(message)}`
 
     if (typeof window !== 'undefined') {
@@ -494,13 +500,19 @@ export default function AdminCoursesPage() {
 
             <div className="grid gap-4 px-6 py-4 md:grid-cols-[160px,1fr]">
               <div className="flex items-center justify-center">
-                {selectedShareData.bannerUrl && !imageError ? (
+                {selectedShareData.bannerUrl && selectedShareData.bannerUrl.trim() && !imageError ? (
                   <img
                     src={selectedShareData.bannerUrl}
                     alt={`Banner do curso ${selectedCourse.title}`}
                     className="h-32 w-32 rounded-lg object-cover shadow-sm"
                     referrerPolicy="no-referrer"
-                    onError={() => setImageError(true)}
+                    onError={(e) => {
+                      console.error('Erro ao carregar imagem:', selectedShareData.bannerUrl)
+                      setImageError(true)
+                    }}
+                    onLoad={() => {
+                      setImageError(false)
+                    }}
                   />
                 ) : (
                   <div className="flex h-32 w-32 items-center justify-center rounded-lg bg-gradient-to-br from-[#003366] to-[#FF6600] text-center text-xs font-semibold text-white">
