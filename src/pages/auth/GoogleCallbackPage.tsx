@@ -21,8 +21,8 @@ export default function GoogleCallbackPage() {
         if (user.needsProfileCompletion) {
           navigate('/complete-profile')
         } else if (user.role === 'ADMIN') {
-          // Admin redireciona para /admin/courses
-          navigate('/admin/courses')
+          // Admin redireciona para /admin/dashboard (tela de gerenciamento)
+          navigate('/admin/dashboard')
         } else {
           navigate('/my-courses')
         }

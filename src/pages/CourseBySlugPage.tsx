@@ -8,6 +8,7 @@ import Footer from '@/components/ui/Footer'
 import LoadingScreen from '@/components/ui/LoadingScreen'
 import Toast from '@/components/ui/Toast'
 import CourseEnrollmentModal from '@/components/modals/CourseEnrollmentModal'
+import SeoMetaTags from '@/components/SeoMetaTags'
 import { apiFetch } from '@/lib/api'
 import { useAuth } from '@/lib/useAuth'
 
@@ -198,8 +199,20 @@ export default function CourseBySlugPage() {
     )
   }
 
+  // URL completa para compartilhamento
+  const shareUrl = typeof window !== 'undefined' 
+    ? `${window.location.origin}/c/${slug}` 
+    : `/c/${slug}`
+
   return (
     <div className="min-h-screen bg-gray-50">
+      <SeoMetaTags
+        title={course ? `${course.title} - Link de Cadastro` : 'Link de Cadastro'}
+        description={course?.description || 'Confira este curso no Link de Cadastro'}
+        image={course?.bannerUrl}
+        url={shareUrl}
+        type="website"
+      />
       
       <header className="bg-white shadow-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-2">

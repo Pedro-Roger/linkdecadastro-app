@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom'
 import RegistrationForm from '@/components/forms/RegistrationForm'
 import Footer from '@/components/ui/Footer'
 import LoadingScreen from '@/components/ui/LoadingScreen'
+import SeoMetaTags from '@/components/SeoMetaTags'
 import { apiFetch } from '@/lib/api'
 
 export default function RegisterPage() {
@@ -39,8 +40,19 @@ export default function RegisterPage() {
     )
   }
 
+  const shareUrl = typeof window !== 'undefined' 
+    ? `${window.location.origin}/register/${linkId}` 
+    : `/register/${linkId}`
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#003366] to-[#FF6600]">
+      <SeoMetaTags
+        title={event ? `${event.title} - Link de Cadastro` : 'Cadastro - Link de Cadastro'}
+        description={event?.description || 'Faça seu cadastro neste evento'}
+        image={event?.bannerUrl}
+        url={shareUrl}
+        type="website"
+      />
       {event.bannerUrl && (
         <div className="w-full h-64 md:h-96 bg-cover bg-center" 
              style={{ backgroundImage: `url(${event.bannerUrl})` }} />

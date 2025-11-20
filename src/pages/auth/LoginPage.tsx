@@ -38,9 +38,9 @@ export default function LoginPage() {
         localStorage.setItem('user', JSON.stringify(result.user))
       }
 
-      // Redireciona admin para /admin/courses, usuários normais para /my-courses
+      // Redireciona admin para /admin/dashboard (tela de gerenciamento), usuários normais para /my-courses
       if (result.user?.role === 'ADMIN') {
-        navigate('/admin/courses')
+        navigate('/admin/dashboard')
       } else {
         navigate('/my-courses')
       }
