@@ -19,6 +19,8 @@ export default function LoginPage() {
     }
   }, [searchParams])
 
+  const returnUrl = searchParams.get('returnUrl')
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -38,8 +40,10 @@ export default function LoginPage() {
         localStorage.setItem('user', JSON.stringify(result.user))
       }
 
-      // Redireciona admin para /admin/dashboard (tela de gerenciamento), usuários normais para /my-courses
-      if (result.user?.role === 'ADMIN') {
+      // Redireciona para returnUrl se existir, senão para dashboard/admin ou my-courses
+      if (returnUrl) {
+        navigate(returnUrl)
+      } else if (result.user?.role === 'ADMIN') {
         navigate('/admin/dashboard')
       } else {
         navigate('/my-courses')

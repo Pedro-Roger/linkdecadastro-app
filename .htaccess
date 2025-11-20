@@ -6,8 +6,11 @@
   RewriteCond %{REQUEST_URI} ^(.*)//+(.*)$
   RewriteRule ^(.*)$ %1/%2 [R=301,L]
   
-  # NÃO reescrever se for um arquivo ou diretório físico existente
-  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  # NÃO reescrever se for um arquivo físico existente
+  RewriteCond %{REQUEST_FILENAME} -f
+  RewriteRule ^ - [L]
+  
+  # NÃO reescrever se for um diretório físico existente
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
   

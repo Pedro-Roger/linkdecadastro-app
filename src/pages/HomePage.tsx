@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useEffect, useState, useCallback } from 'react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -16,6 +16,7 @@ interface Course {
   startDate: string | null
   endDate: string | null
   createdAt: string
+  slug?: string | null
   creator: {
     name: string
   }
@@ -27,6 +28,7 @@ interface Course {
 
 export default function HomePage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { user, isAuthenticated } = useAuth()
   const [courses, setCourses] = useState<Course[]>([])
   const [allCourses, setAllCourses] = useState<Course[]>([])
@@ -46,6 +48,28 @@ export default function HomePage() {
   useEffect(() => {
     fetchAllCourses()
   }, [])
+
+  // Verifica se há parâmetro enroll na URL e abre o modal automaticamente
+  useEffect(() => {
+    const enrollSlug = searchParams.get('enroll')
+    if (enrollSlug && allCourses.length > 0 && !loading) {
+      // Busca o curso pelo slug ou pelo ID
+      const course = allCourses.find(c => c.slug === enrollSlug || c.id === enrollSlug)
+      if (course) {
+        // Sempre abre o modal de inscrição (mesmo sem estar logado)
+        // O modal permite criar conta e se inscrever ao mesmo tempo
+        setTimeout(() => {
+          setEnrollmentModal({
+            isOpen: true,
+            courseId: course.id,
+            courseTitle: course.title
+          })
+          // Remove o parâmetro da URL para não abrir novamente
+          window.history.replaceState({}, '', '/')
+        }, 800)
+      }
+    }
+  }, [searchParams, allCourses, loading])
 
   const filterCourses = useCallback(() => {
     let filtered = [...allCourses]

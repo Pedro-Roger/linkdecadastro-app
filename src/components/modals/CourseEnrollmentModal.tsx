@@ -30,7 +30,7 @@ const baseEnrollmentSchema = z.object({
   whatsappNumber: z.string().min(10, 'Informe o WhatsApp com DDD')
 })
 
-const createEnrollmentSchema = (needsAccount: boolean) =>
+const createEnrollmentSchema = (needsAccount: boolean, emailExists: boolean = false) =>
   baseEnrollmentSchema.superRefine((data, ctx) => {
     const cpfDigits = data.cpf.replace(/\D/g, '')
     if (cpfDigits.length !== 11) {
@@ -62,13 +62,6 @@ const createEnrollmentSchema = (needsAccount: boolean) =>
     }
 
     if (needsAccount) {
-      if (!data.name) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: 'Nome é obrigatório',
-          path: ['name']
-        })
-      }
       if (!data.email) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
@@ -76,12 +69,23 @@ const createEnrollmentSchema = (needsAccount: boolean) =>
           path: ['email']
         })
       }
-      if (!data.password) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: 'Senha é obrigatória',
-          path: ['password']
-        })
+      
+      // Se o email já existe, não precisa de nome e senha
+      if (!emailExists) {
+        if (!data.name) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Nome é obrigatório',
+            path: ['name']
+          })
+        }
+        if (!data.password) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Senha é obrigatória',
+            path: ['password']
+          })
+        }
       }
     }
   })
@@ -169,10 +173,11 @@ export default function CourseEnrollmentModal({
   courseTitle,
   onSuccess
 }: CourseEnrollmentModalProps) {
-  const needsAccount = false
   const { user } = useAuth()
+  // Se não estiver logado, precisa criar conta (name, email, password obrigatórios)
+  const needsAccount = !user
 
-  const enrollmentSchema = useMemo(() => createEnrollmentSchema(needsAccount), [needsAccount])
+  const enrollmentSchema = useMemo(() => createEnrollmentSchema(needsAccount, emailExists), [needsAccount, emailExists])
 
   const {
     register,
@@ -195,6 +200,7 @@ export default function CourseEnrollmentModal({
 
   const selectedState = watch('state')
   const participantType = watch('participantType')
+  const emailValue = watch('email')
   const [states, setStates] = useState<StateOption[]>([])
   const [cities, setCities] = useState<CityOption[]>([])
   const [loadingStates, setLoadingStates] = useState(false)
@@ -203,6 +209,9 @@ export default function CourseEnrollmentModal({
   const [isRegistering, setIsRegistering] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<EnrollmentResult | null>(null)
+  const [emailExists, setEmailExists] = useState(false)
+  const [checkingEmail, setCheckingEmail] = useState(false)
+  const [existingUserId, setExistingUserId] = useState<string | null>(null)
 
   useEffect(() => {
     if (isOpen && user) {
@@ -292,6 +301,54 @@ export default function CourseEnrollmentModal({
     }
   }, [isOpen, selectedState, setValue])
 
+  // Verifica se o email já existe quando o usuário digita
+  useEffect(() => {
+    if (!needsAccount || !emailValue || !emailValue.includes('@')) {
+      setEmailExists(false)
+      setExistingUserId(null)
+      return
+    }
+
+    const checkEmailTimeout = setTimeout(async () => {
+      setCheckingEmail(true)
+      try {
+        // Tenta fazer registro para verificar se o email já existe
+        // Se der erro de "já existe", sabemos que o email está cadastrado
+        try {
+          await apiFetch('/auth/register', {
+            method: 'POST',
+            body: JSON.stringify({
+              name: 'test',
+              email: emailValue,
+              password: 'test123456'
+            })
+          })
+          // Se não deu erro, o email não existe
+          setEmailExists(false)
+          setExistingUserId(null)
+        } catch (error: any) {
+          // Se der erro de "já existe" ou "já cadastrado", o email existe
+          if (error?.message?.includes('já existe') || 
+              error?.message?.includes('already exists') || 
+              error?.message?.includes('já cadastrado') ||
+              error?.message?.includes('Email já cadastrado')) {
+            setEmailExists(true)
+          } else {
+            setEmailExists(false)
+            setExistingUserId(null)
+          }
+        }
+      } catch (error) {
+        setEmailExists(false)
+        setExistingUserId(null)
+      } finally {
+        setCheckingEmail(false)
+      }
+    }, 800) // Debounce de 800ms
+
+    return () => clearTimeout(checkEmailTimeout)
+  }, [emailValue, needsAccount])
+
   const fetchStates = async () => {
     try {
       setLoadingStates(true)
@@ -351,6 +408,164 @@ export default function CourseEnrollmentModal({
         : undefined
 
     try {
+      // Se precisa criar conta, primeiro verifica se o email já existe
+      if (needsAccount && data.email) {
+        setIsRegistering(true)
+        
+        // Se o email já existe (verificado anteriormente)
+        if (emailExists) {
+          // Se tem senha, faz login. Se não tem, usa endpoint especial que vincula pelo email
+          if (data.password) {
+            try {
+              const loginResponse = await apiFetch<any>('/auth/login', {
+                method: 'POST',
+                body: JSON.stringify({
+                  email: data.email,
+                  password: data.password
+                }),
+              })
+              if (typeof window !== 'undefined') {
+                localStorage.setItem('token', loginResponse.accessToken)
+                localStorage.setItem('user', JSON.stringify(loginResponse.user))
+              }
+              // Após login bem-sucedido, continua para fazer a inscrição normalmente
+            } catch (loginError: any) {
+              setError(loginError?.message || 'Senha incorreta. Se não lembrar sua senha, deixe em branco para vincular apenas com o email.')
+              setIsRegistering(false)
+              setSubmitting(false)
+              return
+            }
+          } else {
+            // Se não tem senha mas o email existe, usa endpoint especial que vincula pelo email
+            // Faz a inscrição diretamente vinculada ao email (sem precisar de senha)
+            try {
+              const responseBody = await apiFetch<any>(`/courses/${courseId}/enroll-by-email`, {
+                method: 'POST',
+                body: JSON.stringify({
+                  email: data.email,
+                  cpf,
+                  birthDate: data.birthDate,
+                  participantType: data.participantType,
+                  hectares: data.participantType === 'PRODUTOR' ? hectares : undefined,
+                  state: data.state,
+                  city: data.city,
+                  whatsappNumber: whatsapp
+                }),
+              })
+
+              const status = responseBody.enrollment?.status as EnrollmentStatus | undefined
+              const waitlistPosition = responseBody.metadata?.waitlistPosition ?? null
+
+              let message = 'Inscrição realizada com sucesso! A inscrição foi vinculada à sua conta existente.'
+              if (status === 'WAITLIST') {
+                message =
+                  waitlistPosition && waitlistPosition > 0
+                    ? `Você entrou na lista de espera deste curso. Sua posição atual é ${waitlistPosition}.`
+                    : 'Você entrou na lista de espera deste curso. Aguarde a aprovação do administrador.'
+              } else if (status === 'PENDING_REGION') {
+                message =
+                  responseBody.enrollment?.eligibilityReason ||
+                  'Seu cadastro foi recebido, mas ainda não está elegível para participar deste curso.'
+              } else if (status === 'REJECTED') {
+                message =
+                  responseBody.enrollment?.eligibilityReason ||
+                  'Sua inscrição foi registrada, mas não pôde ser aprovada.'
+              }
+
+              setResult({
+                status: status ?? 'CONFIRMED',
+                message,
+                waitlistPosition
+              })
+
+              reset({
+                name: '',
+                email: '',
+                password: '',
+                cpf: '',
+                birthDate: '',
+                participantType: 'ESTUDANTE',
+                hectares: '',
+                state: '',
+                city: '',
+                whatsappNumber: ''
+              })
+
+              onSuccess?.({
+                enrollment: responseBody.enrollment,
+                metadata: responseBody.metadata
+              })
+              
+              setIsRegistering(false)
+              setSubmitting(false)
+              return
+            } catch (enrollError: any) {
+              setError(enrollError?.message || 'Erro ao fazer inscrição. Verifique os dados informados.')
+              setIsRegistering(false)
+              setSubmitting(false)
+              return
+            }
+          }
+        } else if (!emailExists && data.password && data.name) {
+          // Se o email não existe, cria nova conta
+          try {
+            // Tenta criar a conta primeiro
+            const registerResponse = await apiFetch<any>('/auth/register', {
+              method: 'POST',
+              body: JSON.stringify({
+                name: data.name,
+                email: data.email,
+                password: data.password,
+                cpf,
+                birthDate: data.birthDate,
+                participantType: data.participantType,
+                hectares: data.participantType === 'PRODUTOR' ? hectares : undefined,
+                state: data.state,
+                city: data.city,
+                phone: whatsapp
+              }),
+            })
+            
+            // Se o registro retornar token, salva no localStorage
+            if (registerResponse.accessToken) {
+              if (typeof window !== 'undefined') {
+                localStorage.setItem('token', registerResponse.accessToken)
+                localStorage.setItem('user', JSON.stringify(registerResponse.user))
+              }
+            }
+          } catch (registerError: any) {
+            // Se o usuário já existe, tenta fazer login
+            if (registerError?.message?.includes('já existe') || registerError?.message?.includes('already exists') || registerError?.message?.includes('já cadastrado') || registerError?.message?.includes('Email já cadastrado')) {
+              try {
+                const loginResponse = await apiFetch<any>('/auth/login', {
+                  method: 'POST',
+                  body: JSON.stringify({
+                    email: data.email,
+                    password: data.password
+                  }),
+                })
+                if (typeof window !== 'undefined') {
+                  localStorage.setItem('token', loginResponse.accessToken)
+                  localStorage.setItem('user', JSON.stringify(loginResponse.user))
+                }
+              } catch (loginError: any) {
+                setError(loginError?.message || 'Erro ao fazer login. Verifique suas credenciais.')
+                setIsRegistering(false)
+                setSubmitting(false)
+                return
+              }
+            } else {
+              setError(registerError?.message || 'Erro ao criar conta')
+              setIsRegistering(false)
+              setSubmitting(false)
+              return
+            }
+          }
+        }
+        setIsRegistering(false)
+      }
+
+      // Agora faz a inscrição no curso (usa auth: true que pega o token do localStorage)
       const responseBody = await apiFetch<any>(`/courses/${courseId}/enroll`, {
         method: 'POST',
         auth: true,
@@ -467,6 +682,89 @@ export default function CourseEnrollmentModal({
 
           {!result && (
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+              {needsAccount && (
+                <>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">
+                      E-mail *
+                    </label>
+                    <input
+                      {...register('email')}
+                      type="email"
+                      placeholder="seu@email.com"
+                      className="w-full rounded-md border border-gray-300 px-4 py-2 text-gray-900 focus:border-transparent focus:ring-2 focus:ring-[#FF6600]"
+                    />
+                    {checkingEmail && (
+                      <p className="mt-1 text-sm text-blue-500">Verificando email...</p>
+                    )}
+                    {emailExists && !checkingEmail && (
+                      <div className="mt-1">
+                        <p className="text-sm text-green-600 font-medium">
+                          ✓ Email já cadastrado. A inscrição será vinculada à sua conta existente.
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Você pode deixar a senha em branco para vincular apenas pelo email.
+                        </p>
+                      </div>
+                    )}
+                    {errors.email && (
+                      <p className="mt-1 text-sm text-red-500">{errors.email.message}</p>
+                    )}
+                  </div>
+
+                  {!emailExists && (
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">
+                        Nome Completo *
+                      </label>
+                      <input
+                        {...register('name')}
+                        type="text"
+                        placeholder="Seu nome completo"
+                        className="w-full rounded-md border border-gray-300 px-4 py-2 text-gray-900 focus:border-transparent focus:ring-2 focus:ring-[#FF6600]"
+                      />
+                      {errors.name && (
+                        <p className="mt-1 text-sm text-red-500">{errors.name.message}</p>
+                      )}
+                    </div>
+                  )}
+
+                  {!emailExists && (
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">
+                        Senha *
+                      </label>
+                      <input
+                        {...register('password')}
+                        type="password"
+                        placeholder="Mínimo 6 caracteres"
+                        className="w-full rounded-md border border-gray-300 px-4 py-2 text-gray-900 focus:border-transparent focus:ring-2 focus:ring-[#FF6600]"
+                      />
+                      {errors.password && (
+                        <p className="mt-1 text-sm text-red-500">{errors.password.message}</p>
+                      )}
+                    </div>
+                  )}
+
+                  {emailExists && (
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">
+                        Senha (opcional)
+                      </label>
+                      <input
+                        {...register('password')}
+                        type="password"
+                        placeholder="Digite sua senha se quiser fazer login (opcional)"
+                        className="w-full rounded-md border border-gray-300 px-4 py-2 text-gray-900 focus:border-transparent focus:ring-2 focus:ring-[#FF6600]"
+                      />
+                      <p className="mt-1 text-xs text-green-600">
+                        ✓ Você pode deixar a senha em branco. A inscrição será vinculada automaticamente à sua conta pelo email.
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
+
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">
                   CPF *

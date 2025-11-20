@@ -97,6 +97,40 @@ export default function CourseBySlugPage() {
     }
   }, [course, selectedLesson, isAuthenticated, checkEnrollment, fetchComments, fetchProgress])
 
+  // Abre modal de inscrição automaticamente se não estiver inscrito
+  useEffect(() => {
+    if (course && !loading && !enrolled && isAuthenticated) {
+      // Verifica se há parâmetro na URL indicando que veio de compartilhamento
+      const urlParams = new URLSearchParams(window.location.search)
+      const enroll = urlParams.get('enroll')
+      
+      // Se tiver o parâmetro enroll=true ou se vier de compartilhamento (referrer externo)
+      const isFromShare = enroll === 'true' || 
+        (typeof document !== 'undefined' && document.referrer && 
+         !document.referrer.includes(window.location.hostname))
+      
+      if (isFromShare) {
+        // Pequeno delay para garantir que a página carregou
+        setTimeout(() => {
+          setEnrollmentModalOpen(true)
+        }, 800)
+      }
+    } else if (course && !loading && !isAuthenticated) {
+      // Se não estiver autenticado e vier de compartilhamento, redireciona para login
+      const urlParams = new URLSearchParams(window.location.search)
+      const enroll = urlParams.get('enroll')
+      const isFromShare = enroll === 'true' || 
+        (typeof document !== 'undefined' && document.referrer && 
+         !document.referrer.includes(window.location.hostname))
+      
+      if (isFromShare) {
+        // Salva a URL atual para redirecionar após login
+        const returnUrl = `/c/${slug}?enroll=true`
+        navigate(`/login?returnUrl=${encodeURIComponent(returnUrl)}`)
+      }
+    }
+  }, [course, loading, enrolled, isAuthenticated, navigate, slug])
+
   const handleEnrollClick = () => {
     if (!isAuthenticated) {
       navigate('/login')
