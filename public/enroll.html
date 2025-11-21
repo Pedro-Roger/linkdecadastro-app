@@ -24,6 +24,73 @@
   <meta name="twitter:image" content="" id="twitter-image" />
   
   <link rel="icon" type="image/png" href="/logo.png" />
+  
+  <!-- Script inline para atualizar meta tags IMEDIATAMENTE para crawlers (WhatsApp, Facebook, etc) -->
+  <script>
+    (function() {
+      // Executa imediatamente, antes do DOMContentLoaded
+      const urlParams = new URLSearchParams(window.location.search);
+      const courseSlug = urlParams.get('course');
+      
+      if (courseSlug) {
+        // Busca o curso da API imediatamente
+        const API_URL = (() => {
+          if (window.APP_CONFIG?.API_URL) return window.APP_CONFIG.API_URL;
+          return 'https://backend-linkdecadastro.onrender.com';
+        })();
+        
+        // Faz requisição síncrona para atualizar meta tags antes do crawler
+        fetch(`${API_URL}/courses`)
+          .then(response => response.json())
+          .then(courses => {
+            const course = courses.find(c => c.slug === courseSlug || c.id === courseSlug);
+            if (course) {
+              const baseUrl = window.location.origin;
+              const shareUrl = `${baseUrl}/enroll.html?course=${course.slug || course.id}`;
+              
+              let imageUrl = course.bannerUrl;
+              if (imageUrl) {
+                if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+                  imageUrl = imageUrl;
+                } else if (imageUrl.startsWith('/')) {
+                  imageUrl = `${API_URL}${imageUrl}`;
+                } else {
+                  imageUrl = `${API_URL}/${imageUrl}`;
+                }
+              } else {
+                imageUrl = `${baseUrl}/logo.png`;
+              }
+              
+              // Atualiza meta tags
+              const ogUrl = document.querySelector('meta[property="og:url"]');
+              const ogTitle = document.querySelector('meta[property="og:title"]');
+              const ogDescription = document.querySelector('meta[property="og:description"]');
+              const ogImage = document.querySelector('meta[property="og:image"]');
+              const twitterUrl = document.querySelector('meta[name="twitter:url"]');
+              const twitterTitle = document.querySelector('meta[name="twitter:title"]');
+              const twitterDescription = document.querySelector('meta[name="twitter:description"]');
+              const twitterImage = document.querySelector('meta[name="twitter:image"]');
+              
+              if (ogUrl) ogUrl.setAttribute('content', shareUrl);
+              if (ogTitle) ogTitle.setAttribute('content', `${course.title} - Link de Cadastro`);
+              if (ogDescription) ogDescription.setAttribute('content', course.description || 'Inscreva-se neste curso no Link de Cadastro');
+              if (ogImage) ogImage.setAttribute('content', imageUrl);
+              
+              if (twitterUrl) twitterUrl.setAttribute('content', shareUrl);
+              if (twitterTitle) twitterTitle.setAttribute('content', `${course.title} - Link de Cadastro`);
+              if (twitterDescription) twitterDescription.setAttribute('content', course.description || 'Inscreva-se neste curso no Link de Cadastro');
+              if (twitterImage) twitterImage.setAttribute('content', imageUrl);
+              
+              document.title = `${course.title} - Link de Cadastro`;
+            }
+          })
+          .catch(error => {
+            console.error('Erro ao buscar curso para meta tags:', error);
+          });
+      }
+    })();
+  </script>
+  
   <style>
     * {
       margin: 0;
@@ -391,16 +458,17 @@
         loadStates()
       ]);
       
-      // Verifica se há curso na URL
+      // Verifica se há curso na URL e atualiza meta tags IMEDIATAMENTE
       const urlParams = new URLSearchParams(window.location.search);
       const courseSlug = urlParams.get('course');
-      if (courseSlug) {
+      if (courseSlug && courses.length > 0) {
         const course = courses.find(c => c.slug === courseSlug || c.id === courseSlug);
         if (course) {
           document.getElementById('course').value = course.id;
           // Esconde o seletor de curso e mostra o card
           document.querySelector('.course-selector').style.display = 'none';
           showCourseCard(course);
+          // Atualiza meta tags IMEDIATAMENTE para crawlers
           updateMetaTags(course);
         }
       }
@@ -555,22 +623,56 @@
     // Atualiza meta tags para compartilhamento
     function updateMetaTags(course) {
       const baseUrl = window.location.origin;
-      const shareUrl = `${baseUrl}/enroll.html?course=${course.slug}`;
-      const imageUrl = course.bannerUrl 
-        ? (course.bannerUrl.startsWith('http') ? course.bannerUrl : `${API_URL}${course.bannerUrl}`)
-        : `${baseUrl}/logo.png`;
+      const shareUrl = `${baseUrl}/enroll.html?course=${course.slug || course.id}`;
       
-      document.getElementById('og-url').content = shareUrl;
-      document.getElementById('og-title').content = `${course.title} - Link de Cadastro`;
-      document.getElementById('og-description').content = course.description || 'Inscreva-se neste curso no Link de Cadastro';
-      document.getElementById('og-image').content = imageUrl;
+      // Garante que a URL da imagem seja absoluta e acessível
+      let imageUrl = course.bannerUrl;
+      if (imageUrl) {
+        if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+          // Já é uma URL absoluta
+          imageUrl = imageUrl;
+        } else if (imageUrl.startsWith('/')) {
+          // URL relativa ao backend
+          imageUrl = `${API_URL}${imageUrl}`;
+        } else {
+          // URL relativa sem barra inicial
+          imageUrl = `${API_URL}/${imageUrl}`;
+        }
+      } else {
+        imageUrl = `${baseUrl}/logo.png`;
+      }
       
-      document.getElementById('twitter-url').content = shareUrl;
-      document.getElementById('twitter-title').content = `${course.title} - Link de Cadastro`;
-      document.getElementById('twitter-description').content = course.description || 'Inscreva-se neste curso no Link de Cadastro';
-      document.getElementById('twitter-image').content = imageUrl;
+      // Atualiza as meta tags
+      const ogUrl = document.getElementById('og-url');
+      const ogTitle = document.getElementById('og-title');
+      const ogDescription = document.getElementById('og-description');
+      const ogImage = document.getElementById('og-image');
+      const twitterUrl = document.getElementById('twitter-url');
+      const twitterTitle = document.getElementById('twitter-title');
+      const twitterDescription = document.getElementById('twitter-description');
+      const twitterImage = document.getElementById('twitter-image');
+      
+      if (ogUrl) ogUrl.setAttribute('content', shareUrl);
+      if (ogTitle) ogTitle.setAttribute('content', `${course.title} - Link de Cadastro`);
+      if (ogDescription) ogDescription.setAttribute('content', course.description || 'Inscreva-se neste curso no Link de Cadastro');
+      if (ogImage) ogImage.setAttribute('content', imageUrl);
+      
+      if (twitterUrl) twitterUrl.setAttribute('content', shareUrl);
+      if (twitterTitle) twitterTitle.setAttribute('content', `${course.title} - Link de Cadastro`);
+      if (twitterDescription) twitterDescription.setAttribute('content', course.description || 'Inscreva-se neste curso no Link de Cadastro');
+      if (twitterImage) twitterImage.setAttribute('content', imageUrl);
       
       document.title = `${course.title} - Link de Cadastro`;
+      
+      // Força atualização das meta tags para crawlers
+      // Adiciona um link rel="image_src" para garantir compatibilidade
+      let imageLink = document.querySelector('link[rel="image_src"]');
+      if (!imageLink) {
+        imageLink = document.createElement('link');
+        imageLink.rel = 'image_src';
+        document.head.appendChild(imageLink);
+      }
+      imageLink.href = imageUrl;
     }
     
     // Formatação

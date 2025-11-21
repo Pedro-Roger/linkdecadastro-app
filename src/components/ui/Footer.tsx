@@ -1,15 +1,17 @@
 import { getAppStoreUrl } from '@/constants/branding'
 import { useEffect, useState } from 'react'
+import { useAuth } from '@/lib/useAuth'
 
 export default function Footer() {
   const [appUrl, setAppUrl] = useState<string>('https://querocamarao.com/app')
+  const { isAuthenticated } = useAuth()
 
   useEffect(() => {
     setAppUrl(getAppStoreUrl())
   }, [])
 
   return (
-    <footer className="bg-[#003366] text-white py-8 md:py-12 mt-12 md:mt-16">
+    <footer className={`bg-[#003366] text-white py-8 md:py-12 mt-12 md:mt-16 ${isAuthenticated ? 'pb-24 md:pb-12' : 'pb-8 md:pb-12'}`}>
       <div className="container mx-auto px-4">
         <div className="flex flex-col md:flex-row items-center justify-between space-y-6 md:space-y-0">
           <div className="text-center md:text-left flex-1">

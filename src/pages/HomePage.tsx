@@ -216,7 +216,7 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-gray-50 flex flex-col pb-20 md:pb-0">
       <MobileNavbar />
 
       <div className="bg-white border-b">
@@ -450,6 +450,7 @@ export default function HomePage() {
       
       <Footer />
       
+      {/* Espaçamento para a barra de navegação mobile fixa */}
       {isAuthenticated && <div className="md:hidden h-20" />}
 
       <CourseEnrollmentModal

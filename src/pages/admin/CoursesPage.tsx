@@ -58,14 +58,24 @@ export default function AdminCoursesPage() {
 
   const handleExport = async (courseId: string, courseTitle: string) => {
     try {
-      const url = `${getApiUrl()}/admin/courses/${courseId}/export`
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
+      if (!token) {
+        alert('Você precisa estar logado para exportar dados')
+        return
+      }
+
+      const url = `${getApiUrl()}/admin/courses/${courseId}/export?format=xlsx`
+      console.log('Exportando para:', url)
+      
       const response = await fetch(url, {
+        method: 'GET',
         headers: {
-          ...(typeof window !== 'undefined' && localStorage.getItem('token')
-            ? { Authorization: `Bearer ${localStorage.getItem('token')}` }
-            : {}),
+          'Authorization': `Bearer ${token}`,
         },
       })
+
+      console.log('Resposta do export:', response.status, response.statusText)
+
       if (response.ok) {
         const blob = await response.blob()
         const url = window.URL.createObjectURL(blob)
@@ -77,18 +87,29 @@ export default function AdminCoursesPage() {
         window.URL.revokeObjectURL(url)
         document.body.removeChild(a)
       } else {
-        alert('Erro ao exportar dados')
+        const errorText = await response.text()
+        console.error('Erro ao exportar:', errorText)
+        alert(`Erro ao exportar dados: ${response.status} ${response.statusText}`)
       }
     } catch (error) {
-      alert('Erro ao exportar dados')
+      console.error('Erro ao exportar:', error)
+      alert(`Erro ao exportar dados: ${error instanceof Error ? error.message : 'Erro desconhecido'}`)
     }
   }
 
   const buildShareData = (course: any) => {
     const origin = typeof window !== 'undefined' ? window.location.origin : ''
-    // Vai direto para o formulário de inscrição
+    const apiUrl = getApiUrl()
+    
+    // URL para o formulário de inscrição
     const path = course.slug ? `/enroll.html?course=${course.slug}` : `/enroll.html?course=${course.id}`
     const url = origin ? `${origin}${path}` : path
+
+    // URL do backend para Open Graph (com meta tags já preenchidas)
+    // Isso garante que o WhatsApp veja a imagem
+    const ogUrl = course.slug 
+      ? `${apiUrl}/share/enroll/${course.slug}`
+      : `${apiUrl}/share/enroll/${course.id}`
 
     let bannerUrl: string | undefined = course.bannerUrl
     if (bannerUrl) {
@@ -97,6 +118,7 @@ export default function AdminCoursesPage() {
 
     return {
       url,
+      ogUrl, // URL com meta tags para crawlers
       bannerUrl,
       message: `Confira o curso "${course.title}" no Link de Cadastro: ${url}`
     }
@@ -136,7 +158,7 @@ export default function AdminCoursesPage() {
     const shareData = {
       title: selectedCourse.title,
       text: `Confira o curso "${selectedCourse.title}" no Link de Cadastro.`,
-      url: selectedShareData.url
+      url: selectedShareData.ogUrl || selectedShareData.url // Usa ogUrl para garantir meta tags
     }
 
     try {
@@ -154,8 +176,9 @@ export default function AdminCoursesPage() {
   const shareWhatsApp = () => {
     if (!selectedShareData || !selectedCourse) return
     
-    // Usa a URL do frontend que funciona corretamente
-    const message = `${selectedCourse.title}${selectedCourse.description ? `\n\n${selectedCourse.description.substring(0, 150)}${selectedCourse.description.length > 150 ? '...' : ''}` : ''}\n\n${selectedShareData.url}`
+    // Usa a URL do backend com meta tags para garantir que a imagem apareça no WhatsApp
+    const shareUrl = selectedShareData.ogUrl || selectedShareData.url
+    const message = `${selectedCourse.title}${selectedCourse.description ? `\n\n${selectedCourse.description.substring(0, 150)}${selectedCourse.description.length > 150 ? '...' : ''}` : ''}\n\n${shareUrl}`
     const waUrl = `https://wa.me/?text=${encodeURIComponent(message)}`
 
     if (typeof window !== 'undefined') {

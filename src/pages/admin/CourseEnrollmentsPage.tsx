@@ -66,15 +66,20 @@ export default function CourseEnrollmentsPage() {
 
   const fetchData = useCallback(async () => {
     try {
+      setLoading(true)
       const [enrollmentsData, courseData] = await Promise.all([
         apiFetch<Enrollment[]>(`/admin/courses/${courseId}/enrollments`, {
           auth: true,
         }),
         apiFetch<any>(`/admin/courses/${courseId}`, { auth: true }),
       ])
-      setEnrollments(enrollmentsData)
+      console.log('Inscrições carregadas:', enrollmentsData)
+      console.log('Curso carregado:', courseData)
+      setEnrollments(enrollmentsData || [])
       setCourse(courseData)
     } catch (error) {
+      console.error('Erro ao carregar inscrições:', error)
+      setEnrollments([])
     } finally {
       setLoading(false)
     }
@@ -129,10 +134,13 @@ export default function CourseEnrollmentsPage() {
         document.body.removeChild(a)
         setExportModalOpen(false)
       } else {
-        alert('Erro ao exportar dados')
+        const errorText = await response.text()
+        console.error('Erro ao exportar:', response.status, errorText)
+        alert(`Erro ao exportar dados: ${response.status} ${response.statusText}`)
       }
     } catch (error) {
-      alert('Erro ao exportar dados')
+      console.error('Erro ao exportar:', error)
+      alert(`Erro ao exportar dados: ${error instanceof Error ? error.message : 'Erro desconhecido'}`)
     } finally {
       setExporting(false)
     }
