@@ -102,13 +102,16 @@ export default function AdminCoursesPage() {
     const apiUrl = getApiUrl()
     
     // URL completa para o formulário de inscrição
-    const path = course.slug ? `/enroll.html?course=${course.slug}` : `/enroll.html?course=${course.id}`
+    // Usa slug se disponível, senão usa ID
+    const courseParam = course.slug ? encodeURIComponent(course.slug) : course.id
+    const path = `/enroll.html?course=${courseParam}`
     const url = origin ? `${origin}${path}` : path
 
     // URL do backend para Open Graph (com meta tags já preenchidas)
     // Isso garante que o WhatsApp veja a imagem
+    // Usa slug se disponível (preferível para URLs amigáveis)
     const ogUrl = course.slug 
-      ? `${apiUrl}/share/enroll/${course.slug}`
+      ? `${apiUrl}/share/enroll/${encodeURIComponent(course.slug)}`
       : `${apiUrl}/share/enroll/${course.id}`
 
     // Normaliza a URL da imagem para garantir que seja acessível
