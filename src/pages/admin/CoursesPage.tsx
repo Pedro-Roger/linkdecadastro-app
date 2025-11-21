@@ -101,7 +101,7 @@ export default function AdminCoursesPage() {
     const origin = typeof window !== 'undefined' ? window.location.origin : ''
     const apiUrl = getApiUrl()
     
-    // URL para o formulário de inscrição
+    // URL completa para o formulário de inscrição
     const path = course.slug ? `/enroll.html?course=${course.slug}` : `/enroll.html?course=${course.id}`
     const url = origin ? `${origin}${path}` : path
 
@@ -111,15 +111,16 @@ export default function AdminCoursesPage() {
       ? `${apiUrl}/share/enroll/${course.slug}`
       : `${apiUrl}/share/enroll/${course.id}`
 
+    // Normaliza a URL da imagem para garantir que seja acessível
     let bannerUrl: string | undefined = course.bannerUrl
     if (bannerUrl) {
       bannerUrl = normalizeImageUrl(bannerUrl)
     }
 
     return {
-      url,
-      ogUrl, // URL com meta tags para crawlers
-      bannerUrl,
+      url, // URL completa do frontend
+      ogUrl, // URL do backend com meta tags para crawlers (WhatsApp, Facebook, etc)
+      bannerUrl, // URL completa da imagem
       message: `Confira o curso "${course.title}" no Link de Cadastro: ${url}`
     }
   }
@@ -515,49 +516,67 @@ export default function AdminCoursesPage() {
               </button>
             </div>
 
-            <div className="grid gap-4 px-6 py-4 md:grid-cols-[160px,1fr]">
-              <div className="flex items-center justify-center">
-                {selectedShareData.bannerUrl ? (
-                  <img
-                    src={normalizeImageUrl(selectedShareData.bannerUrl)} alt={`Banner do curso ${selectedCourse.title}`}
-                    className="h-32 w-32 rounded-lg object-cover shadow-sm"
-                    referrerPolicy="no-referrer"
-                  />
-                ) : (
-                  <div className="flex h-32 w-32 items-center justify-center rounded-lg bg-gradient-to-br from-[#003366] to-[#FF6600] text-center text-xs font-semibold text-white">
-                    Sem banner
-                  </div>
+            <div className="px-6 py-4">
+              <div className="mb-4">
+                <p className="text-sm font-semibold text-[#003366] mb-1">{selectedCourse.title}</p>
+                {selectedCourse.description && (
+                  <p className="text-sm text-gray-600 line-clamp-2">{selectedCourse.description}</p>
                 )}
               </div>
 
-              <div className="flex flex-col gap-3">
+              <div className="space-y-3">
                 <div>
-                  <p className="text-sm font-semibold text-[#003366]">{selectedCourse.title}</p>
-                  {selectedCourse.description && (
-                    <p className="mt-1 text-sm text-gray-600 line-clamp-3">{selectedCourse.description}</p>
-                  )}
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-500">Link do curso</label>
-                  <div className="mt-1 grid grid-cols-[1fr,auto] gap-2 overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Link do curso</label>
+                  <div className="flex gap-2">
                     <input
                       readOnly
                       value={selectedShareData.url}
-                      className="truncate bg-transparent px-3 py-2 text-sm text-gray-700 outline-none"
+                      className="flex-1 truncate rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 outline-none"
                     />
                     <button
                       onClick={copyShareLink}
-                      className="m-1 flex items-center justify-center rounded-md bg-white px-3 text-xs font-semibold text-[#003366] transition-colors hover:bg-gray-100"
+                      className="flex items-center justify-center rounded-lg border border-gray-300 bg-white px-4 text-xs font-semibold text-[#003366] transition-colors hover:bg-gray-50 whitespace-nowrap"
                     >
-                      {shareCopyStatus === 'success' ? 'Copiado!' : 'Copiar'}
+                      {shareCopyStatus === 'success' ? '✓ Copiado' : 'Copiar link'}
                     </button>
                   </div>
                 </div>
+
                 {selectedShareData.bannerUrl && (
                   <div>
-                    <label className="text-xs font-medium text-gray-500">Imagem do curso</label>
-                    <div className="mt-1 truncate rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
-                      {selectedShareData.bannerUrl}
+                    <label className="block text-xs font-medium text-gray-500 mb-1">URL da imagem</label>
+                    <div className="flex gap-2">
+                      <input
+                        readOnly
+                        value={normalizeImageUrl(selectedShareData.bannerUrl)}
+                        className="flex-1 truncate rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 outline-none"
+                      />
+                      <button
+                        onClick={async () => {
+                          try {
+                            if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+                              await navigator.clipboard.writeText(normalizeImageUrl(selectedShareData.bannerUrl))
+                              alert('URL da imagem copiada!')
+                            }
+                          } catch (error) {
+                            console.error('Erro ao copiar URL da imagem:', error)
+                          }
+                        }}
+                        className="flex items-center justify-center rounded-lg border border-gray-300 bg-white px-4 text-xs font-semibold text-[#003366] transition-colors hover:bg-gray-50 whitespace-nowrap"
+                      >
+                        Copiar
+                      </button>
+                    </div>
+                    <div className="mt-2 flex items-center justify-center">
+                      <img
+                        src={normalizeImageUrl(selectedShareData.bannerUrl)}
+                        alt={`Banner do curso ${selectedCourse.title}`}
+                        className="max-h-32 max-w-full rounded-lg object-contain shadow-sm"
+                        referrerPolicy="no-referrer"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none'
+                        }}
+                      />
                     </div>
                   </div>
                 )}
