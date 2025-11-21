@@ -121,8 +121,8 @@ export default function CoursePage() {
 
     const origin =
       typeof window !== 'undefined' ? window.location.origin : ''
-    // Usa ?enroll=slug para ir direto para a página principal e abrir o modal
-    const path = course.slug ? `/?enroll=${course.slug}` : `/?enroll=${course.id}`
+    // Vai direto para o formulário de inscrição
+    const path = course.slug ? `/enroll.html?course=${course.slug}` : `/enroll.html?course=${course.id}`
     const url = origin ? `${origin}${path}` : path
 
     let bannerUrl: string | undefined = course.bannerUrl

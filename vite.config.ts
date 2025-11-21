@@ -12,6 +12,10 @@ export default defineConfig({
           src: '.htaccess',
           dest: '.',
         },
+        {
+          src: 'public/enroll.html',
+          dest: '.',
+        },
       ],
     }),
   ],

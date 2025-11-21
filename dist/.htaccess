@@ -22,8 +22,16 @@
   RewriteCond %{REQUEST_URI} ^/(assets|api|images|fonts|_next|static|uploads)/ [NC]
   RewriteRule ^ - [L]
   
+  # Serve enroll.html diretamente (formulário de inscrição)
+  RewriteCond %{REQUEST_URI} ^/enroll\.html$ [NC]
+  RewriteCond %{DOCUMENT_ROOT}/enroll.html -f
+  RewriteRule ^ - [L]
+  
+  # Redirecionar /c/slug para enroll.html?course=slug (evita 404)
+  RewriteCond %{REQUEST_URI} ^/c/([^/]+)/?$ [NC]
+  RewriteRule ^c/([^/]+)/?$ /enroll.html?course=$1 [R=301,L]
+  
   # Redirecionar TUDO para index.html (React Router SPA)
-  # Esta é a regra CRÍTICA - permite que todas as rotas do React Router funcionem
   RewriteRule ^ index.html [L,QSA]
 </IfModule>
 

@@ -177,6 +177,19 @@ export default function CourseEnrollmentModal({
   // Se não estiver logado, precisa criar conta (name, email, password obrigatórios)
   const needsAccount = !user
 
+  // Declarar estados antes de usar no useMemo
+  const [emailExists, setEmailExists] = useState(false)
+  const [checkingEmail, setCheckingEmail] = useState(false)
+  const [existingUserId, setExistingUserId] = useState<string | null>(null)
+  const [states, setStates] = useState<StateOption[]>([])
+  const [cities, setCities] = useState<CityOption[]>([])
+  const [loadingStates, setLoadingStates] = useState(false)
+  const [loadingCities, setLoadingCities] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [isRegistering, setIsRegistering] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [result, setResult] = useState<EnrollmentResult | null>(null)
+
   const enrollmentSchema = useMemo(() => createEnrollmentSchema(needsAccount, emailExists), [needsAccount, emailExists])
 
   const {
@@ -201,17 +214,6 @@ export default function CourseEnrollmentModal({
   const selectedState = watch('state')
   const participantType = watch('participantType')
   const emailValue = watch('email')
-  const [states, setStates] = useState<StateOption[]>([])
-  const [cities, setCities] = useState<CityOption[]>([])
-  const [loadingStates, setLoadingStates] = useState(false)
-  const [loadingCities, setLoadingCities] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-  const [isRegistering, setIsRegistering] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [result, setResult] = useState<EnrollmentResult | null>(null)
-  const [emailExists, setEmailExists] = useState(false)
-  const [checkingEmail, setCheckingEmail] = useState(false)
-  const [existingUserId, setExistingUserId] = useState<string | null>(null)
 
   useEffect(() => {
     if (isOpen && user) {
