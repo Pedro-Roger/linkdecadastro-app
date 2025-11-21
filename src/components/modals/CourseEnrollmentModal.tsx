@@ -25,6 +25,8 @@ const baseEnrollmentSchema = z.object({
     required_error: 'Selecione o tipo de participante'
   }),
   hectares: z.string().optional(),
+  waterArea: z.string().optional(), // Hectares de lâmina d'água
+  ponds: z.string().optional(), // Quantidade de viveiros
   state: z.string().min(2, 'Estado é obrigatório'),
   city: z.string().min(1, 'Cidade é obrigatória'),
   whatsappNumber: z.string().min(10, 'Informe o WhatsApp com DDD')
@@ -59,6 +61,24 @@ const createEnrollmentSchema = (needsAccount: boolean, emailExists: boolean = fa
           path: ['hectares']
         })
       }
+      
+      const waterAreaValue = parseFloat(data.waterArea ?? '')
+      if (Number.isNaN(waterAreaValue) || waterAreaValue <= 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Hectares de lâmina d\'água é obrigatório para produtores e deve ser maior que zero',
+          path: ['waterArea']
+        })
+      }
+      
+      const pondsValue = parseInt(data.ponds ?? '')
+      if (Number.isNaN(pondsValue) || pondsValue <= 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Quantidade de viveiros é obrigatória para produtores e deve ser maior que zero',
+          path: ['ponds']
+        })
+      }
     }
 
     if (needsAccount) {
@@ -77,14 +97,14 @@ const createEnrollmentSchema = (needsAccount: boolean, emailExists: boolean = fa
             code: z.ZodIssueCode.custom,
             message: 'Nome é obrigatório',
             path: ['name']
-          })
-        }
-        if (!data.password) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: 'Senha é obrigatória',
-            path: ['password']
-          })
+        })
+      }
+      if (!data.password) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Senha é obrigatória',
+          path: ['password']
+        })
         }
       }
     }
@@ -408,6 +428,14 @@ export default function CourseEnrollmentModal({
       data.participantType === 'PRODUTOR'
         ? parseFloat((data.hectares ?? '').replace(',', '.'))
         : undefined
+    const waterArea =
+      data.participantType === 'PRODUTOR'
+        ? parseFloat((data.waterArea ?? '').replace(',', '.'))
+        : undefined
+    const ponds =
+      data.participantType === 'PRODUTOR'
+        ? parseInt((data.ponds ?? '').replace(/\D/g, ''))
+        : undefined
 
     try {
       // Se precisa criar conta, primeiro verifica se o email já existe
@@ -449,6 +477,8 @@ export default function CourseEnrollmentModal({
                   birthDate: data.birthDate,
                   participantType: data.participantType,
                   hectares: data.participantType === 'PRODUTOR' ? hectares : undefined,
+                  waterArea: data.participantType === 'PRODUTOR' ? waterArea : undefined,
+                  ponds: data.participantType === 'PRODUTOR' ? ponds : undefined,
                   state: data.state,
                   city: data.city,
                   whatsappNumber: whatsapp
@@ -488,6 +518,8 @@ export default function CourseEnrollmentModal({
                 birthDate: '',
                 participantType: 'ESTUDANTE',
                 hectares: '',
+                waterArea: '',
+                ponds: '',
                 state: '',
                 city: '',
                 whatsappNumber: ''
@@ -522,6 +554,8 @@ export default function CourseEnrollmentModal({
                 birthDate: data.birthDate,
                 participantType: data.participantType,
                 hectares: data.participantType === 'PRODUTOR' ? hectares : undefined,
+                waterArea: data.participantType === 'PRODUTOR' ? waterArea : undefined,
+                ponds: data.participantType === 'PRODUTOR' ? ponds : undefined,
                 state: data.state,
                 city: data.city,
                 phone: whatsapp
@@ -576,6 +610,8 @@ export default function CourseEnrollmentModal({
           birthDate: data.birthDate,
           participantType: data.participantType,
           hectares: data.participantType === 'PRODUTOR' ? hectares : undefined,
+          waterArea: data.participantType === 'PRODUTOR' ? waterArea : undefined,
+          ponds: data.participantType === 'PRODUTOR' ? ponds : undefined,
           state: data.state,
           city: data.city,
           whatsappNumber: whatsapp
@@ -615,6 +651,8 @@ export default function CourseEnrollmentModal({
         birthDate: '',
         participantType: 'ESTUDANTE',
         hectares: '',
+        waterArea: '',
+        ponds: '',
         state: '',
         city: '',
         whatsappNumber: ''
@@ -852,6 +890,7 @@ export default function CourseEnrollmentModal({
               </div>
 
               {participantType === 'PRODUTOR' && (
+                <>
                 <div>
                   <label className="mb-1 block text-sm font-medium text-gray-700">
                     Quantos hectares você possui? *
@@ -868,6 +907,39 @@ export default function CourseEnrollmentModal({
                     <p className="mt-1 text-sm text-red-500">{errors.hectares.message}</p>
                   )}
                 </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">
+                      Quantos hectares de lâmina d'água você possui? *
+                    </label>
+                    <input
+                      {...register('waterArea')}
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="Ex: 8.5"
+                      className="w-full rounded-md border border-gray-300 px-4 py-2 text-gray-900 focus:border-transparent focus:ring-2 focus:ring-[#FF6600]"
+                    />
+                    {errors.waterArea && (
+                      <p className="mt-1 text-sm text-red-500">{errors.waterArea.message}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">
+                      Quantos viveiros você possui? *
+                    </label>
+                    <input
+                      {...register('ponds')}
+                      type="number"
+                      step="1"
+                      min="1"
+                      placeholder="Ex: 5"
+                      className="w-full rounded-md border border-gray-300 px-4 py-2 text-gray-900 focus:border-transparent focus:ring-2 focus:ring-[#FF6600]"
+                    />
+                    {errors.ponds && (
+                      <p className="mt-1 text-sm text-red-500">{errors.ponds.message}</p>
+                    )}
+                  </div>
+                </>
               )}
 
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
