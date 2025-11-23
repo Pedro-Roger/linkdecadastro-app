@@ -9,10 +9,17 @@ export function getAppStoreUrl(): string {
 
   const userAgent = window.navigator.userAgent || window.navigator.vendor || (window as any).opera
 
+  // Detecta iOS (iPhone, iPad, iPod)
   if (/iPad|iPhone|iPod/.test(userAgent) && !(window as any).MSStream) {
     return APP_STORE_IOS_URL
   }
 
+  // Detecta macOS (Mac OS X)
+  if (/Macintosh|Mac OS X/.test(userAgent) && !(/iPad|iPhone|iPod/.test(userAgent))) {
+    return APP_STORE_IOS_URL
+  }
+
+  // Detecta Android
   if (/android/i.test(userAgent)) {
     return PLAY_STORE_ANDROID_URL
   }

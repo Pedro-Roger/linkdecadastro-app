@@ -1,4 +1,13 @@
+import { getAppStoreUrl } from '@/constants/branding'
+import { useEffect, useState } from 'react'
+
 export default function LoadingScreen() {
+  const [appUrl, setAppUrl] = useState<string>('https://querocamarao.com/app')
+
+  useEffect(() => {
+    setAppUrl(getAppStoreUrl())
+  }, [])
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-[#003366] via-[#003366] to-[#FF6600]">
       {/* Logo e Propaganda do App Quero Camarão */}
@@ -29,7 +38,7 @@ export default function LoadingScreen() {
       {/* Link para Download do App */}
       <div className="mt-8 text-center">
         <a
-          href="https://play.google.com/store/apps/details?id=com.querocamarao.app"
+          href={appUrl}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-block bg-white text-[#FF6600] px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors shadow-lg"
@@ -41,7 +50,15 @@ export default function LoadingScreen() {
       {/* Rodapé com mais informações */}
       <div className="mt-8 text-center px-4">
         <p className="text-white/70 text-xs md:text-sm">
-          Aplicativo Quero Camarão – Clique aqui para baixar
+          Aplicativo Quero Camarão –{' '}
+          <a
+            href={appUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-white underline hover:text-white/80"
+          >
+            Clique aqui para baixar
+          </a>
         </p>
       </div>
     </div>
