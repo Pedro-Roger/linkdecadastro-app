@@ -41,7 +41,11 @@ const courseSchema = z.object({
   }),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
-  slug: z.string().optional().refine(
+  slug: z.string().optional().transform((val) => {
+    // Transformar string vazia em undefined
+    if (!val || typeof val !== 'string' || !val.trim()) return undefined;
+    return val.trim().toLowerCase();
+  }).refine(
     (val) => !val || /^[a-z0-9-]+$/.test(val),
     { message: 'URL personalizada deve conter apenas letras minúsculas, números e hífens' }
   ),
@@ -395,7 +399,7 @@ export default function NewCoursePage() {
             : null,
         startDate: data.startDate && data.startDate.trim() ? data.startDate : undefined,
         endDate: data.endDate && data.endDate.trim() ? data.endDate : undefined,
-        slug: data.slug && data.slug.trim() ? data.slug.trim().toLowerCase() : undefined,
+        slug: data.slug || undefined, // Já vem transformado do schema
 
         firstLesson: (data.firstLessonTitle && data.firstLessonTitle.trim() && 
                      data.firstLessonVideoUrl && data.firstLessonVideoUrl.trim()) ? {
