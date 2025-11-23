@@ -333,7 +333,9 @@ export default function HomePage() {
             {courses.map((course) => {
               const status = getCourseStatus(course)
               const isFeatured = !course.startDate || new Date(course.startDate) > new Date()
-              const progress = course._count.enrollments > 0 ? Math.min(100, (course._count.enrollments / 50) * 100) : 0
+              const progress = course.maxEnrollments && course._count.enrollments > 0 
+                ? Math.min(100, (course._count.enrollments / course.maxEnrollments) * 100) 
+                : course._count.enrollments > 0 ? 0 : 0
               
               return (
                 <div
