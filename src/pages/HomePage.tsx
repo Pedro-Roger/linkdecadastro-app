@@ -17,6 +17,7 @@ interface Course {
   endDate: string | null
   createdAt: string
   slug?: string | null
+  maxEnrollments?: number | null
   creator: {
     name: string
   }
