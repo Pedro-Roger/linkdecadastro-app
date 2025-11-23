@@ -18,6 +18,7 @@ const registerSchema = z.object({
   participantType: z.enum(['ESTUDANTE', 'PROFESSOR', 'PESQUISADOR', 'PRODUTOR'], {
     required_error: 'Selecione o tipo de participante'
   }),
+  schoolOrUniversity: z.string().optional(),
   hectares: z.string().optional().transform((val) => {
     if (!val || val.trim() === '') return undefined
     const num = parseFloat(val)
@@ -25,10 +26,31 @@ const registerSchema = z.object({
   }).refine((val) => val === undefined || val > 0, {
     message: 'Hectares deve ser um número positivo'
   }),
+  waterArea: z.string().optional().transform((val) => {
+    if (!val || val.trim() === '') return undefined
+    const num = parseFloat(val)
+    return isNaN(num) ? undefined : num
+  }).refine((val) => val === undefined || val > 0, {
+    message: 'Hectares de lâmina d\'água deve ser um número positivo'
+  }),
+  ponds: z.string().optional().transform((val) => {
+    if (!val || val.trim() === '') return undefined
+    const num = parseInt(val)
+    return isNaN(num) ? undefined : num
+  }).refine((val) => val === undefined || val > 0, {
+    message: 'Quantidade de viveiros deve ser um número positivo'
+  }),
   state: z.string().min(2, 'Estado é obrigatório'),
   city: z.string().min(1, 'Cidade é obrigatória'),
 }).refine((data) => {
-  // Se for produtor, hectares é obrigatório
+  if (data.participantType === 'PROFESSOR') {
+    return data.schoolOrUniversity !== undefined && data.schoolOrUniversity.trim().length > 0
+  }
+  return true
+}, {
+  message: 'Escola ou universidade é obrigatória para professores',
+  path: ['schoolOrUniversity']
+}).refine((data) => {
   if (data.participantType === 'PRODUTOR') {
     return data.hectares !== undefined && data.hectares > 0
   }
@@ -36,6 +58,22 @@ const registerSchema = z.object({
 }, {
   message: 'Hectares é obrigatório para produtores',
   path: ['hectares']
+}).refine((data) => {
+  if (data.participantType === 'PRODUTOR') {
+    return data.waterArea !== undefined && data.waterArea > 0
+  }
+  return true
+}, {
+  message: 'Hectares de lâmina d\'água é obrigatório para produtores',
+  path: ['waterArea']
+}).refine((data) => {
+  if (data.participantType === 'PRODUTOR') {
+    return data.ponds !== undefined && data.ponds > 0
+  }
+  return true
+}, {
+  message: 'Quantidade de viveiros é obrigatória para produtores',
+  path: ['ponds']
 })
 
 type RegisterFormData = z.infer<typeof registerSchema>
@@ -189,7 +227,10 @@ export default function RegisterPage() {
           cpf: data.cpf.replace(/\D/g, ''),
           birthDate: data.birthDate,
           participantType: data.participantType,
+          schoolOrUniversity: data.participantType === 'PROFESSOR' ? data.schoolOrUniversity : undefined,
           hectares: data.participantType === 'PRODUTOR' ? data.hectares : undefined,
+          waterArea: data.participantType === 'PRODUTOR' ? data.waterArea : undefined,
+          ponds: data.participantType === 'PRODUTOR' ? data.ponds : undefined,
           state: data.state,
           city: data.city,
         }),
@@ -314,21 +355,66 @@ export default function RegisterPage() {
               {errors.participantType && <p className="text-red-500 text-sm mt-1">{errors.participantType.message}</p>}
             </div>
 
-            {participantType === 'PRODUTOR' && (
+            {participantType === 'PROFESSOR' && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Quantos hectares você possui? *
+                  Escola ou Universidade *
                 </label>
                 <input
-                  {...register('hectares')}
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="Ex: 10.5"
+                  {...register('schoolOrUniversity')}
+                  type="text"
+                  placeholder="Ex: Universidade Federal de Alagoas"
                   className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
                 />
-                {errors.hectares && <p className="text-red-500 text-sm mt-1">{errors.hectares.message}</p>}
+                {errors.schoolOrUniversity && <p className="text-red-500 text-sm mt-1">{errors.schoolOrUniversity.message}</p>}
               </div>
+            )}
+
+            {participantType === 'PRODUTOR' && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Quantidade de Viveiros *
+                  </label>
+                  <input
+                    {...register('ponds')}
+                    type="number"
+                    step="1"
+                    min="1"
+                    placeholder="Ex: 5"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
+                  />
+                  {errors.ponds && <p className="text-red-500 text-sm mt-1">{errors.ponds.message}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Hectares de Lâmina d'Água *
+                  </label>
+                  <input
+                    {...register('waterArea')}
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="Ex: 10.5"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
+                  />
+                  {errors.waterArea && <p className="text-red-500 text-sm mt-1">{errors.waterArea.message}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Quantos hectares você possui? *
+                  </label>
+                  <input
+                    {...register('hectares')}
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="Ex: 10.5"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
+                  />
+                  {errors.hectares && <p className="text-red-500 text-sm mt-1">{errors.hectares.message}</p>}
+                </div>
+              </>
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

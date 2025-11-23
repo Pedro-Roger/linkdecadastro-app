@@ -24,6 +24,7 @@ const baseEnrollmentSchema = z.object({
   participantType: z.enum(participantTypes, {
     required_error: 'Selecione o tipo de participante'
   }),
+  schoolOrUniversity: z.string().optional(),
   hectares: z.string().optional(),
   waterArea: z.string().optional(), // Hectares de lâmina d'água
   ponds: z.string().optional(), // Quantidade de viveiros
@@ -50,6 +51,16 @@ const createEnrollmentSchema = (needsAccount: boolean, emailExists: boolean = fa
         message: 'Informe um número de WhatsApp válido (com DDD)',
         path: ['whatsappNumber']
       })
+    }
+
+    if (data.participantType === 'PROFESSOR') {
+      if (!data.schoolOrUniversity || data.schoolOrUniversity.trim().length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Escola ou universidade é obrigatória para professores',
+          path: ['schoolOrUniversity']
+        })
+      }
     }
 
     if (data.participantType === 'PRODUTOR') {
@@ -476,6 +487,7 @@ export default function CourseEnrollmentModal({
                   cpf,
                   birthDate: data.birthDate,
                   participantType: data.participantType,
+                  schoolOrUniversity: data.participantType === 'PROFESSOR' ? data.schoolOrUniversity : undefined,
                   hectares: data.participantType === 'PRODUTOR' ? hectares : undefined,
                   waterArea: data.participantType === 'PRODUTOR' ? waterArea : undefined,
                   ponds: data.participantType === 'PRODUTOR' ? ponds : undefined,
@@ -556,6 +568,7 @@ export default function CourseEnrollmentModal({
                 cpf,
                 birthDate: data.birthDate,
                 participantType: data.participantType,
+                schoolOrUniversity: data.participantType === 'PROFESSOR' ? data.schoolOrUniversity : undefined,
                 hectares: data.participantType === 'PRODUTOR' ? hectares : undefined,
                 waterArea: data.participantType === 'PRODUTOR' ? waterArea : undefined,
                 ponds: data.participantType === 'PRODUTOR' ? ponds : undefined,
@@ -612,6 +625,7 @@ export default function CourseEnrollmentModal({
           cpf,
           birthDate: data.birthDate,
           participantType: data.participantType,
+          schoolOrUniversity: data.participantType === 'PROFESSOR' ? data.schoolOrUniversity : undefined,
           hectares: data.participantType === 'PRODUTOR' ? hectares : undefined,
           waterArea: data.participantType === 'PRODUTOR' ? waterArea : undefined,
           ponds: data.participantType === 'PRODUTOR' ? ponds : undefined,
@@ -894,6 +908,23 @@ export default function CourseEnrollmentModal({
                   <p className="mt-1 text-sm text-red-500">{errors.participantType.message}</p>
                 )}
               </div>
+
+              {participantType === 'PROFESSOR' && (
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                    Escola ou Universidade *
+                  </label>
+                  <input
+                    {...register('schoolOrUniversity')}
+                    type="text"
+                    placeholder="Ex: Universidade Federal de Alagoas"
+                    className="w-full rounded-md border border-gray-300 px-4 py-2 text-gray-900 focus:border-transparent focus:ring-2 focus:ring-[#FF6600]"
+                  />
+                  {errors.schoolOrUniversity && (
+                    <p className="mt-1 text-sm text-red-500">{errors.schoolOrUniversity.message}</p>
+                  )}
+                </div>
+              )}
 
               {participantType === 'PRODUTOR' && (
                 <>
