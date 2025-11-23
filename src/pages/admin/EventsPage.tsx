@@ -239,13 +239,13 @@ export default function AdminEventsPage() {
               <h1 className="text-3xl font-bold text-[#003366]">Histórico de Links</h1>
               <p className="text-gray-600 text-sm">Gerencie os links de cadastro criados para eventos e campanhas.</p>
             </div>
-            <button
-              onClick={openCreateModal}
+            <Link
+              to="/admin/events/new"
               className="inline-flex items-center gap-2 rounded-lg bg-[#FF6600] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#e55a00]"
             >
               <span className="text-lg">+</span>
               Novo link
-            </button>
+            </Link>
           </div>
 
           <div className="bg-white rounded-lg shadow-md p-4 md:p-6 space-y-4">
