@@ -492,12 +492,15 @@ export default function CourseEnrollmentModal({
               if (status === 'WAITLIST') {
                 message =
                   waitlistPosition && waitlistPosition > 0
-                    ? `Você entrou na lista de espera deste curso. Sua posição atual é ${waitlistPosition}.`
-                    : 'Você entrou na lista de espera deste curso. Aguarde a aprovação do administrador.'
+                    ? `Você entrou na lista de espera deste curso. Sua posição atual é ${waitlistPosition}. Você será contatado quando houver uma nova turma disponível.`
+                    : 'Você entrou na lista de espera deste curso. Você será contatado quando houver uma nova turma disponível.'
               } else if (status === 'PENDING_REGION') {
-                message =
-                  responseBody.enrollment?.eligibilityReason ||
-                  'Seu cadastro foi recebido, mas ainda não está elegível para participar deste curso.'
+                const reason = responseBody.enrollment?.eligibilityReason || ''
+                if (reason.includes('fora das regiões prioritárias') || reason.includes('Região não elegível')) {
+                  message = `Seu cadastro foi recebido com sucesso! Entretanto, este curso é destinado prioritariamente para pessoas de ${reason.includes('Região não elegível') ? 'regiões específicas' : 'outras regiões'}. Sua inscrição será analisada e você será contatado caso haja disponibilidade.`
+                } else {
+                  message = reason || 'Seu cadastro foi recebido, mas ainda não está elegível para participar deste curso.'
+                }
               } else if (status === 'REJECTED') {
                 message =
                   responseBody.enrollment?.eligibilityReason ||
@@ -625,12 +628,15 @@ export default function CourseEnrollmentModal({
       if (status === 'WAITLIST') {
         message =
           waitlistPosition && waitlistPosition > 0
-            ? `Você entrou na lista de espera deste curso. Sua posição atual é ${waitlistPosition}.`
-            : 'Você entrou na lista de espera deste curso. Aguarde a aprovação do administrador.'
+            ? `Você entrou na lista de espera deste curso. Sua posição atual é ${waitlistPosition}. Você será contatado quando houver uma nova turma disponível.`
+            : 'Você entrou na lista de espera deste curso. Você será contatado quando houver uma nova turma disponível.'
       } else if (status === 'PENDING_REGION') {
-        message =
-          responseBody.enrollment?.eligibilityReason ||
-          'Seu cadastro foi recebido, mas ainda não está elegível para participar deste curso.'
+        const reason = responseBody.enrollment?.eligibilityReason || ''
+        if (reason.includes('fora das regiões prioritárias') || reason.includes('Região não elegível')) {
+          message = `Seu cadastro foi recebido com sucesso! Entretanto, este curso é destinado prioritariamente para pessoas de ${reason.includes('Região não elegível') ? 'regiões específicas' : 'outras regiões'}. Sua inscrição será analisada e você será contatado caso haja disponibilidade.`
+        } else {
+          message = reason || 'Seu cadastro foi recebido, mas ainda não está elegível para participar deste curso.'
+        }
       } else if (status === 'REJECTED') {
         message =
           responseBody.enrollment?.eligibilityReason ||

@@ -857,8 +857,8 @@ export default function NewCoursePage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 URL Personalizada (opcional)
               </label>
-              <div className="flex items-center gap-2">
-                <span className="text-gray-500">https://seudominio.com/c/</span>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                <span className="text-gray-500 text-sm sm:text-base whitespace-nowrap">https://seudominio.com/c/</span>
                 <input
                   type="text"
                   {...register('slug')}

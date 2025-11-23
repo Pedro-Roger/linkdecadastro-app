@@ -411,7 +411,7 @@ export default function HomePage() {
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-gray-500">
-                          {course._count.enrollments}/50 vagas ocupadas
+                          {course._count.enrollments}{course.maxEnrollments ? `/${course.maxEnrollments}` : ''} vagas {course.maxEnrollments ? 'ocupadas' : 'inscritos'}
                         </span>
                       </div>
                       
