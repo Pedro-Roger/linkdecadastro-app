@@ -131,8 +131,6 @@ export default function CourseEnrollmentsPage() {
         document.body.removeChild(a)
         setExportModalOpen(false)
       } else {
-        const errorText = await response.text()
-        console.error('Erro ao exportar:', response.status, errorText)
         alert(`Erro ao exportar dados: ${response.status} ${response.statusText}`)
       }
     } catch (error) {
