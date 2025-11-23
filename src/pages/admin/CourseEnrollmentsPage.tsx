@@ -73,12 +73,9 @@ export default function CourseEnrollmentsPage() {
         }),
         apiFetch<any>(`/admin/courses/${courseId}`, { auth: true }),
       ])
-      console.log('Inscrições carregadas:', enrollmentsData)
-      console.log('Curso carregado:', courseData)
       setEnrollments(enrollmentsData || [])
       setCourse(courseData)
     } catch (error) {
-      console.error('Erro ao carregar inscrições:', error)
       setEnrollments([])
     } finally {
       setLoading(false)
@@ -139,7 +136,6 @@ export default function CourseEnrollmentsPage() {
         alert(`Erro ao exportar dados: ${response.status} ${response.statusText}`)
       }
     } catch (error) {
-      console.error('Erro ao exportar:', error)
       alert(`Erro ao exportar dados: ${error instanceof Error ? error.message : 'Erro desconhecido'}`)
     } finally {
       setExporting(false)

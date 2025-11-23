@@ -107,7 +107,6 @@ export default function AdminCoursesPage() {
       }
 
       const url = `${getApiUrl()}/admin/courses/${courseId}/export?format=xlsx`
-      console.log('Exportando para:', url)
       
       const response = await fetch(url, {
         method: 'GET',
@@ -115,8 +114,6 @@ export default function AdminCoursesPage() {
           'Authorization': `Bearer ${token}`,
         },
       })
-
-      console.log('Resposta do export:', response.status, response.statusText)
 
       if (response.ok) {
         const blob = await response.blob()
@@ -130,11 +127,9 @@ export default function AdminCoursesPage() {
         document.body.removeChild(a)
       } else {
         const errorText = await response.text()
-        console.error('Erro ao exportar:', errorText)
         alert(`Erro ao exportar dados: ${response.status} ${response.statusText}`)
       }
     } catch (error) {
-      console.error('Erro ao exportar:', error)
       alert(`Erro ao exportar dados: ${error instanceof Error ? error.message : 'Erro desconhecido'}`)
     }
   }
