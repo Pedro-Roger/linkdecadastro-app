@@ -18,6 +18,10 @@ export default function AdminCoursesPage() {
   const [shareModalOpen, setShareModalOpen] = useState(false)
   const [shareCopyStatus, setShareCopyStatus] = useState<'idle' | 'success'>('idle')
   const [selectedCourse, setSelectedCourse] = useState<any>(null)
+  const [newClassModalOpen, setNewClassModalOpen] = useState(false)
+  const [creatingClass, setCreatingClass] = useState(false)
+  const [classLimit, setClassLimit] = useState<string>('')
+  const [courseForNewClass, setCourseForNewClass] = useState<any>(null)
 
   useEffect(() => {
     if (!authLoading) {
@@ -53,6 +57,44 @@ export default function AdminCoursesPage() {
       alert('Curso excluído com sucesso!')
     } catch (error) {
       alert('Erro ao excluir curso')
+    }
+  }
+
+  const openNewClassModal = (course: any) => {
+    setCourseForNewClass(course)
+    setClassLimit(course.maxEnrollments ? String(course.maxEnrollments) : '50')
+    setNewClassModalOpen(true)
+  }
+
+  const closeNewClassModal = () => {
+    setNewClassModalOpen(false)
+    setCourseForNewClass(null)
+    setClassLimit('')
+  }
+
+  const handleCreateNewClass = async () => {
+    if (!courseForNewClass) return
+
+    const limitValue = parseInt(classLimit, 10)
+    if (isNaN(limitValue) || limitValue <= 0) {
+      alert('Informe um limite de vagas válido (maior que zero)')
+      return
+    }
+
+    setCreatingClass(true)
+    try {
+      await apiFetch(`/admin/courses/${courseForNewClass.id}/classes`, {
+        method: 'POST',
+        auth: true,
+        body: JSON.stringify({ limit: limitValue }),
+      })
+      alert('Nova turma criada com sucesso! Pessoas da lista de espera foram alocadas automaticamente.')
+      closeNewClassModal()
+      fetchCourses()
+    } catch (error: any) {
+      alert(error?.message || 'Erro ao criar nova turma')
+    } finally {
+      setCreatingClass(false)
     }
   }
 
@@ -474,16 +516,16 @@ export default function AdminCoursesPage() {
                       </button>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
-                      <Link
-                        to={`/admin/courses/new?clone=${course.id}`}
+                      <button
+                        onClick={() => openNewClassModal(course)}
                         className="bg-purple-600 text-white py-2 px-4 rounded-md font-semibold hover:bg-purple-700 transition-colors text-sm flex items-center justify-center gap-2"
-                        title="Criar nova turma deste curso (clona o curso com todas as aulas)"
+                        title="Criar nova turma para alocar pessoas da lista de espera"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                         </svg>
                         Nova Turma
-                      </Link>
+                      </button>
                       <button
                         onClick={() => handleDelete(course.id, course.title)}
                         className="bg-red-600 text-white py-2 px-4 rounded-md font-semibold hover:bg-red-700 transition-colors text-sm flex items-center justify-center gap-2"
@@ -611,6 +653,63 @@ export default function AdminCoursesPage() {
                 className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-600 transition-colors hover:bg-gray-100"
               >
                 Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para criar nova turma */}
+      {newClassModalOpen && courseForNewClass && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6">
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b px-6 py-4">
+              <h2 className="text-lg font-semibold text-[#003366]">Criar Nova Turma</h2>
+              <button
+                onClick={closeNewClassModal}
+                className="text-gray-400 transition-colors hover:text-gray-600"
+              >
+                <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="px-6 py-4">
+              <p className="text-sm text-gray-600 mb-4">
+                Uma nova turma será criada para o curso <strong>{courseForNewClass.title}</strong>.
+                Pessoas na lista de espera serão automaticamente alocadas nesta nova turma.
+              </p>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Limite de vagas *
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={classLimit}
+                  onChange={(e) => setClassLimit(e.target.value)}
+                  placeholder="Ex: 50"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Limite padrão do curso: {courseForNewClass.maxEnrollments || 'Sem limite'}
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 border-t bg-gray-50 px-6 py-4">
+              <button
+                onClick={closeNewClassModal}
+                disabled={creatingClass}
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleCreateNewClass}
+                disabled={creatingClass}
+                className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {creatingClass ? 'Criando...' : 'Criar Turma'}
               </button>
             </div>
           </div>
