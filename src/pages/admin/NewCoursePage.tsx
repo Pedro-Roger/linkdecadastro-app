@@ -299,6 +299,7 @@ export default function NewCoursePage() {
       setValue('allowAllRegions', course.allowAllRegions ?? true)
       if (course.defaultRegionLimit) setValue('defaultRegionLimit', String(course.defaultRegionLimit))
       // Não clonar datas e slug (deixa vazio para o usuário definir)
+      setValue('slug', '') // Garantir que o slug seja limpo ao clonar
       
       // Preencher quotas regionais
       if (course.regionQuotas && course.regionQuotas.length > 0) {
