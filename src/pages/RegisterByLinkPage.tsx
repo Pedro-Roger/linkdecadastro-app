@@ -15,7 +15,13 @@ export default function RegisterPage() {
   useEffect(() => {
     async function fetchEvent() {
       try {
-        const data = await apiFetch(`/events/link/${linkId}`)
+        // Tenta buscar por slug primeiro, depois por linkId
+        let data
+        try {
+          data = await apiFetch(`/events/slug/${linkId}`)
+        } catch (slugError) {
+          data = await apiFetch(`/events/link/${linkId}`)
+        }
         setEvent(data)
       } catch (error) {
       } finally {

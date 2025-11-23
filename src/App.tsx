@@ -37,6 +37,7 @@ function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/c/:slug" element={<CourseBySlugPage />} />
+          <Route path="/e/:slug" element={<RegisterByLinkPage />} />
           <Route path="/register/:linkId" element={<RegisterByLinkPage />} />
 
           <Route path="/login" element={<LoginPage />} />

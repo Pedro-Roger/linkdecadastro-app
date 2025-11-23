@@ -83,6 +83,7 @@ model Event {
   description String
   bannerUrl   String?
   linkId      String      @unique
+  slug        String?     @unique // URL personalizada
   status      EventStatus @default(ACTIVE)
   maxRegistrations Int?
   createdAt   DateTime    @default(now())
@@ -198,6 +199,7 @@ model Course {
   lessons       Lesson[]
   enrollments   Enrollment[]
   regionQuotas  CourseRegionQuota[]
+  classes       CourseClass[]
 
   @@map("courses")
 }
@@ -225,6 +227,7 @@ model Enrollment {
   id            String   @id @default(auto()) @map("_id") @db.ObjectId
   userId        String   @db.ObjectId
   courseId      String   @db.ObjectId
+  courseClassId String?  @db.ObjectId // Turma do curso
   progress      Int      @default(0) // Porcentagem de conclusão
   completedAt   DateTime?
   status        EnrollmentStatus @default(CONFIRMED)
@@ -249,6 +252,7 @@ model Enrollment {
 
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  courseClass CourseClass? @relation(fields: [courseClassId], references: [id])
   regionQuota CourseRegionQuota? @relation(fields: [regionQuotaId], references: [id])
 
   @@unique([userId, courseId])
@@ -272,6 +276,29 @@ model CourseRegionQuota {
 
   @@unique([courseId, state, city])
   @@map("course_region_quotas")
+}
+
+enum CourseClassStatus {
+  ACTIVE
+  CLOSED
+}
+
+model CourseClass {
+  id            String            @id @default(auto()) @map("_id") @db.ObjectId
+  courseId      String            @db.ObjectId
+  classNumber   Int               // Número da turma (1, 2, 3...)
+  limit         Int               // Limite de vagas da turma
+  currentCount  Int               @default(0) // Quantidade atual de inscritos
+  status        CourseClassStatus @default(ACTIVE)
+  createdAt     DateTime          @default(now())
+  closedAt      DateTime?
+  updatedAt     DateTime          @updatedAt
+
+  course        Course            @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  enrollments   Enrollment[]
+
+  @@unique([courseId, classNumber])
+  @@map("course_classes")
 }
 
 enum EnrollmentStatus {

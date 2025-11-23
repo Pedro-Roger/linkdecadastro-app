@@ -13,6 +13,7 @@ interface EventItem {
   description: string
   bannerUrl?: string | null
   linkId: string
+  slug?: string | null
   status: 'ACTIVE' | 'INACTIVE' | 'CLOSED'
   createdAt: string
   maxRegistrations?: number | null
@@ -46,6 +47,7 @@ export default function AdminEventsPage() {
     description: '',
     bannerUrl: '',
     maxRegistrations: '',
+    slug: '',
   })
 
   useEffect(() => {
@@ -83,14 +85,17 @@ export default function AdminEventsPage() {
         return (
           event.title.toLowerCase().includes(term) ||
           event.description.toLowerCase().includes(term) ||
-          event.linkId.toLowerCase().includes(term)
+          event.linkId.toLowerCase().includes(term) ||
+          (event.slug && event.slug.toLowerCase().includes(term))
         )
       })
   }, [events, statusFilter, searchTerm])
 
   const buildShareData = (eventItem: EventItem): ShareData => {
     const origin = typeof window !== 'undefined' ? window.location.origin : ''
-    const url = origin ? `${origin}/register/${eventItem.linkId}` : `/register/${eventItem.linkId}`
+    const url = eventItem.slug 
+      ? (origin ? `${origin}/e/${eventItem.slug}` : `/e/${eventItem.slug}`)
+      : (origin ? `${origin}/register/${eventItem.linkId}` : `/register/${eventItem.linkId}`)
 
     let bannerUrl = eventItem.bannerUrl ?? undefined
     if (bannerUrl && bannerUrl.startsWith('/')) {
@@ -111,7 +116,7 @@ export default function AdminEventsPage() {
 
   const openCreateModal = () => {
     setCreateError(null)
-    setNewEvent({ title: '', description: '', bannerUrl: '', maxRegistrations: '' })
+    setNewEvent({ title: '', description: '', bannerUrl: '', maxRegistrations: '', slug: '' })
     setCreateModalOpen(true)
   }
 
@@ -185,6 +190,13 @@ export default function AdminEventsPage() {
           throw new Error('Informe um limite válido de vagas')
         }
         payload.maxRegistrations = value
+      }
+      if (newEvent.slug.trim()) {
+        const normalizedSlug = newEvent.slug.trim().toLowerCase()
+        if (!/^[a-z0-9-]+$/.test(normalizedSlug)) {
+          throw new Error('Slug inválido. Use apenas letras minúsculas, números e hífens.')
+        }
+        payload.slug = normalizedSlug
       }
 
       await apiFetch('/events', {
@@ -431,6 +443,22 @@ export default function AdminEventsPage() {
                   rows={3}
                   className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-[#FF6600]"
                 />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700">URL Personalizada (opcional)</label>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-gray-500 text-sm">https://seudominio.com/e/</span>
+                  <input
+                    type="text"
+                    value={newEvent.slug}
+                    onChange={(e) => setNewEvent((prev) => ({ ...prev, slug: e.target.value }))}
+                    placeholder="meu-evento-especial"
+                    className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-[#FF6600]"
+                  />
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Use apenas letras minúsculas, números e hífens. Ex: meu-evento-especial
+                </p>
               </div>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
