@@ -18,6 +18,7 @@ const AdminEventsPage = lazy(() => import('./pages/admin/EventsPage'))
 const AdminNewEventPage = lazy(() => import('./pages/admin/NewEventPage'))
 const EventRegistrationsPage = lazy(() => import('./pages/admin/EventRegistrationsPage'))
 const EventClassesPage = lazy(() => import('./pages/admin/EventClassesPage'))
+const WhatsAppSendPage = lazy(() => import('./pages/admin/WhatsAppSendPage'))
 const UserCoursesPage = lazy(() => import('./pages/user/CoursesPage'))
 const UserMyCoursesPage = lazy(() => import('./pages/user/MyCoursesPage'))
 const UserCoursePage = lazy(() => import('./pages/user/CoursePage'))
@@ -61,6 +62,7 @@ function App() {
           <Route path="/admin/events/new" element={<AdminNewEventPage />} />
           <Route path="/admin/events/:eventId/registrations" element={<EventRegistrationsPage />} />
           <Route path="/admin/events/:eventId/classes" element={<EventClassesPage />} />
+          <Route path="/admin/whatsapp/send" element={<WhatsAppSendPage />} />
           
           {/* Rota 404 - deve ser a última */}
           <Route path="*" element={<NotFoundPage />} />
