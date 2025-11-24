@@ -218,7 +218,7 @@ export default function NewEventPage() {
                 URL Personalizada (opcional)
               </label>
               <div className="flex items-center gap-2">
-                <span className="text-gray-500">https://seudominio.com/e/</span>
+                <span className="text-gray-500">https://seudominio.com/register-event.html?event=</span>
                 <input
                   type="text"
                   {...register('slug')}

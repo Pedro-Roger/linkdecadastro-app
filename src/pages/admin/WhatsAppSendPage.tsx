@@ -212,9 +212,9 @@ export default function WhatsAppSendPage() {
     } else if (selectedEvent) {
       title = selectedEvent.title
       if (selectedEvent.slug) {
-        link = `${origin}/e/${selectedEvent.slug}`
+        link = `${origin}/register-event.html?event=${selectedEvent.slug}`
       } else {
-        link = `${origin}/register/${selectedEvent.id}`
+        link = `${origin}/register-event.html?event=${selectedEvent.id}`
       }
     }
 
@@ -302,9 +302,9 @@ Esperamos você! 😊`
       } else if (selectedEvent) {
         title = selectedEvent.title
         if (selectedEvent.slug) {
-          link = `${origin}/e/${selectedEvent.slug}`
+          link = `${origin}/register-event.html?event=${selectedEvent.slug}`
         } else {
-          link = `${origin}/register/${selectedEvent.id}`
+          link = `${origin}/register-event.html?event=${selectedEvent.id}`
         }
       }
 

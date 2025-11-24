@@ -94,8 +94,8 @@ export default function AdminEventsPage() {
   const buildShareData = (eventItem: EventItem): ShareData => {
     const origin = typeof window !== 'undefined' ? window.location.origin : ''
     const url = eventItem.slug 
-      ? (origin ? `${origin}/e/${eventItem.slug}` : `/e/${eventItem.slug}`)
-      : (origin ? `${origin}/register/${eventItem.linkId}` : `/register/${eventItem.linkId}`)
+      ? (origin ? `${origin}/register-event.html?event=${eventItem.slug}` : `/register-event.html?event=${eventItem.slug}`)
+      : (origin ? `${origin}/register-event.html?event=${eventItem.linkId}` : `/register-event.html?event=${eventItem.linkId}`)
 
     let bannerUrl = eventItem.bannerUrl ?? undefined
     if (bannerUrl && bannerUrl.startsWith('/')) {
@@ -447,7 +447,7 @@ export default function AdminEventsPage() {
               <div>
                 <label className="text-sm font-medium text-gray-700">URL Personalizada (opcional)</label>
                 <div className="flex items-center gap-2 mt-1">
-                  <span className="text-gray-500 text-sm">https://seudominio.com/e/</span>
+                  <span className="text-gray-500 text-sm">https://seudominio.com/register-event.html?event=</span>
                   <input
                     type="text"
                     value={newEvent.slug}

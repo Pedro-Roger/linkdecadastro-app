@@ -16,6 +16,10 @@ export default defineConfig({
           src: 'public/enroll.html',
           dest: '.',
         },
+        {
+          src: 'public/register-event.html',
+          dest: '.',
+        },
       ],
     }),
   ],
