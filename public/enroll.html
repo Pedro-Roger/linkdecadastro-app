@@ -119,6 +119,34 @@
       color: white;
       padding: 2rem;
       text-align: center;
+      position: relative;
+    }
+    
+    .back-button {
+      position: absolute;
+      top: 1rem;
+      left: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 50%;
+      color: white;
+      text-decoration: none;
+      transition: background 0.3s, transform 0.2s;
+      z-index: 10;
+    }
+    
+    .back-button:hover {
+      background: rgba(255, 255, 255, 0.3);
+      transform: scale(1.1);
+    }
+    
+    .back-button svg {
+      width: 24px;
+      height: 24px;
     }
     
     .header img {
@@ -282,6 +310,26 @@
       display: block;
     }
     
+    .success-actions {
+      margin-top: 1rem;
+      display: flex;
+      justify-content: center;
+    }
+    
+    .success-actions a {
+      background: #003366;
+      color: white;
+      padding: 0.85rem 1.5rem;
+      border-radius: 999px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: background 0.3s;
+    }
+    
+    .success-actions a:hover {
+      background: #00264d;
+    }
+    
     .button {
       width: 100%;
       padding: 1rem;
@@ -335,6 +383,11 @@
 <body>
   <div class="container">
     <div class="header">
+      <a href="/" class="back-button" title="Voltar para a página inicial">
+        <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+        </svg>
+      </a>
       <img src="/logo B.png" alt="Link de Cadastro" />
       <h1>Formulário de Inscrição</h1>
       <p>Preencha os dados abaixo para se inscrever no curso</p>
@@ -821,7 +874,12 @@
         // Sucesso
         document.getElementById('enrollment-form').style.display = 'none';
         const successMsg = document.getElementById('success-message');
-        successMsg.textContent = 'Inscrição realizada com sucesso! Você receberá um email de confirmação em breve.';
+        successMsg.innerHTML = `
+          Inscrição realizada com sucesso! Você receberá um email de confirmação em breve.
+          <div class="success-actions">
+            <a href="/">Voltar para página inicial</a>
+          </div>
+        `;
         successMsg.classList.add('show');
         
       } catch (error) {
