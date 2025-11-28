@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, Link } from 'react-router-dom'
 import RegistrationForm from '@/components/forms/RegistrationForm'
 import Footer from '@/components/ui/Footer'
 import LoadingScreen from '@/components/ui/LoadingScreen'
@@ -65,7 +65,26 @@ export default function RegisterPage() {
       )}
       
       <div className="container mx-auto px-4 py-8">
-        <div className="max-w-2xl mx-auto bg-white rounded-lg shadow-lg p-8">
+        <div className="max-w-2xl mx-auto bg-white rounded-lg shadow-lg p-8 relative">
+          <Link
+            to="/"
+            className="absolute top-4 left-4 flex items-center justify-center w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors text-gray-700 hover:text-[#003366]"
+            title="Voltar para a página inicial"
+          >
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 19l-7-7 7-7"
+              />
+            </svg>
+          </Link>
           <h1 className="text-3xl font-bold mb-4 text-[#003366]">{event.title}</h1>
           <p className="text-gray-600 mb-8">{event.description}</p>
           

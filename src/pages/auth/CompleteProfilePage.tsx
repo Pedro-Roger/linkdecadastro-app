@@ -90,7 +90,26 @@ export default function CompleteProfilePage() {
       <div className="container mx-auto px-4 py-8 flex-1 flex items-center justify-center">
         <div className="max-w-md w-full">
           <div className="bg-white rounded-lg shadow-md p-8">
-            <div className="text-center mb-6">
+            <div className="text-center mb-6 relative">
+              <Link
+                to="/"
+                className="absolute top-0 left-0 flex items-center justify-center w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors text-gray-700 hover:text-[#003366]"
+                title="Voltar para a página inicial"
+              >
+                <svg
+                  className="w-6 h-6"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 19l-7-7 7-7"
+                  />
+                </svg>
+              </Link>
               <h1 className="text-2xl font-bold text-[#003366] mb-2">
                 Complete seu Cadastro
               </h1>
