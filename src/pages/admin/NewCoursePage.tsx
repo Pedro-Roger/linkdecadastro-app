@@ -51,8 +51,11 @@ const courseSchema = z.object({
   ),
 
   firstLessonTitle: z.string().optional(),
-  firstLessonVideoUrl: z.string().optional().or(z.literal('')).refine(
-    (val) => !val || val.trim() === '' || val.startsWith('http://') || val.startsWith('https://'),
+  firstLessonVideoUrl: z.string().optional().or(z.literal('')).transform((val) => {
+    // Transformar string vazia em undefined
+    return val && val.trim() ? val.trim() : undefined;
+  }).refine(
+    (val) => !val || val.startsWith('http://') || val.startsWith('https://'),
     { message: 'URL do YouTube inválida' }
   ),
   firstLessonDescription: z.string().optional(),
@@ -364,6 +367,20 @@ export default function NewCoursePage() {
     setError(null)
 
     try {
+      // Validação de primeira aula
+      if (showFirstLesson) {
+        if (!data.firstLessonTitle || !data.firstLessonTitle.trim()) {
+          setError('O título da primeira aula é obrigatório quando você adiciona uma primeira aula.')
+          setSubmitting(false)
+          return
+        }
+        if (!data.firstLessonVideoUrl || !data.firstLessonVideoUrl.trim()) {
+          setError('O link do vídeo do YouTube da primeira aula é obrigatório quando você adiciona uma primeira aula.')
+          setSubmitting(false)
+          return
+        }
+      }
+
       if (data.regionRestrictionEnabled && regionQuotas.length === 0) {
         setError('Adicione pelo menos uma região com limite de vagas ou desative a restrição regional.')
         setSubmitting(false)
@@ -401,7 +418,8 @@ export default function NewCoursePage() {
         endDate: data.endDate && data.endDate.trim() ? data.endDate : undefined,
         slug: data.slug || undefined, // Já vem transformado do schema
 
-        firstLesson: (data.firstLessonTitle && data.firstLessonTitle.trim() && 
+        firstLesson: (showFirstLesson && 
+                     data.firstLessonTitle && data.firstLessonTitle.trim() && 
                      data.firstLessonVideoUrl && data.firstLessonVideoUrl.trim()) ? {
           title: data.firstLessonTitle.trim(),
           videoUrl: data.firstLessonVideoUrl.trim(),
@@ -420,11 +438,15 @@ export default function NewCoursePage() {
       }
 
 
+      console.log('Payload sendo enviado:', JSON.stringify(payload, null, 2))
+
       const course = await apiFetch<any>('/admin/courses', {
         method: 'POST',
         auth: true,
         body: JSON.stringify(payload),
       })
+
+      console.log('Curso criado com sucesso:', course)
 
       // Se há aulas clonadas (além da primeira que já foi criada com o curso), criar elas também
       if (clonedLessons.length > 0) {
@@ -451,8 +473,28 @@ export default function NewCoursePage() {
       }
 
       navigate(`/admin/courses/${course.id}/lessons`)
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Erro ao criar curso'
+    } catch (err: any) {
+      console.error('Erro completo ao criar curso:', err)
+      console.error('Detalhes do erro:', {
+        message: err?.message,
+        response: err?.response,
+        status: err?.status,
+        data: err?.data
+      })
+      
+      let errorMessage = 'Erro ao criar curso'
+      
+      if (err?.response) {
+        try {
+          const errorData = await err.response.json()
+          errorMessage = errorData.error || errorData.message || errorMessage
+        } catch {
+          errorMessage = err.response.statusText || errorMessage
+        }
+      } else if (err?.message) {
+        errorMessage = err.message
+      }
+      
       setError(errorMessage)
     } finally {
       setSubmitting(false)
