@@ -31,35 +31,10 @@ interface Event {
   slug?: string | null
 }
 
-const BRAZIL_STATES = [
-  { sigla: 'AC', nome: 'Acre' },
-  { sigla: 'AL', nome: 'Alagoas' },
-  { sigla: 'AP', nome: 'Amapá' },
-  { sigla: 'AM', nome: 'Amazonas' },
-  { sigla: 'BA', nome: 'Bahia' },
-  { sigla: 'CE', nome: 'Ceará' },
-  { sigla: 'DF', nome: 'Distrito Federal' },
-  { sigla: 'ES', nome: 'Espírito Santo' },
-  { sigla: 'GO', nome: 'Goiás' },
-  { sigla: 'MA', nome: 'Maranhão' },
-  { sigla: 'MT', nome: 'Mato Grosso' },
-  { sigla: 'MS', nome: 'Mato Grosso do Sul' },
-  { sigla: 'MG', nome: 'Minas Gerais' },
-  { sigla: 'PA', nome: 'Pará' },
-  { sigla: 'PB', nome: 'Paraíba' },
-  { sigla: 'PR', nome: 'Paraná' },
-  { sigla: 'PE', nome: 'Pernambuco' },
-  { sigla: 'PI', nome: 'Piauí' },
-  { sigla: 'RJ', nome: 'Rio de Janeiro' },
-  { sigla: 'RN', nome: 'Rio Grande do Norte' },
-  { sigla: 'RS', nome: 'Rio Grande do Sul' },
-  { sigla: 'RO', nome: 'Rondônia' },
-  { sigla: 'RR', nome: 'Roraima' },
-  { sigla: 'SC', nome: 'Santa Catarina' },
-  { sigla: 'SP', nome: 'São Paulo' },
-  { sigla: 'SE', nome: 'Sergipe' },
-  { sigla: 'TO', nome: 'Tocantins' }
-]
+interface StateOption {
+  sigla: string
+  nome: string
+}
 
 export default function WhatsAppSendPage() {
   const navigate = useNavigate()
@@ -69,7 +44,8 @@ export default function WhatsAppSendPage() {
   })
   const [participants, setParticipants] = useState<Participant[]>([])
   const [filteredParticipants, setFilteredParticipants] = useState<Participant[]>([])
-  const [loading, setLoading] = useState(true)
+  const [initialLoading, setInitialLoading] = useState(true)
+  const [participantsLoading, setParticipantsLoading] = useState(false)
   const [sending, setSending] = useState(false)
   const [whatsappStatus, setWhatsappStatus] = useState<any>(null)
   const [message, setMessage] = useState('')
@@ -80,27 +56,23 @@ export default function WhatsAppSendPage() {
   const [success, setSuccess] = useState<string | null>(null)
   const [courses, setCourses] = useState<Course[]>([])
   const [events, setEvents] = useState<Event[]>([])
-  const [selectedType, setSelectedType] = useState<'course' | 'event' | ''>('')
+  const [selectedType, setSelectedType] = useState<'course' | 'event' | ''>('course')
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null)
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
-
-  // Lista de cidades únicas
-  const cities = useMemo(() => {
-    const citySet = new Set<string>()
-    participants.forEach((p) => {
-      if (p.cidade) citySet.add(p.cidade)
-    })
-    return Array.from(citySet).sort()
-  }, [participants])
-
-  // Lista de estados únicos
-  const states = useMemo(() => {
-    const stateSet = new Set<string>()
-    participants.forEach((p) => {
-      if (p.estado) stateSet.add(p.estado)
-    })
-    return Array.from(stateSet).sort()
-  }, [participants])
+  const [stateOptions, setStateOptions] = useState<StateOption[]>([])
+  const [citiesOptions, setCitiesOptions] = useState<string[]>([])
+  const [loadingStates, setLoadingStates] = useState(false)
+  const [loadingCities, setLoadingCities] = useState(false)
+  const qrCodeImage = useMemo(() => {
+    if (!whatsappStatus) return null
+    if (whatsappStatus.qrCodeBase64) return whatsappStatus.qrCodeBase64
+    if (whatsappStatus.qrCode) {
+      return `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(
+        whatsappStatus.qrCode,
+      )}`
+    }
+    return null
+  }, [whatsappStatus])
 
   useEffect(() => {
     if (!authLoading) {
@@ -109,11 +81,39 @@ export default function WhatsAppSendPage() {
       } else {
         fetchCourses()
         fetchEvents()
-        fetchParticipants()
+        fetchParticipants(true)
         checkWhatsAppStatus()
       }
     }
   }, [authLoading, isAuthenticated, user, navigate])
+
+  useEffect(() => {
+    loadStates()
+  }, [])
+
+  useEffect(() => {
+    if (!selectedState) {
+      setCitiesOptions([])
+      setSelectedCity('')
+      return
+    }
+    setSelectedCity('')
+    loadCities(selectedState)
+  }, [selectedState])
+
+  useEffect(() => {
+    if (!isAuthenticated || authLoading) return
+    if (initialLoading && !selectedState && !selectedCity && !selectedParticipantType) return
+    fetchParticipants()
+  }, [selectedState, selectedCity, selectedParticipantType, isAuthenticated, authLoading, initialLoading])
+
+  useEffect(() => {
+    if (!isAuthenticated) return
+    const interval = setInterval(() => {
+      checkWhatsAppStatus()
+    }, 10000)
+    return () => clearInterval(interval)
+  }, [isAuthenticated])
 
   // Gerar mensagem automaticamente quando curso ou evento for selecionado
   useEffect(() => {
@@ -153,6 +153,47 @@ export default function WhatsAppSendPage() {
     setFilteredParticipants(filtered)
   }, [participants, selectedCity, selectedState, selectedParticipantType])
 
+  async function loadStates() {
+    try {
+      setLoadingStates(true)
+      const response = await fetch('https://servicodados.ibge.gov.br/api/v1/localidades/estados?orderBy=nome')
+      if (!response.ok) {
+        throw new Error('Erro ao carregar estados')
+      }
+      const data = await response.json()
+      const normalized = (data || [])
+        .map((state: any) => ({ sigla: state.sigla, nome: state.nome }))
+        .sort((a: StateOption, b: StateOption) => a.nome.localeCompare(b.nome))
+      setStateOptions(normalized)
+    } catch (error) {
+      console.error('Erro ao carregar estados:', error)
+    } finally {
+      setLoadingStates(false)
+    }
+  }
+
+  async function loadCities(stateSigla: string) {
+    try {
+      setLoadingCities(true)
+      const response = await fetch(
+        `https://servicodados.ibge.gov.br/api/v1/localidades/estados/${stateSigla}/municipios`,
+      )
+      if (!response.ok) {
+        throw new Error('Erro ao carregar cidades')
+      }
+      const data = await response.json()
+      const normalized = (data || [])
+        .map((city: any) => city.nome as string)
+        .sort((a: string, b: string) => a.localeCompare(b))
+      setCitiesOptions(normalized)
+    } catch (error) {
+      console.error('Erro ao carregar cidades:', error)
+      setCitiesOptions([])
+    } finally {
+      setLoadingCities(false)
+    }
+  }
+
   async function fetchCourses() {
     try {
       const data = await apiFetch<Course[]>('/admin/courses', { auth: true })
@@ -171,11 +212,16 @@ export default function WhatsAppSendPage() {
     }
   }
 
-  async function fetchParticipants() {
+  async function fetchParticipants(useInitialLoader = false) {
     try {
-      setLoading(true)
+      if (useInitialLoader) {
+        setInitialLoading(true)
+      } else {
+        setParticipantsLoading(true)
+      }
       const queryParams = new URLSearchParams()
       if (selectedCity) queryParams.append('city', selectedCity)
+      if (selectedState) queryParams.append('state', selectedState)
       if (selectedParticipantType) queryParams.append('participantType', selectedParticipantType)
 
       const data = await apiFetch<any>(
@@ -186,7 +232,11 @@ export default function WhatsAppSendPage() {
     } catch (error) {
       setError('Erro ao carregar participantes')
     } finally {
-      setLoading(false)
+      if (useInitialLoader) {
+        setInitialLoading(false)
+      } else {
+        setParticipantsLoading(false)
+      }
     }
   }
 
@@ -348,7 +398,7 @@ Esperamos você! 😊`
     }
   }
 
-  if (authLoading || loading) {
+  if (authLoading || initialLoading) {
     return <LoadingScreen />
   }
 
@@ -398,9 +448,23 @@ Esperamos você! 😊`
                     Status WhatsApp: {whatsappStatus.status}
                   </p>
                   {whatsappStatus.status === 'QR_CODE' && (
-                    <p className="text-sm text-gray-600 mt-1">
-                      Escaneie o QR Code nos logs do servidor para conectar
-                    </p>
+                    <div className="mt-3 space-y-3">
+                      <p className="text-sm text-gray-600">
+                        Escaneie o QR Code abaixo para conectar o WhatsApp Web.
+                      </p>
+                      {qrCodeImage && (
+                        <div className="flex flex-col md:flex-row items-center gap-4">
+                          <img
+                            src={qrCodeImage}
+                            alt="QR Code WhatsApp"
+                            className="w-48 h-48 bg-white p-3 rounded-lg shadow-md border"
+                          />
+                          <p className="text-xs text-gray-500">
+                            Caso o QR Code expire, clique em &quot;Atualizar Status&quot; para gerar um novo código.
+                          </p>
+                        </div>
+                      )}
+                    </div>
                   )}
                   {whatsappStatus.status === 'READY' && (
                     <p className="text-sm text-green-700 mt-1">
@@ -536,11 +600,14 @@ Esperamos você! 😊`
                   value={selectedState}
                   onChange={(e) => setSelectedState(e.target.value)}
                   className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
+                  disabled={loadingStates}
                 >
-                  <option value="">Todos os estados</option>
-                  {states.map((state) => (
-                    <option key={state} value={state}>
-                      {state}
+                  <option value="">
+                    {loadingStates ? 'Carregando estados...' : 'Todos os estados'}
+                  </option>
+                  {stateOptions.map((state) => (
+                    <option key={state.sigla} value={state.sigla}>
+                      {state.nome}
                     </option>
                   ))}
                 </select>
@@ -550,27 +617,25 @@ Esperamos você! 😊`
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Cidade
                 </label>
-                <input
-                  type="text"
+                <select
                   value={selectedCity}
                   onChange={(e) => setSelectedCity(e.target.value)}
-                  placeholder="Digite o nome da cidade"
+                  disabled={!selectedState || loadingCities || citiesOptions.length === 0}
                   className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
-                />
-                {cities.length > 0 && (
-                  <select
-                    value={selectedCity}
-                    onChange={(e) => setSelectedCity(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900 mt-2"
-                  >
-                    <option value="">Ou selecione uma cidade</option>
-                    {cities.map((city) => (
-                      <option key={city} value={city}>
-                        {city}
-                      </option>
-                    ))}
-                  </select>
-                )}
+                >
+                  <option value="">
+                    {!selectedState
+                      ? 'Selecione um estado'
+                      : loadingCities
+                      ? 'Carregando cidades...'
+                      : 'Todas as cidades'}
+                  </option>
+                  {citiesOptions.map((city) => (
+                    <option key={city} value={city}>
+                      {city}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
@@ -594,6 +659,9 @@ Esperamos você! 😊`
               <p className="text-sm text-gray-600">
                 <strong>{filteredParticipants.length}</strong> participantes encontrados após aplicar os filtros
               </p>
+              {participantsLoading && (
+                <p className="text-xs text-gray-500 mt-1">Atualizando lista de participantes...</p>
+              )}
             </div>
           </div>
 
@@ -631,6 +699,13 @@ Esperamos você! 😊`
           </div>
 
           {/* Lista de participantes filtrados */}
+          {filteredParticipants.length === 0 && !participantsLoading && (
+            <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+              <p className="text-gray-500 text-sm">
+                Nenhum participante encontrado com os filtros atuais. Ajuste os filtros e tente novamente.
+              </p>
+            </div>
+          )}
           {filteredParticipants.length > 0 && (
             <div className="bg-white rounded-lg shadow-md p-6 mb-6">
               <h2 className="text-xl font-semibold text-[#003366] mb-4">

@@ -1,5 +1,5 @@
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import Footer from '@/components/ui/Footer'
@@ -27,15 +27,32 @@ interface Course {
   }
 }
 
+interface EventItem {
+  id: string
+  title: string
+  description: string
+  bannerUrl?: string | null
+  slug?: string | null
+  status: 'ACTIVE' | 'INACTIVE' | 'CLOSED'
+  maxRegistrations?: number | null
+  _count?: {
+    registrations: number
+  }
+}
+
 export default function HomePage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { user, isAuthenticated } = useAuth()
   const [courses, setCourses] = useState<Course[]>([])
   const [allCourses, setAllCourses] = useState<Course[]>([])
+  const [events, setEvents] = useState<EventItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [eventsLoading, setEventsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
+  const [activeTab, setActiveTab] = useState<'courses' | 'events'>('courses')
   const [activeFilter, setActiveFilter] = useState<string>('all')
+  const [eventStatusFilter, setEventStatusFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE' | 'CLOSED'>('ALL')
   const [enrollmentModal, setEnrollmentModal] = useState<{ isOpen: boolean; courseId: string; courseTitle: string }>({
     isOpen: false,
     courseId: '',
@@ -48,6 +65,7 @@ export default function HomePage() {
 
   useEffect(() => {
     fetchAllCourses()
+    fetchEvents()
   }, [])
 
   // Verifica se há parâmetro enroll na URL e abre o modal automaticamente
@@ -113,6 +131,25 @@ export default function HomePage() {
     filterCourses()
   }, [filterCourses])
 
+  const filteredEvents = useMemo(() => {
+    let filtered = [...events]
+
+    if (eventStatusFilter !== 'ALL') {
+      filtered = filtered.filter((event) => event.status === eventStatusFilter)
+    }
+
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase()
+      filtered = filtered.filter(
+        (event) =>
+          event.title.toLowerCase().includes(term) ||
+          event.description?.toLowerCase().includes(term),
+      )
+    }
+
+    return filtered
+  }, [events, eventStatusFilter, searchTerm])
+
   const fetchAllCourses = async () => {
     try {
       setLoading(true)
@@ -121,6 +158,17 @@ export default function HomePage() {
     } catch (error) {
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchEvents = async () => {
+    try {
+      setEventsLoading(true)
+      const data = await apiFetch<EventItem[]>('/events')
+      setEvents(data)
+    } catch (error) {
+    } finally {
+      setEventsLoading(false)
     }
   }
 
@@ -214,6 +262,26 @@ export default function HomePage() {
           return true
       }
     }).length
+  }
+
+  const getEventStatus = (event: EventItem) => {
+    switch (event.status) {
+      case 'ACTIVE':
+        return { label: 'Inscrições Abertas', color: 'bg-green-500' }
+      case 'INACTIVE':
+        return { label: 'Em Preparação', color: 'bg-yellow-500' }
+      case 'CLOSED':
+        return { label: 'Encerrado', color: 'bg-gray-500' }
+      default:
+        return { label: 'Indisponível', color: 'bg-gray-500' }
+    }
+  }
+
+  const getEventFilterCount = (filterType: 'ALL' | 'ACTIVE' | 'INACTIVE' | 'CLOSED') => {
+    if (filterType === 'ALL') {
+      return events.length
+    }
+    return events.filter((event) => event.status === filterType).length
   }
 
   return (

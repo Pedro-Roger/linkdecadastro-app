@@ -66,6 +66,12 @@ export default function RegistrationForm({ eventId }: { eventId: string }) {
         <p className="text-gray-600">
           Você receberá um email de confirmação em breve.
         </p>
+        <a
+          href="/"
+          className="inline-flex mt-4 px-6 py-3 bg-[#003366] text-white font-semibold rounded-full hover:bg-[#00264d] transition-colors"
+        >
+          Voltar para página inicial
+        </a>
       </div>
     )
   }

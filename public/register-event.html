@@ -249,6 +249,26 @@
       display: block;
     }
     
+    .success-actions {
+      margin-top: 1rem;
+      display: flex;
+      justify-content: center;
+    }
+    
+    .success-actions a {
+      background: #003366;
+      color: white;
+      padding: 0.85rem 1.5rem;
+      border-radius: 999px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: background 0.3s;
+    }
+    
+    .success-actions a:hover {
+      background: #00264d;
+    }
+    
     .button {
       width: 100%;
       padding: 1rem;
@@ -682,7 +702,12 @@
         // Sucesso
         document.getElementById('registration-form').style.display = 'none';
         const successMsg = document.getElementById('success-message');
-        successMsg.textContent = 'Cadastro realizado com sucesso! Você receberá um email de confirmação em breve.';
+        successMsg.innerHTML = `
+          Cadastro realizado com sucesso! Você receberá um email de confirmação em breve.
+          <div class="success-actions">
+            <a href="/">Voltar para página inicial</a>
+          </div>
+        `;
         successMsg.classList.add('show');
         
       } catch (error) {

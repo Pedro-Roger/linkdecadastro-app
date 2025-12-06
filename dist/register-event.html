@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Inscreva-se no Evento - Link de Cadastro</title>
+  <meta name="description" content="Formulário de inscrição em eventos - Link de Cadastro" />
+  
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="" id="og-url" />
+  <meta property="og:title" content="Inscreva-se no Evento - Link de Cadastro" id="og-title" />
+  <meta property="og:description" content="Formulário de inscrição em eventos - Link de Cadastro" id="og-description" />
+  <meta property="og:image" content="" id="og-image" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:site_name" content="Link de Cadastro" />
+  
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:url" content="" id="twitter-url" />
+  <meta name="twitter:title" content="Inscreva-se no Evento - Link de Cadastro" id="twitter-title" />
+  <meta name="twitter:description" content="Formulário de inscrição em eventos - Link de Cadastro" id="twitter-description" />
+  <meta name="twitter:image" content="" id="twitter-image" />
+  
+  <link rel="icon" type="image/png" href="/logo.png" />
+  
+  <!-- Script inline para atualizar meta tags IMEDIATAMENTE para crawlers (WhatsApp, Facebook, etc) -->
+  <script>
+    (function() {
+      // Executa imediatamente, antes do DOMContentLoaded
+      const urlParams = new URLSearchParams(window.location.search);
+      const eventSlug = urlParams.get('event');
+      
+      if (eventSlug) {
+        // Busca o evento da API imediatamente
+        const API_URL = (() => {
+          if (window.APP_CONFIG?.API_URL) return window.APP_CONFIG.API_URL;
+          return 'https://backend-linkdecadastro.onrender.com';
+        })();
+        
+        // Faz requisição para atualizar meta tags antes do crawler
+        fetch(`${API_URL}/events`)
+          .then(response => response.json())
+          .then(events => {
+            let event = events.find(e => e.slug === eventSlug || e.id === eventSlug);
+            if (!event) {
+              // Tenta buscar por slug específico
+              return fetch(`${API_URL}/events/slug/${eventSlug}`)
+                .then(res => res.json())
+                .catch(() => null);
+            }
+            return event;
+          })
+          .then(event => {
+            if (!event) return;
+            
+            const baseUrl = window.location.origin;
+            const shareUrl = `${baseUrl}/register-event.html?event=${event.slug || event.id}`;
+            
+            let imageUrl = event.bannerUrl;
+            if (imageUrl) {
+              if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+                imageUrl = imageUrl;
+              } else if (imageUrl.startsWith('/')) {
+                imageUrl = `${API_URL}${imageUrl}`;
+              } else {
+                imageUrl = `${API_URL}/${imageUrl}`;
+              }
+            } else {
+              imageUrl = `${baseUrl}/logo.png`;
+            }
+            
+            // Atualiza meta tags
+            const ogUrl = document.querySelector('meta[property="og:url"]');
+            const ogTitle = document.querySelector('meta[property="og:title"]');
+            const ogDescription = document.querySelector('meta[property="og:description"]');
+            const ogImage = document.querySelector('meta[property="og:image"]');
+            const twitterUrl = document.querySelector('meta[name="twitter:url"]');
+            const twitterTitle = document.querySelector('meta[name="twitter:title"]');
+            const twitterDescription = document.querySelector('meta[name="twitter:description"]');
+            const twitterImage = document.querySelector('meta[name="twitter:image"]');
+            
+            if (ogUrl) ogUrl.setAttribute('content', shareUrl);
+            if (ogTitle) ogTitle.setAttribute('content', `${event.title} - Link de Cadastro`);
+            if (ogDescription) ogDescription.setAttribute('content', event.description || 'Inscreva-se neste evento no Link de Cadastro');
+            if (ogImage) ogImage.setAttribute('content', imageUrl);
+            
+            if (twitterUrl) twitterUrl.setAttribute('content', shareUrl);
+            if (twitterTitle) twitterTitle.setAttribute('content', `${event.title} - Link de Cadastro`);
+            if (twitterDescription) twitterDescription.setAttribute('content', event.description || 'Inscreva-se neste evento no Link de Cadastro');
+            if (twitterImage) twitterImage.setAttribute('content', imageUrl);
+            
+            document.title = `${event.title} - Link de Cadastro`;
+          })
+          .catch(error => {
+            console.error('Erro ao buscar evento para meta tags:', error);
+          });
+      }
+    })();
+  </script>
+  
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #003366 0%, #FF6600 100%);
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+    
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+      overflow: hidden;
+    }
+    
+    .header {
+      background: linear-gradient(135deg, #003366 0%, #FF6600 100%);
+      color: white;
+      padding: 2rem;
+      text-align: center;
+    }
+    
+    .header img {
+      max-width: 150px;
+      margin-bottom: 1rem;
+    }
+    
+    .header h1 {
+      font-size: 1.8rem;
+      margin-bottom: 0.5rem;
+    }
+    
+    .header p {
+      opacity: 0.9;
+      font-size: 1rem;
+    }
+    
+    .content {
+      padding: 2rem;
+    }
+    
+    .event-card {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      overflow: hidden;
+      margin-bottom: 2rem;
+      display: none;
+    }
+    
+    .event-card.active {
+      display: block;
+    }
+    
+    .event-card-banner {
+      width: 100%;
+      height: 250px;
+      object-fit: cover;
+      background: linear-gradient(135deg, #003366 0%, #FF6600 100%);
+    }
+    
+    .event-card-content {
+      padding: 1.5rem;
+    }
+    
+    .event-card-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #003366;
+      margin-bottom: 0.75rem;
+    }
+    
+    .event-card-description {
+      color: #666;
+      line-height: 1.6;
+      margin-bottom: 1rem;
+    }
+    
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+    
+    .form-group label {
+      display: block;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 0.5rem;
+    }
+    
+    .form-group input,
+    .form-group select {
+      width: 100%;
+      padding: 0.75rem;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 1rem;
+      transition: border-color 0.3s;
+    }
+    
+    .form-group input:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: #FF6600;
+    }
+    
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    
+    .form-row-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 1rem;
+    }
+    
+    .error {
+      color: #d32f2f;
+      font-size: 0.875rem;
+      margin-top: 0.25rem;
+      display: none;
+    }
+    
+    .error.show {
+      display: block;
+    }
+    
+    .success {
+      background: #4caf50;
+      color: white;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      display: none;
+    }
+    
+    .success.show {
+      display: block;
+    }
+    
+    .success-actions {
+      margin-top: 1rem;
+      display: flex;
+      justify-content: center;
+    }
+    
+    .success-actions a {
+      background: #003366;
+      color: white;
+      padding: 0.85rem 1.5rem;
+      border-radius: 999px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: background 0.3s;
+    }
+    
+    .success-actions a:hover {
+      background: #00264d;
+    }
+    
+    .button {
+      width: 100%;
+      padding: 1rem;
+      background: #FF6600;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    
+    .button:hover {
+      background: #e55a00;
+    }
+    
+    .button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    
+    @media (max-width: 640px) {
+      .form-row,
+      .form-row-3 {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <img src="/logo B.png" alt="Link de Cadastro" />
+      <h1>Formulário de Inscrição</h1>
+      <p>Preencha os dados abaixo para se inscrever no evento</p>
+    </div>
+    
+    <div class="content">
+      <div class="success" id="success-message"></div>
+      
+      <!-- Card do Evento (exibido quando vem ?event=slug na URL) -->
+      <div class="event-card" id="event-card">
+        <img id="event-card-banner" class="event-card-banner" src="" alt="" />
+        <div class="event-card-content">
+          <h2 class="event-card-title" id="event-card-title"></h2>
+          <p class="event-card-description" id="event-card-description"></p>
+        </div>
+      </div>
+      
+      <form id="registration-form">
+        <input type="hidden" id="eventId" name="eventId" />
+        
+        <div class="form-group">
+          <label for="name">Nome Completo *</label>
+          <input type="text" id="name" name="name" required />
+          <div class="error" id="name-error"></div>
+        </div>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label for="cpf">CPF *</label>
+            <input type="text" id="cpf" name="cpf" maxlength="14" placeholder="000.000.000-00" required />
+            <div class="error" id="cpf-error"></div>
+          </div>
+          
+          <div class="form-group">
+            <label for="phone">Telefone/WhatsApp (com DDD) *</label>
+            <input type="tel" id="phone" name="phone" placeholder="(00) 00000-0000" required />
+            <div class="error" id="phone-error"></div>
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label for="email">E-mail *</label>
+          <input type="email" id="email" name="email" required />
+          <div class="error" id="email-error"></div>
+        </div>
+        
+        <div class="form-row-3">
+          <div class="form-group">
+            <label for="cep">CEP *</label>
+            <input type="text" id="cep" name="cep" maxlength="9" placeholder="00000-000" required />
+            <div class="error" id="cep-error"></div>
+          </div>
+          
+          <div class="form-group">
+            <label for="locality">Localidade/Bairro *</label>
+            <input type="text" id="locality" name="locality" required />
+            <div class="error" id="locality-error"></div>
+          </div>
+          
+          <div class="form-group">
+            <label for="city">Cidade *</label>
+            <input type="text" id="city" name="city" required />
+            <div class="error" id="city-error"></div>
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label for="state">Estado (UF) *</label>
+          <input type="text" id="state" name="state" maxlength="2" placeholder="CE" required />
+          <div class="error" id="state-error"></div>
+        </div>
+        
+        <div class="form-group">
+          <label for="participantType">Selecione a opção que melhor descreve você *</label>
+          <select id="participantType" name="participantType" required>
+            <option value="">Selecione...</option>
+            <option value="PRODUTOR">Produtor</option>
+            <option value="OUTROS">Outros</option>
+          </select>
+          <div class="error" id="participantType-error"></div>
+        </div>
+        
+        <div class="form-group" id="produtor-fields" style="display: none;">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="pondCount">Quantidade de Viveiros *</label>
+              <input type="number" id="pondCount" name="pondCount" min="1" />
+              <div class="error" id="pondCount-error"></div>
+            </div>
+            
+            <div class="form-group">
+              <label for="waterDepth">Lâmina d'água (metros) *</label>
+              <input type="number" id="waterDepth" name="waterDepth" step="0.01" min="0" />
+              <div class="error" id="waterDepth-error"></div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="form-group" id="outros-field" style="display: none;">
+          <label for="otherType">O que você é? *</label>
+          <input type="text" id="otherType" name="otherType" />
+          <div class="error" id="otherType-error"></div>
+        </div>
+        
+        <button type="submit" class="button" id="submit-btn">Confirmar Cadastro</button>
+      </form>
+    </div>
+  </div>
+  
+  <script>
+    // Configuração da API
+    const API_URL = (() => {
+      if (window.APP_CONFIG?.API_URL) return window.APP_CONFIG.API_URL;
+      return 'https://backend-linkdecadastro.onrender.com';
+    })();
+    
+    // Estado da aplicação
+    let event = null;
+    
+    // Inicialização
+    document.addEventListener('DOMContentLoaded', async () => {
+      // Verifica se há evento na URL
+      const urlParams = new URLSearchParams(window.location.search);
+      const eventSlug = urlParams.get('event');
+      
+      if (eventSlug) {
+        await loadEvent(eventSlug);
+      } else {
+        document.getElementById('registration-form').innerHTML = '<p style="text-align: center; color: #d32f2f;">Evento não especificado. Por favor, acesse através do link do evento.</p>';
+      }
+      
+      // Event listeners
+      document.getElementById('participantType').addEventListener('change', (e) => {
+        const produtorFields = document.getElementById('produtor-fields');
+        const outrosField = document.getElementById('outros-field');
+        
+        if (e.target.value === 'PRODUTOR') {
+          produtorFields.style.display = 'block';
+          outrosField.style.display = 'none';
+          document.getElementById('pondCount').required = true;
+          document.getElementById('waterDepth').required = true;
+          document.getElementById('otherType').required = false;
+        } else if (e.target.value === 'OUTROS') {
+          produtorFields.style.display = 'none';
+          outrosField.style.display = 'block';
+          document.getElementById('pondCount').required = false;
+          document.getElementById('waterDepth').required = false;
+          document.getElementById('otherType').required = true;
+        } else {
+          produtorFields.style.display = 'none';
+          outrosField.style.display = 'none';
+          document.getElementById('pondCount').required = false;
+          document.getElementById('waterDepth').required = false;
+          document.getElementById('otherType').required = false;
+        }
+      });
+      
+      // Formatação de campos
+      document.getElementById('cpf').addEventListener('input', formatCPF);
+      document.getElementById('phone').addEventListener('input', formatWhatsApp);
+      document.getElementById('cep').addEventListener('input', formatCEP);
+      
+      // Submit do formulário
+      document.getElementById('registration-form').addEventListener('submit', handleSubmit);
+    });
+    
+    // Carrega evento
+    async function loadEvent(eventSlug) {
+      try {
+        let eventData;
+        try {
+          eventData = await fetch(`${API_URL}/events/slug/${eventSlug}`).then(r => r.json());
+        } catch {
+          const events = await fetch(`${API_URL}/events`).then(r => r.json());
+          eventData = events.find(e => e.slug === eventSlug || e.id === eventSlug);
+        }
+        
+        if (!eventData) {
+          throw new Error('Evento não encontrado');
+        }
+        
+        event = eventData;
+        document.getElementById('eventId').value = event.id;
+        showEventCard(event);
+        updateMetaTags(event);
+      } catch (error) {
+        console.error('Erro ao carregar evento:', error);
+        document.getElementById('registration-form').innerHTML = '<p style="text-align: center; color: #d32f2f;">Erro ao carregar evento. Por favor, tente novamente.</p>';
+      }
+    }
+    
+    // Mostra o card do evento
+    function showEventCard(eventData) {
+      const card = document.getElementById('event-card');
+      const bannerImg = document.getElementById('event-card-banner');
+      const titleEl = document.getElementById('event-card-title');
+      const descriptionEl = document.getElementById('event-card-description');
+      
+      if (eventData.bannerUrl) {
+        const bannerUrl = eventData.bannerUrl.startsWith('http') 
+          ? eventData.bannerUrl 
+          : `${API_URL}${eventData.bannerUrl}`;
+        bannerImg.src = bannerUrl;
+        bannerImg.onerror = function() {
+          this.style.display = 'none';
+        };
+      } else {
+        bannerImg.style.display = 'none';
+      }
+      
+      titleEl.textContent = eventData.title || 'Evento';
+      descriptionEl.textContent = eventData.description || 'Sem descrição disponível.';
+      card.classList.add('active');
+    }
+    
+    // Atualiza meta tags
+    function updateMetaTags(eventData) {
+      const baseUrl = window.location.origin;
+      const shareUrl = `${baseUrl}/register-event.html?event=${eventData.slug || eventData.id}`;
+      
+      let imageUrl = eventData.bannerUrl;
+      if (imageUrl) {
+        if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+          imageUrl = imageUrl;
+        } else if (imageUrl.startsWith('/')) {
+          imageUrl = `${API_URL}${imageUrl}`;
+        } else {
+          imageUrl = `${API_URL}/${imageUrl}`;
+        }
+      } else {
+        imageUrl = `${baseUrl}/logo.png`;
+      }
+      
+      const ogUrl = document.getElementById('og-url');
+      const ogTitle = document.getElementById('og-title');
+      const ogDescription = document.getElementById('og-description');
+      const ogImage = document.getElementById('og-image');
+      
+      if (ogUrl) ogUrl.setAttribute('content', shareUrl);
+      if (ogTitle) ogTitle.setAttribute('content', `${eventData.title} - Link de Cadastro`);
+      if (ogDescription) ogDescription.setAttribute('content', eventData.description || 'Inscreva-se neste evento no Link de Cadastro');
+      if (ogImage) ogImage.setAttribute('content', imageUrl);
+      
+      document.title = `${eventData.title} - Link de Cadastro`;
+    }
+    
+    // Formatação
+    function formatCPF(e) {
+      let value = e.target.value.replace(/\D/g, '').slice(0, 11);
+      value = value.replace(/(\d{3})(\d)/, '$1.$2');
+      value = value.replace(/(\d{3})(\d)/, '$1.$2');
+      value = value.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+      e.target.value = value;
+    }
+    
+    function formatWhatsApp(e) {
+      let value = e.target.value.replace(/\D/g, '').slice(0, 11);
+      if (value.length <= 2) {
+        e.target.value = value;
+      } else if (value.length <= 6) {
+        e.target.value = `(${value.slice(0, 2)}) ${value.slice(2)}`;
+      } else if (value.length <= 10) {
+        e.target.value = `(${value.slice(0, 2)}) ${value.slice(2, 6)}-${value.slice(6)}`;
+      } else {
+        e.target.value = `(${value.slice(0, 2)}) ${value.slice(2, 7)}-${value.slice(7)}`;
+      }
+    }
+    
+    function formatCEP(e) {
+      let value = e.target.value.replace(/\D/g, '').slice(0, 8);
+      if (value.length > 5) {
+        value = value.replace(/(\d{5})(\d)/, '$1-$2');
+      }
+      e.target.value = value;
+    }
+    
+    // Validação
+    function validateForm(formData) {
+      const errors = {};
+      
+      if (!event) errors.event = 'Evento não carregado';
+      if (!formData.name || formData.name.trim().length < 3) errors.name = 'Nome deve ter pelo menos 3 caracteres';
+      if (!formData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) errors.email = 'Email inválido';
+      
+      const cpfDigits = formData.cpf.replace(/\D/g, '');
+      if (cpfDigits.length !== 11) errors.cpf = 'CPF deve ter 11 dígitos';
+      
+      const phoneDigits = formData.phone.replace(/\D/g, '');
+      if (phoneDigits.length < 10 || phoneDigits.length > 11) errors.phone = 'Telefone inválido';
+      
+      const cepDigits = formData.cep.replace(/\D/g, '');
+      if (cepDigits.length !== 8) errors.cep = 'CEP deve ter 8 dígitos';
+      
+      if (!formData.locality || formData.locality.trim().length < 2) errors.locality = 'Localidade é obrigatória';
+      if (!formData.city || formData.city.trim().length < 2) errors.city = 'Cidade é obrigatória';
+      if (!formData.state || formData.state.length !== 2) errors.state = 'Estado deve ter 2 caracteres (UF)';
+      
+      if (!formData.participantType) errors.participantType = 'Selecione o tipo de participante';
+      
+      if (formData.participantType === 'PRODUTOR') {
+        if (!formData.pondCount || parseInt(formData.pondCount) <= 0) {
+          errors.pondCount = 'Quantidade de viveiros é obrigatória';
+        }
+        if (!formData.waterDepth || parseFloat(formData.waterDepth) <= 0) {
+          errors.waterDepth = 'Lâmina d\'água é obrigatória';
+        }
+      } else if (formData.participantType === 'OUTROS') {
+        if (!formData.otherType || formData.otherType.trim().length < 2) {
+          errors.otherType = 'Informe o que você é';
+        }
+      }
+      
+      return errors;
+    }
+    
+    // Submit
+    async function handleSubmit(e) {
+      e.preventDefault();
+      
+      const formData = {
+        eventId: document.getElementById('eventId').value,
+        name: document.getElementById('name').value.trim(),
+        email: document.getElementById('email').value.trim(),
+        cpf: document.getElementById('cpf').value,
+        phone: document.getElementById('phone').value,
+        cep: document.getElementById('cep').value,
+        locality: document.getElementById('locality').value.trim(),
+        city: document.getElementById('city').value.trim(),
+        state: document.getElementById('state').value.toUpperCase().trim(),
+        participantType: document.getElementById('participantType').value,
+        pondCount: document.getElementById('pondCount').value,
+        waterDepth: document.getElementById('waterDepth').value,
+        otherType: document.getElementById('otherType').value.trim(),
+      };
+      
+      // Limpa erros anteriores
+      document.querySelectorAll('.error').forEach(el => {
+        el.classList.remove('show');
+        el.textContent = '';
+      });
+      
+      // Valida
+      const errors = validateForm(formData);
+      if (Object.keys(errors).length > 0) {
+        Object.keys(errors).forEach(key => {
+          const errorEl = document.getElementById(`${key}-error`);
+          if (errorEl) {
+            errorEl.textContent = errors[key];
+            errorEl.classList.add('show');
+          }
+        });
+        return;
+      }
+      
+      // Desabilita botão
+      const submitBtn = document.getElementById('submit-btn');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Enviando...';
+      
+      try {
+        // Prepara dados
+        const payload = {
+          eventId: formData.eventId,
+          name: formData.name,
+          email: formData.email,
+          cpf: formData.cpf.replace(/\D/g, ''),
+          phone: formData.phone.replace(/\D/g, ''),
+          cep: formData.cep.replace(/\D/g, ''),
+          locality: formData.locality,
+          city: formData.city,
+          state: formData.state,
+          participantType: formData.participantType,
+        };
+        
+        if (formData.participantType === 'PRODUTOR') {
+          payload.pondCount = parseInt(formData.pondCount);
+          payload.waterDepth = parseFloat(formData.waterDepth);
+        } else if (formData.participantType === 'OUTROS') {
+          payload.otherType = formData.otherType;
+        }
+        
+        // Envia para o backend
+        const response = await fetch(`${API_URL}/registrations`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
+        
+        const result = await response.json();
+        
+        if (!response.ok) {
+          const errorMessage = result.error || result.message || 'Erro ao processar cadastro';
+          throw new Error(errorMessage);
+        }
+        
+        // Sucesso
+        document.getElementById('registration-form').style.display = 'none';
+        const successMsg = document.getElementById('success-message');
+        successMsg.innerHTML = `
+          Cadastro realizado com sucesso! Você receberá um email de confirmação em breve.
+          <div class="success-actions">
+            <a href="/">Voltar para página inicial</a>
+          </div>
+        `;
+        successMsg.classList.add('show');
+        
+      } catch (error) {
+        console.error('Erro completo:', error);
+        const errorMsg = document.getElementById('email-error');
+        errorMsg.textContent = error.message || 'Erro ao processar cadastro. Tente novamente.';
+        errorMsg.classList.add('show');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Confirmar Cadastro';
+      }
+    }
+  </script>
+  
+  <!-- Configuração da API (pode ser editada no servidor) -->
+  <script src="/config.js"></script>
+</body>
+</html>
+

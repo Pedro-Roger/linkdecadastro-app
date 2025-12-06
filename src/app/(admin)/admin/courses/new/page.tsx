@@ -290,6 +290,7 @@ export default function NewCoursePage() {
   }, [authLoading, isAuthenticated, user, router])
 
   const onSubmit = async (data: CourseFormData) => {
+    console.log('onSubmit chamado!', data)
     setSubmitting(true)
     setError(null)
 
@@ -419,7 +420,13 @@ export default function NewCoursePage() {
           </Link>
           <h1 className="text-3xl font-bold mb-8 text-[#003366]">Criar Novo Curso</h1>
 
-          <form onSubmit={handleSubmit(onSubmit)} className="bg-white rounded-lg shadow-md p-8 space-y-6">
+          <form onSubmit={handleSubmit(onSubmit, (errors) => {
+            console.log('Erros de validação:', errors)
+            const errorMessages = Object.entries(errors).map(([field, error]: [string, any]) => {
+              return `${field}: ${error?.message || 'Campo inválido'}`
+            }).join(', ')
+            setError(`Por favor, corrija os erros no formulário: ${errorMessages}`)
+          })} className="bg-white rounded-lg shadow-md p-8 space-y-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Título do Curso *
@@ -881,6 +888,9 @@ export default function NewCoursePage() {
               <button
                 type="submit"
                 disabled={submitting}
+                onClick={() => {
+                  console.log('Botão clicado!', { submitting, errors })
+                }}
                 className="flex-1 bg-[#FF6600] text-white py-3 px-6 rounded-md font-semibold hover:bg-[#e55a00] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {submitting ? 'Criando...' : 'Criar Curso'}
