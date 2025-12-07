@@ -122,6 +122,7 @@ export default function CourseEnrollmentsPage() {
               <Link href="/admin/dashboard" className="text-gray-700 hover:text-[#FF6600]">Dashboard</Link>
               <Link href="/admin/courses" className="text-gray-700 hover:text-[#FF6600]">Cursos</Link>
               <Link href="/admin/events" className="text-gray-700 hover:text-[#FF6600]">Eventos</Link>
+              <Link href="/admin/users" className="text-gray-700 hover:text-[#FF6600]">Usuários</Link>
               <NotificationBell />
               <Link href="/profile" className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-[#FF6600] text-white font-bold flex items-center justify-center">
                 {user?.name?.charAt(0).toUpperCase() || 'A'}
