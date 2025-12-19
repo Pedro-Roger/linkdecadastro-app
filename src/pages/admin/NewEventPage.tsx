@@ -157,7 +157,7 @@ export default function NewEventPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      <MobileNavbar user={user} onSignOut={signOut} />
+      <MobileNavbar />
       <NotificationBell />
 
       <main className="flex-1">
