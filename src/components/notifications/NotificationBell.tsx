@@ -75,16 +75,16 @@ export default function NotificationBell() {
       </div>
 
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+
           <div
-            className="fixed inset-0 bg-black bg-opacity-50 z-40"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[90]"
             onClick={() => setIsOpen(false)}
           />
-          
-          
-          <div className="relative bg-white rounded-lg shadow-xl z-50 w-full max-w-md max-h-[85vh] flex flex-col">
-            
+
+
+          <div className="relative bg-white rounded-lg shadow-2xl z-[100] w-full max-w-md max-h-[85vh] flex flex-col mx-auto">
+
             <div className="p-4 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white z-10 rounded-t-lg">
               <h3 className="font-semibold text-lg text-[#003366]">Notificações</h3>
               <button
@@ -98,7 +98,7 @@ export default function NotificationBell() {
               </button>
             </div>
 
-            
+
             <div className="flex-1 overflow-y-auto">
               {loading ? (
                 <div className="p-8 text-center text-gray-500">
@@ -123,9 +123,8 @@ export default function NotificationBell() {
                   {notifications.map((notification) => (
                     <div
                       key={notification.id}
-                      className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors ${
-                        notification.status === 'UNREAD' ? 'bg-blue-50' : ''
-                      }`}
+                      className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors ${notification.status === 'UNREAD' ? 'bg-blue-50' : ''
+                        }`}
                       onClick={() => {
                         markAsRead(notification.id)
                         setIsOpen(false)
@@ -161,7 +160,7 @@ export default function NotificationBell() {
               )}
             </div>
 
-            
+
             {notifications.length > 0 && (
               <div className="p-3 border-t border-gray-200 text-center">
                 <button

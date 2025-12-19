@@ -217,7 +217,7 @@ export default function NewEventPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 URL Personalizada (opcional)
               </label>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col md:flex-row md:items-center gap-2">
                 <span className="text-gray-500">https://seudominio.com/register-event.html?event=</span>
                 <input
                   type="text"
@@ -298,7 +298,7 @@ export default function NewEventPage() {
                 </div>
               </div>
               {errors.bannerUrl && <p className="text-red-500 text-sm mt-1">{errors.bannerUrl.message}</p>}
-              
+
               {(bannerUrl || bannerPreview) && (
                 <div className="mt-4">
                   <img
