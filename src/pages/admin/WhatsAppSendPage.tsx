@@ -539,7 +539,7 @@ Esperamos você! 😊`
                                   value={pairingPhone}
                                   onChange={(e) => setPairingPhone(e.target.value.replace(/\D/g, ''))}
                                   placeholder="DDD + Número (apenas números)"
-                                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-1 focus:ring-[#FF6600] outline-none"
+                                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-1 focus:ring-[#FF6600] outline-none text-gray-900 bg-white"
                                 />
                                 <button
                                   onClick={handleRequestPairingCode}
