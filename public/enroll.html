@@ -465,6 +465,18 @@
           <div class="error" id="hectares-error"></div>
         </div>
         
+        <div class="form-group" id="waterArea-group" style="display: none;">
+          <label for="waterArea">Quantos hectares de lâmina d'água você possui? *</label>
+          <input type="number" id="waterArea" name="waterArea" step="0.01" min="0" placeholder="Ex: 8.5" />
+          <div class="error" id="waterArea-error"></div>
+        </div>
+        
+        <div class="form-group" id="ponds-group" style="display: none;">
+          <label for="ponds">Quantos viveiros você possui? *</label>
+          <input type="number" id="ponds" name="ponds" step="1" min="1" placeholder="Ex: 5" />
+          <div class="error" id="ponds-error"></div>
+        </div>
+        
         <div class="form-row">
           <div class="form-group">
             <label for="state">Estado *</label>
@@ -537,12 +549,25 @@
       
       document.getElementById('participantType').addEventListener('change', (e) => {
         const hectaresGroup = document.getElementById('hectares-group');
+        const waterAreaGroup = document.getElementById('waterArea-group');
+        const pondsGroup = document.getElementById('ponds-group');
+        
         if (e.target.value === 'PRODUTOR') {
           hectaresGroup.style.display = 'block';
+          waterAreaGroup.style.display = 'block';
+          pondsGroup.style.display = 'block';
+          
           document.getElementById('hectares').required = true;
+          document.getElementById('waterArea').required = true;
+          document.getElementById('ponds').required = true;
         } else {
           hectaresGroup.style.display = 'none';
+          waterAreaGroup.style.display = 'none';
+          pondsGroup.style.display = 'none';
+          
           document.getElementById('hectares').required = false;
+          document.getElementById('waterArea').required = false;
+          document.getElementById('ponds').required = false;
         }
       });
       
@@ -767,8 +792,16 @@
       if (whatsappDigits.length < 10 || whatsappDigits.length > 11) errors.whatsappNumber = 'WhatsApp inválido';
       
       if (!formData.participantType) errors.participantType = 'Selecione o tipo de participante';
-      if (formData.participantType === 'PRODUTOR' && (!formData.hectares || parseFloat(formData.hectares) <= 0)) {
-        errors.hectares = 'Hectares é obrigatório para produtores';
+      if (formData.participantType === 'PRODUTOR') {
+        if (!formData.hectares || parseFloat(formData.hectares) <= 0) {
+          errors.hectares = 'Hectares é obrigatório para produtores';
+        }
+        if (!formData.waterArea || parseFloat(formData.waterArea) <= 0) {
+          errors.waterArea = 'Hectares de lâmina d\'água é obrigatório';
+        }
+        if (!formData.ponds || parseInt(formData.ponds) <= 0) {
+          errors.ponds = 'Quantidade de viveiros é obrigatória';
+        }
       }
       if (!formData.state) errors.state = 'Selecione o estado';
       if (!formData.city) errors.city = 'Selecione a cidade';
@@ -788,7 +821,11 @@
         birthDate: document.getElementById('birthDate').value,
         whatsappNumber: document.getElementById('whatsappNumber').value,
         participantType: document.getElementById('participantType').value,
+        participantType: document.getElementById('participantType').value,
         hectares: document.getElementById('hectares').value,
+        waterArea: document.getElementById('waterArea').value,
+        ponds: document.getElementById('ponds').value,
+        state: document.getElementById('state').value,
         state: document.getElementById('state').value,
         city: document.getElementById('city').value
       };

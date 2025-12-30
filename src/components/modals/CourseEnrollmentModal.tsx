@@ -72,7 +72,7 @@ const createEnrollmentSchema = (needsAccount: boolean, emailExists: boolean = fa
           path: ['hectares']
         })
       }
-      
+
       const waterAreaValue = parseFloat(data.waterArea ?? '')
       if (Number.isNaN(waterAreaValue) || waterAreaValue <= 0) {
         ctx.addIssue({
@@ -81,7 +81,7 @@ const createEnrollmentSchema = (needsAccount: boolean, emailExists: boolean = fa
           path: ['waterArea']
         })
       }
-      
+
       const pondsValue = parseInt(data.ponds ?? '')
       if (Number.isNaN(pondsValue) || pondsValue <= 0) {
         ctx.addIssue({
@@ -100,7 +100,7 @@ const createEnrollmentSchema = (needsAccount: boolean, emailExists: boolean = fa
           path: ['email']
         })
       }
-      
+
       // Se o email já existe, não precisa de nome e senha
       if (!emailExists) {
         if (!data.name) {
@@ -108,14 +108,14 @@ const createEnrollmentSchema = (needsAccount: boolean, emailExists: boolean = fa
             code: z.ZodIssueCode.custom,
             message: 'Nome é obrigatório',
             path: ['name']
-        })
-      }
-      if (!data.password) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: 'Senha é obrigatória',
-          path: ['password']
-        })
+          })
+        }
+        if (!data.password) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Senha é obrigatória',
+            path: ['password']
+          })
         }
       }
     }
@@ -197,6 +197,10 @@ function formatWhatsapp(value: string) {
   return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`
 }
 
+import { SearchableSelect } from '@/components/ui/SearchableSelect'
+
+import { SearchableSelect } from '@/components/ui/SearchableSelect'
+
 export default function CourseEnrollmentModal({
   isOpen,
   onClose,
@@ -251,37 +255,37 @@ export default function CourseEnrollmentModal({
       fetchStates()
       setResult(null)
       setError(null)
-      
+
       // Busca os dados completos do perfil do usuário
       const fetchUserProfile = async () => {
         try {
           const userProfile = await apiFetch<any>('/user/profile', { auth: true })
-          
+
           // Preenche automaticamente os dados do usuário logado
           const userData: Partial<EnrollmentFormData> = {}
-          
+
           if (userProfile.phone) {
             userData.whatsappNumber = userProfile.phone
           }
-          
+
           if (userProfile.state) {
             userData.state = userProfile.state
             // Busca as cidades do estado automaticamente
             fetchCities(userProfile.state)
           }
-          
+
           if (userProfile.city) {
             userData.city = userProfile.city
           }
-          
+
           if (userProfile.participantType) {
             userData.participantType = userProfile.participantType as any
           }
-          
+
           if (userProfile.hectares) {
             userData.hectares = String(userProfile.hectares)
           }
-          
+
           reset((prev) => ({
             ...prev,
             ...userData
@@ -289,27 +293,27 @@ export default function CourseEnrollmentModal({
         } catch (error) {
           // Se não conseguir buscar o perfil, usa apenas os dados básicos do localStorage
           console.error('Erro ao buscar perfil do usuário:', error)
-          
+
           const basicData: Partial<EnrollmentFormData> = {
             whatsappNumber: (user as any)?.phone || ''
           }
-          
+
           if ((user as any)?.state) {
             basicData.state = (user as any).state
             fetchCities((user as any).state)
           }
-          
+
           if ((user as any)?.city) {
             basicData.city = (user as any).city
           }
-          
+
           reset((prev) => ({
             ...prev,
             ...basicData
           }))
         }
       }
-      
+
       fetchUserProfile()
     } else if (isOpen) {
       // Se não houver usuário, apenas busca estados
@@ -361,10 +365,10 @@ export default function CourseEnrollmentModal({
           setExistingUserId(null)
         } catch (error: any) {
           // Se der erro de "já existe" ou "já cadastrado", o email existe
-          if (error?.message?.includes('já existe') || 
-              error?.message?.includes('already exists') || 
-              error?.message?.includes('já cadastrado') ||
-              error?.message?.includes('Email já cadastrado')) {
+          if (error?.message?.includes('já existe') ||
+            error?.message?.includes('already exists') ||
+            error?.message?.includes('já cadastrado') ||
+            error?.message?.includes('Email já cadastrado')) {
             setEmailExists(true)
           } else {
             setEmailExists(false)
@@ -452,7 +456,7 @@ export default function CourseEnrollmentModal({
       // Se precisa criar conta, primeiro verifica se o email já existe
       if (needsAccount && data.email) {
         setIsRegistering(true)
-        
+
         // Se o email já existe (verificado anteriormente)
         if (emailExists) {
           // Se tem senha, faz login. Se não tem, usa endpoint especial que vincula pelo email
@@ -544,7 +548,7 @@ export default function CourseEnrollmentModal({
                 enrollment: responseBody.enrollment,
                 metadata: responseBody.metadata
               })
-              
+
               setIsRegistering(false)
               setSubmitting(false)
               return
@@ -577,7 +581,7 @@ export default function CourseEnrollmentModal({
                 phone: whatsapp
               }),
             })
-            
+
             // Se o registro retornar token, salva no localStorage
             if (registerResponse.accessToken) {
               if (typeof window !== 'undefined') {
@@ -722,13 +726,12 @@ export default function CourseEnrollmentModal({
 
           {result && (
             <div
-              className={`mb-6 rounded-lg border px-4 py-3 text-sm ${
-                result.status === 'CONFIRMED'
-                  ? 'border-green-200 bg-green-50 text-green-800'
-                  : result.status === 'WAITLIST'
+              className={`mb-6 rounded-lg border px-4 py-3 text-sm ${result.status === 'CONFIRMED'
+                ? 'border-green-200 bg-green-50 text-green-800'
+                : result.status === 'WAITLIST'
                   ? 'border-yellow-200 bg-yellow-50 text-yellow-800'
                   : 'border-blue-200 bg-blue-50 text-blue-800'
-              }`}
+                }`}
             >
               {result.message}
             </div>
@@ -928,22 +931,22 @@ export default function CourseEnrollmentModal({
 
               {participantType === 'PRODUTOR' && (
                 <>
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
-                    Quantos hectares você possui? *
-                  </label>
-                  <input
-                    {...register('hectares')}
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="Ex: 10.5"
-                    className="w-full rounded-md border border-gray-300 px-4 py-2 text-gray-900 focus:border-transparent focus:ring-2 focus:ring-[#FF6600]"
-                  />
-                  {errors.hectares && (
-                    <p className="mt-1 text-sm text-red-500">{errors.hectares.message}</p>
-                  )}
-                </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">
+                      Quantos hectares você possui? *
+                    </label>
+                    <input
+                      {...register('hectares')}
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="Ex: 10.5"
+                      className="w-full rounded-md border border-gray-300 px-4 py-2 text-gray-900 focus:border-transparent focus:ring-2 focus:ring-[#FF6600]"
+                    />
+                    {errors.hectares && (
+                      <p className="mt-1 text-sm text-red-500">{errors.hectares.message}</p>
+                    )}
+                  </div>
                   <div>
                     <label className="mb-1 block text-sm font-medium text-gray-700">
                       Quantos hectares de lâmina d'água você possui? *
@@ -984,27 +987,20 @@ export default function CourseEnrollmentModal({
                   <label className="mb-2 block text-sm font-medium text-gray-700 md:text-base">
                     Estado *
                   </label>
-                  <select
-                    {...register('state')}
-                    disabled={loadingStates}
-                    className="w-full rounded-md border border-gray-300 px-4 py-3 text-base text-gray-900 focus:border-transparent focus:ring-2 focus:ring-[#FF6600] disabled:opacity-50 md:py-2 md:text-sm appearance-none bg-white cursor-pointer min-h-[48px] touch-manipulation"
-                    style={{
-                      backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
-                      backgroundPosition: 'right 0.75rem center',
-                      backgroundRepeat: 'no-repeat',
-                      backgroundSize: '1.5em 1.5em',
-                      paddingRight: '2.5rem'
+                  <SearchableSelect
+                    value={watch('state')}
+                    onChange={(val) => {
+                      setValue('state', val, { shouldValidate: true })
+                      // Reset city when state changes
+                      setValue('city', '', { shouldValidate: true })
                     }}
-                  >
-                    <option value="">
-                      {loadingStates ? 'Carregando estados...' : 'Selecione o estado...'}
-                    </option>
-                    {states.map((state) => (
-                      <option key={state.sigla} value={state.sigla}>
-                        {state.nome}
-                      </option>
-                    ))}
-                  </select>
+                    options={states.map((s) => ({ value: s.sigla, label: s.nome }))}
+                    placeholder={loadingStates ? 'Carregando estados...' : 'Selecione o estado...'}
+                    searchPlaceholder="Buscar estado..."
+                    disabled={loadingStates}
+                    loading={loadingStates}
+                    error={!!errors.state}
+                  />
                   {errors.state && (
                     <p className="mt-1 text-sm text-red-500">{errors.state.message}</p>
                   )}
@@ -1014,31 +1010,22 @@ export default function CourseEnrollmentModal({
                   <label className="mb-2 block text-sm font-medium text-gray-700 md:text-base">
                     Cidade *
                   </label>
-                  <select
-                    {...register('city')}
-                    disabled={!selectedState || loadingCities}
-                    className="w-full rounded-md border border-gray-300 px-4 py-3 text-base text-gray-900 focus:border-transparent focus:ring-2 focus:ring-[#FF6600] disabled:opacity-50 md:py-2 md:text-sm appearance-none bg-white cursor-pointer min-h-[48px] touch-manipulation"
-                    style={{
-                      backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
-                      backgroundPosition: 'right 0.75rem center',
-                      backgroundRepeat: 'no-repeat',
-                      backgroundSize: '1.5em 1.5em',
-                      paddingRight: '2.5rem'
-                    }}
-                  >
-                    <option value="">
-                      {loadingCities
+                  <SearchableSelect
+                    value={watch('city')}
+                    onChange={(val) => setValue('city', val, { shouldValidate: true })}
+                    options={cities.map((c) => ({ value: c.nome, label: c.nome }))}
+                    placeholder={
+                      loadingCities
                         ? 'Carregando cidades...'
                         : selectedState
-                        ? 'Selecione a cidade...'
-                        : 'Selecione o estado primeiro'}
-                    </option>
-                    {cities.map((city) => (
-                      <option key={city.nome} value={city.nome}>
-                        {city.nome}
-                      </option>
-                    ))}
-                  </select>
+                          ? 'Selecione a cidade...'
+                          : 'Selecione o estado primeiro'
+                    }
+                    searchPlaceholder="Buscar cidade..."
+                    disabled={!selectedState || loadingCities}
+                    loading={loadingCities}
+                    error={!!errors.city}
+                  />
                   {errors.city && (
                     <p className="mt-1 text-sm text-red-500">{errors.city.message}</p>
                   )}
@@ -1063,8 +1050,8 @@ export default function CourseEnrollmentModal({
                       ? 'Cadastrando...'
                       : 'Enviando...'
                     : needsAccount
-                    ? 'Cadastrar e Inscrever-se'
-                    : 'Confirmar Inscrição'}
+                      ? 'Cadastrar e Inscrever-se'
+                      : 'Confirmar Inscrição'}
                 </button>
               </div>
             </form>

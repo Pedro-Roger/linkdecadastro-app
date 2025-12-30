@@ -1,9 +1,40 @@
-
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { apiFetch } from '@/lib/api'
+import { SearchableSelect } from '@/components/ui/SearchableSelect'
+
+const FALLBACK_STATES = [
+  { sigla: 'AC', nome: 'Acre' },
+  { sigla: 'AL', nome: 'Alagoas' },
+  { sigla: 'AP', nome: 'Amapá' },
+  { sigla: 'AM', nome: 'Amazonas' },
+  { sigla: 'BA', nome: 'Bahia' },
+  { sigla: 'CE', nome: 'Ceará' },
+  { sigla: 'DF', nome: 'Distrito Federal' },
+  { sigla: 'ES', nome: 'Espírito Santo' },
+  { sigla: 'GO', nome: 'Goiás' },
+  { sigla: 'MA', nome: 'Maranhão' },
+  { sigla: 'MT', nome: 'Mato Grosso' },
+  { sigla: 'MS', nome: 'Mato Grosso do Sul' },
+  { sigla: 'MG', nome: 'Minas Gerais' },
+  { sigla: 'PA', nome: 'Pará' },
+  { sigla: 'PB', nome: 'Paraíba' },
+  { sigla: 'PR', nome: 'Paraná' },
+  { sigla: 'PE', nome: 'Pernambuco' },
+  { sigla: 'PI', nome: 'Piauí' },
+  { sigla: 'RJ', nome: 'Rio de Janeiro' },
+  { sigla: 'RN', nome: 'Rio Grande do Norte' },
+  { sigla: 'RS', nome: 'Rio Grande do Sul' },
+  { sigla: 'RO', nome: 'Rondônia' },
+  { sigla: 'RR', nome: 'Roraima' },
+  { sigla: 'SC', nome: 'Santa Catarina' },
+  { sigla: 'SP', nome: 'São Paulo' },
+  { sigla: 'SE', nome: 'Sergipe' },
+  { sigla: 'TO', nome: 'Tocantins' }
+]
+
 const registrationSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório'),
   cpf: z.string().min(11, 'CPF inválido').max(11, 'CPF inválido'),
@@ -29,16 +60,83 @@ const registrationSchema = z.object({
 
 type RegistrationFormData = z.infer<typeof registrationSchema>
 
+interface StateOption {
+  sigla: string
+  nome: string
+}
+
+interface CityOption {
+  nome: string
+}
+
 export default function RegistrationForm({ eventId }: { eventId: string }) {
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const { register, handleSubmit, watch, formState: { errors } } = useForm<RegistrationFormData>({
+  // State for selectors
+  const [states, setStates] = useState<StateOption[]>([])
+  const [cities, setCities] = useState<CityOption[]>([])
+  const [loadingStates, setLoadingStates] = useState(false)
+  const [loadingCities, setLoadingCities] = useState(false)
+
+  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<RegistrationFormData>({
     resolver: zodResolver(registrationSchema)
   })
 
   const participantType = watch('participantType')
+  const selectedState = watch('state')
+
+  useEffect(() => {
+    fetchStates()
+  }, [])
+
+  useEffect(() => {
+    if (selectedState && selectedState.length === 2) {
+      fetchCities(selectedState)
+    } else {
+      setCities([])
+    }
+  }, [selectedState])
+
+  const fetchStates = async () => {
+    try {
+      setLoadingStates(true)
+      const response = await fetch(
+        'https://servicodados.ibge.gov.br/api/v1/localidades/estados?orderBy=nome'
+      )
+      if (response.ok) {
+        const data = await response.json()
+        setStates(data)
+      } else {
+        setStates(FALLBACK_STATES)
+      }
+    } catch (fetchError) {
+      setStates(FALLBACK_STATES)
+    } finally {
+      setLoadingStates(false)
+    }
+  }
+
+  const fetchCities = async (stateSigla: string) => {
+    try {
+      setLoadingCities(true)
+      const response = await fetch(
+        `https://servicodados.ibge.gov.br/api/v1/localidades/estados/${stateSigla}/municipios`
+      )
+      if (response.ok) {
+        const data = await response.json()
+        const sorted = (data as CityOption[]).sort((a, b) => a.nome.localeCompare(b.nome))
+        setCities(sorted)
+      } else {
+        setCities([])
+      }
+    } catch (fetchError) {
+      setCities([])
+    } finally {
+      setLoadingCities(false)
+    }
+  }
 
   const onSubmit = async (data: RegistrationFormData) => {
     setSubmitting(true)
@@ -154,9 +252,21 @@ export default function RegistrationForm({ eventId }: { eventId: string }) {
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Cidade *
           </label>
-          <input
-            {...register('city')}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
+          <SearchableSelect
+            value={watch('city')}
+            onChange={(val) => setValue('city', val, { shouldValidate: true })}
+            options={cities.map((c) => ({ value: c.nome, label: c.nome }))}
+            placeholder={
+              loadingCities
+                ? 'Carregando cidades...'
+                : selectedState
+                  ? 'Selecione a cidade...'
+                  : 'Selecione o estado primeiro'
+            }
+            searchPlaceholder="Buscar cidade..."
+            disabled={!selectedState || loadingCities}
+            loading={loadingCities}
+            error={!!errors.city}
           />
           {errors.city && <p className="text-red-500 text-sm mt-1">{errors.city.message}</p>}
         </div>
@@ -166,11 +276,19 @@ export default function RegistrationForm({ eventId }: { eventId: string }) {
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Estado *
         </label>
-        <input
-          {...register('state')}
-          maxLength={2}
-          placeholder="CE"
-          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
+        <SearchableSelect
+          value={watch('state')}
+          onChange={(val) => {
+            setValue('state', val, { shouldValidate: true })
+            // Reset city when state changes
+            setValue('city', '', { shouldValidate: true })
+          }}
+          options={states.map((s) => ({ value: s.sigla, label: s.nome }))}
+          placeholder={loadingStates ? 'Carregando estados...' : 'Selecione o estado...'}
+          searchPlaceholder="Buscar estado..."
+          disabled={loadingStates}
+          loading={loadingStates}
+          error={!!errors.state}
         />
         {errors.state && <p className="text-red-500 text-sm mt-1">{errors.state.message}</p>}
       </div>

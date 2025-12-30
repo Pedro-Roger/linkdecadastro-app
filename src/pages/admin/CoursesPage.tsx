@@ -107,7 +107,7 @@ export default function AdminCoursesPage() {
       }
 
       const url = `${getApiUrl()}/admin/courses/${courseId}/export?format=xlsx`
-      
+
       const response = await fetch(url, {
         method: 'GET',
         headers: {
@@ -137,7 +137,7 @@ export default function AdminCoursesPage() {
   const buildShareData = (course: any) => {
     const origin = typeof window !== 'undefined' ? window.location.origin : ''
     const apiUrl = getApiUrl()
-    
+
     // URL completa para o formulário de inscrição
     // Usa slug se disponível, senão usa ID
     const courseParam = course.slug ? encodeURIComponent(course.slug) : course.id
@@ -147,7 +147,7 @@ export default function AdminCoursesPage() {
     // URL do backend para Open Graph (com meta tags já preenchidas)
     // Isso garante que o WhatsApp veja a imagem
     // Usa slug se disponível (preferível para URLs amigáveis)
-    const ogUrl = course.slug 
+    const ogUrl = course.slug
       ? `${apiUrl}/share/enroll/${encodeURIComponent(course.slug)}`
       : `${apiUrl}/share/enroll/${course.id}`
 
@@ -216,9 +216,11 @@ export default function AdminCoursesPage() {
 
   const shareWhatsApp = () => {
     if (!selectedShareData || !selectedCourse) return
-    
+
     // Usa a URL do backend com meta tags para garantir que a imagem apareça no WhatsApp
-    const shareUrl = selectedShareData.ogUrl || selectedShareData.url
+    // const shareUrl = selectedShareData.ogUrl || selectedShareData.url
+    // Alterado para usar a URL direta do frontend conforme solicitado
+    const shareUrl = selectedShareData.url
     const message = `${selectedCourse.title}${selectedCourse.description ? `\n\n${selectedCourse.description.substring(0, 150)}${selectedCourse.description.length > 150 ? '...' : ''}` : ''}\n\n${shareUrl}`
     const waUrl = `https://wa.me/?text=${encodeURIComponent(message)}`
 
@@ -296,10 +298,10 @@ export default function AdminCoursesPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      
+
       <MobileNavbar />
 
-      
+
       <div className="bg-white border-b">
         <div className="container mx-auto px-4 py-6">
           <div className="relative max-w-2xl mx-auto">
@@ -329,67 +331,61 @@ export default function AdminCoursesPage() {
         </div>
       </div>
 
-      
+
       <div className="bg-white border-b">
         <div className="container mx-auto px-4 py-4">
           <div className="flex flex-wrap gap-3 justify-center">
             <button
               onClick={() => setActiveFilter('all')}
-              className={`px-4 py-2 rounded-full font-medium transition-colors ${
-                activeFilter === 'all'
+              className={`px-4 py-2 rounded-full font-medium transition-colors ${activeFilter === 'all'
                   ? 'bg-[#FF6600] text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
+                }`}
             >
               Todos ({courses.length})
             </button>
             <button
               onClick={() => setActiveFilter('active')}
-              className={`px-4 py-2 rounded-full font-medium transition-colors ${
-                activeFilter === 'active'
+              className={`px-4 py-2 rounded-full font-medium transition-colors ${activeFilter === 'active'
                   ? 'bg-[#FF6600] text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
+                }`}
             >
               Ativos ({getFilterCount('active')})
             </button>
             <button
               onClick={() => setActiveFilter('inactive')}
-              className={`px-4 py-2 rounded-full font-medium transition-colors ${
-                activeFilter === 'inactive'
+              className={`px-4 py-2 rounded-full font-medium transition-colors ${activeFilter === 'inactive'
                   ? 'bg-[#FF6600] text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
+                }`}
             >
               Inativos ({getFilterCount('inactive')})
             </button>
             <button
               onClick={() => setActiveFilter('available')}
-              className={`px-4 py-2 rounded-full font-medium transition-colors ${
-                activeFilter === 'available'
+              className={`px-4 py-2 rounded-full font-medium transition-colors ${activeFilter === 'available'
                   ? 'bg-[#FF6600] text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
+                }`}
             >
               Disponíveis ({getFilterCount('available')})
             </button>
             <button
               onClick={() => setActiveFilter('ongoing')}
-              className={`px-4 py-2 rounded-full font-medium transition-colors ${
-                activeFilter === 'ongoing'
+              className={`px-4 py-2 rounded-full font-medium transition-colors ${activeFilter === 'ongoing'
                   ? 'bg-[#FF6600] text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
+                }`}
             >
               Em Andamento ({getFilterCount('ongoing')})
             </button>
             <button
               onClick={() => setActiveFilter('closed')}
-              className={`px-4 py-2 rounded-full font-medium transition-colors ${
-                activeFilter === 'closed'
+              className={`px-4 py-2 rounded-full font-medium transition-colors ${activeFilter === 'closed'
                   ? 'bg-[#FF6600] text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
+                }`}
             >
               Encerrados ({getFilterCount('closed')})
             </button>
@@ -397,7 +393,7 @@ export default function AdminCoursesPage() {
         </div>
       </div>
 
-      
+
       <div className="container mx-auto px-4 py-8 pb-24 md:pb-8 flex-1">
         <div className="flex justify-between items-center mb-8">
           <div>
@@ -448,11 +444,10 @@ export default function AdminCoursesPage() {
                 )}
                 <div className="p-6">
                   <div className="flex items-center justify-between mb-2">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      course.status === 'ACTIVE' 
-                        ? 'bg-green-100 text-green-800' 
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${course.status === 'ACTIVE'
+                        ? 'bg-green-100 text-green-800'
                         : 'bg-gray-100 text-gray-800'
-                    }`}>
+                      }`}>
                       {course.status === 'ACTIVE' ? 'Ativo' : 'Inativo'}
                     </span>
                   </div>
@@ -712,8 +707,8 @@ export default function AdminCoursesPage() {
       )}
 
       <Footer />
-      
-      
+
+
       {isAuthenticated && <div className="md:hidden h-20" />}
     </div>
   )
