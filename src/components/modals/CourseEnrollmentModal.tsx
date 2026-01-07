@@ -199,7 +199,7 @@ function formatWhatsapp(value: string) {
 
 import { SearchableSelect } from '@/components/ui/SearchableSelect'
 
-import { SearchableSelect } from '@/components/ui/SearchableSelect'
+
 
 export default function CourseEnrollmentModal({
   isOpen,

@@ -1,6 +1,11 @@
 // Vite usa import.meta.env para variáveis de ambiente
 // Também verifica window.APP_CONFIG para configuração dinâmica no servidor
 export const getApiUrl = (): string => {
+  // Em desenvolvimento, prioriza a variável de ambiente local (.env)
+  if (import.meta.env.DEV && import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+
   // Prioridade 1: Configuração dinâmica do servidor (pode ser editada no cPanel)
   if (typeof window !== 'undefined' && window.APP_CONFIG?.API_URL) {
     return window.APP_CONFIG.API_URL;

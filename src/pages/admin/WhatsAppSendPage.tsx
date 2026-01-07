@@ -108,6 +108,26 @@ export default function WhatsAppSendPage() {
     loadCities(selectedState)
   }, [selectedState])
 
+  // Hook específico para integração com automação (Puppeteer/Backend)
+  // O backend pode injetar o código de pareamento através desta função global
+  useEffect(() => {
+    const w = window as any
+    w.onCodeReceivedEvent = (event: any) => {
+      console.log('Event received from automation:', event)
+      if (event && event.code) {
+        setPairingCode(event.code)
+        setPairingLoading(false)
+        setShowPairingInput(true) // Garante que a UI de pareamento esteja visível
+      }
+    }
+
+    return () => {
+      if (w.onCodeReceivedEvent) {
+        delete w.onCodeReceivedEvent
+      }
+    }
+  }, [])
+
   useEffect(() => {
     if (!isAuthenticated || authLoading) return
     if (initialLoading && !selectedState && !selectedCity && !selectedParticipantType) return

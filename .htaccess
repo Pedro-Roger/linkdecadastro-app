@@ -30,8 +30,13 @@
   # Redirecionar /c/slug para enroll.html?course=slug (evita 404)
   RewriteCond %{REQUEST_URI} ^/c/([^/]+)/?$ [NC]
   RewriteRule ^c/([^/]+)/?$ /enroll.html?course=$1 [R=301,L]
+
+  # Se existir o arquivo .html correspondente, serve ele (ex: /admin -> admin.html)
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteCond %{REQUEST_FILENAME}.html -f
+  RewriteRule ^([^\.]+)$ $1.html [NC,L]
   
-  # Redirecionar TUDO para index.html (React Router SPA)
+  # Redirecionar TUDO O RESTO para index.html (React Router SPA fallback)
   RewriteRule ^ index.html [L,QSA]
 </IfModule>
 
