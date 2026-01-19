@@ -8,7 +8,7 @@ import { apiFetch } from '@/lib/api'
 
 export default function RegisterPage() {
   const params = useParams()
-  const linkId = params.linkId as string
+  const linkId = (params.linkId || params.slug) as string
   const [event, setEvent] = useState<any>(null)
   const [loading, setLoading] = useState(true)
 

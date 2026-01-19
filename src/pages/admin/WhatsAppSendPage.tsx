@@ -17,6 +17,8 @@ interface Participant {
   produtor: boolean
   professor: boolean
   estudante: boolean
+  cursos?: string[]
+  eventos?: string[]
 }
 
 interface Course {
@@ -44,6 +46,7 @@ export default function WhatsAppSendPage() {
   })
   const [participants, setParticipants] = useState<Participant[]>([])
   const [filteredParticipants, setFilteredParticipants] = useState<Participant[]>([])
+  const [selectedParticipantIds, setSelectedParticipantIds] = useState<Set<string>>(new Set())
   const [initialLoading, setInitialLoading] = useState(true)
   const [participantsLoading, setParticipantsLoading] = useState(false)
   const [sending, setSending] = useState(false)
@@ -177,8 +180,40 @@ export default function WhatsAppSendPage() {
       }
     }
 
+    if (selectedCourse) {
+      filtered = filtered.filter((p) => p.cursos?.includes(selectedCourse.title))
+    }
+
+    if (selectedEvent) {
+      filtered = filtered.filter((p) => p.eventos?.includes(selectedEvent.title))
+    }
+
     setFilteredParticipants(filtered)
-  }, [participants, selectedCity, selectedState, selectedParticipantType])
+    // Auto-select all filtered participants by default
+    setSelectedParticipantIds(new Set(filtered.map(p => p.id_contato)))
+  }, [participants, selectedCity, selectedState, selectedParticipantType, selectedCourse, selectedEvent])
+
+  const toggleSelectAll = () => {
+    if (filteredParticipants.every(p => selectedParticipantIds.has(p.id_contato))) {
+      // Unselect all
+      setSelectedParticipantIds(new Set())
+    } else {
+      // Select all visible
+      const newSelected = new Set(selectedParticipantIds)
+      filteredParticipants.forEach(p => newSelected.add(p.id_contato))
+      setSelectedParticipantIds(newSelected)
+    }
+  }
+
+  const toggleSelectOne = (id: string) => {
+    const newSelected = new Set(selectedParticipantIds)
+    if (newSelected.has(id)) {
+      newSelected.delete(id)
+    } else {
+      newSelected.add(id)
+    }
+    setSelectedParticipantIds(newSelected)
+  }
 
   async function loadStates() {
     try {
@@ -381,8 +416,8 @@ Esperamos você! 😊`
       return
     }
 
-    if (filteredParticipants.length === 0) {
-      setError('Nenhum participante selecionado após aplicar os filtros')
+    if (selectedParticipantIds.size === 0) {
+      setError('Por favor, selecione pelo menos um participante')
       return
     }
 
@@ -426,7 +461,10 @@ Esperamos você! 😊`
       else if (selectedParticipantType === 'ESTUDANTE') filtros.estudante = true
 
       // Preparar participantes com nome para personalização
-      const participantesComNome = filteredParticipants.map((p) => ({
+      // Filtrar apenas os IDs selecionados
+      const participantesFinais = filteredParticipants.filter(p => selectedParticipantIds.has(p.id_contato))
+
+      const participantesComNome = participantesFinais.map((p) => ({
         id_contato: p.id_contato,
         nome: p.nome,
         cidade: p.cidade,
@@ -473,7 +511,7 @@ Esperamos você! 😊`
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      <MobileNavbar user={user} onSignOut={signOut} />
+      <MobileNavbar />
 
       <main className="flex-1">
         <div className="container mx-auto px-4 py-8 pb-24 md:pb-8">
@@ -840,6 +878,14 @@ Esperamos você! 😊`
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50 sticky top-0">
                     <tr>
+                      <th className="px-4 py-3 text-left">
+                        <input
+                          type="checkbox"
+                          checked={filteredParticipants.length > 0 && filteredParticipants.every(p => selectedParticipantIds.has(p.id_contato))}
+                          onChange={toggleSelectAll}
+                          className="rounded border-gray-300 text-[#FF6600] focus:ring-[#FF6600]"
+                        />
+                      </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                         Nome
                       </th>
@@ -857,6 +903,14 @@ Esperamos você! 😊`
                   <tbody className="bg-white divide-y divide-gray-200">
                     {filteredParticipants.slice(0, 50).map((participant, index) => (
                       <tr key={participant.id_contato} className="hover:bg-gray-50">
+                        <td className="px-4 py-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedParticipantIds.has(participant.id_contato)}
+                            onChange={() => toggleSelectOne(participant.id_contato)}
+                            className="rounded border-gray-300 text-[#FF6600] focus:ring-[#FF6600]"
+                          />
+                        </td>
                         <td className="px-4 py-3 text-sm text-gray-900">
                           {participant.nome}
                         </td>
@@ -899,7 +953,7 @@ Esperamos você! 😊`
             </Link>
             <button
               onClick={handleSendMessage}
-              disabled={sending || !selectedCourse && !selectedEvent || !message.trim() || filteredParticipants.length === 0 || whatsappStatus?.status !== 'READY'}
+              disabled={sending || !selectedCourse && !selectedEvent || !message.trim() || selectedParticipantIds.size === 0 || whatsappStatus?.status !== 'READY'}
               className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               {sending ? (
@@ -915,7 +969,7 @@ Esperamos você! 😊`
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M20.52 3.48A11.77 11.77 0 0 0 12.02 0 11.84 11.84 0 0 0 .15 11.85a11.6 11.6 0 0 0 1.58 5.84L0 24l6.42-1.68a11.85 11.85 0 0 0 5.6 1.42h.01A11.84 11.84 0 0 0 24 11.86a11.7 11.7 0 0 0-3.48-8.38ZM12 21.15h-.01a9.9 9.9 0 0 1-5.04-1.38l-.36-.21-3.81.99 1.02-3.7-.23-.38a9.84 9.84 0 0 1 8.43-15.1h.01a9.8 9.8 0 0 1 9.82 9.84A9.86 9.86 0 0 1 12 21.15Zm5.41-7.36c-.3-.15-1.77-.87-2.04-.97s-.47-.15-.66.15-.76.97-.93 1.17-.34.22-.63.07a8.07 8.07 0 0 1-2.37-1.46 8.84 8.84 0 0 1-1.62-2 1.77 1.77 0 0 1 .11-1.86c.18-.23.4-.48.6-.73s.25-.38.37-.62.06-.45 0-.62-.66-1.59-.91-2.18-.5-.5-.68-.51h-.58a1.12 1.12 0 0 0-.81.38 3.36 3.36 0 0 0-1.06 2.5 5.86 5.86 0 0 0 1.24 3.13 13.35 13.35 0 0 0 5.15 4.52 5.9 5.9 0 0 0 2.4.73 2 2 0 0 0 1.31-.86 1.6 1.6 0 0 0 .11-.86c-.05-.09-.27-.17-.57-.31Z" />
                   </svg>
-                  Enviar para {filteredParticipants.length} participante(s)
+                  Enviar para {selectedParticipantIds.size} participante(s)
                 </>
               )}
             </button>

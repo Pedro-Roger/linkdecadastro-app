@@ -617,7 +617,7 @@ export default function HomePage() {
 
                       <div className="mt-auto pt-4">
                         <Link
-                          to={`/register-event.html?event=${event.slug || event.id}`}
+                          to={`/e/${event.slug || event.id}`}
                           className="block w-full bg-[#003366] text-white text-center py-3 rounded-md font-semibold hover:bg-[#002244] transition-colors"
                         >
                           Inscrever-se no Evento
