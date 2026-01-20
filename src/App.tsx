@@ -23,6 +23,7 @@ const UserCoursesPage = lazy(() => import('./pages/user/CoursesPage'))
 const UserMyCoursesPage = lazy(() => import('./pages/user/MyCoursesPage'))
 const UserCoursePage = lazy(() => import('./pages/user/CoursePage'))
 const UserProfilePage = lazy(() => import('./pages/user/ProfilePage'))
+const EventsPage = lazy(() => import('./pages/user/EventsPage'))
 const CourseBySlugPage = lazy(() => import('./pages/CourseBySlugPage'))
 const RegisterByLinkPage = lazy(() => import('./pages/RegisterByLinkPage'))
 const GoogleCallbackPage = lazy(() => import('./pages/auth/GoogleCallbackPage'))
@@ -40,7 +41,10 @@ function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/c/:slug" element={<CourseBySlugPage />} />
           <Route path="/e/:slug" element={<RegisterByLinkPage />} />
+          <Route path="/c/:slug" element={<CourseBySlugPage />} />
+          <Route path="/e/:slug" element={<RegisterByLinkPage />} />
           <Route path="/register/:linkId" element={<RegisterByLinkPage />} />
+          <Route path="/events" element={<EventsPage />} />
 
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />

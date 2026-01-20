@@ -47,10 +47,10 @@ const registrationSchema = z.object({
   participantType: z.enum(['PRODUTOR', 'OUTROS']),
   otherType: z.string().optional(),
   pondCount: z.number().optional(),
-  waterDepth: z.number().optional(),
+  waterArea: z.number().optional(),
 }).refine((data) => {
   if (data.participantType === 'PRODUTOR') {
-    return data.pondCount !== undefined && data.waterDepth !== undefined
+    return data.pondCount !== undefined && data.waterArea !== undefined
   }
   return true
 }, {
@@ -331,15 +331,15 @@ export default function RegistrationForm({ eventId }: { eventId: string }) {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Lâmina d&apos;água (metros) *
+              Hectares de lâmina d&apos;água *
             </label>
             <input
               type="number"
               step="0.01"
-              {...register('waterDepth', { valueAsNumber: true })}
+              {...register('waterArea', { valueAsNumber: true })}
               className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
             />
-            {errors.waterDepth && <p className="text-red-500 text-sm mt-1">{errors.waterDepth.message}</p>}
+            {errors.waterArea && <p className="text-red-500 text-sm mt-1">{errors.waterArea.message}</p>}
           </div>
         </>
       )}
