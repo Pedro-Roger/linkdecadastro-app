@@ -77,24 +77,37 @@ export default function HomePage() {
   // Verifica se há parâmetro enroll na URL e abre o modal automaticamente
   useEffect(() => {
     const enrollSlug = searchParams.get('enroll')
+    const enrollEventSlug = searchParams.get('enroll_event')
+
     if (enrollSlug && allCourses.length > 0 && !loading) {
       // Busca o curso pelo slug ou pelo ID
       const course = allCourses.find(c => c.slug === enrollSlug || c.id === enrollSlug)
       if (course) {
-        // Sempre abre o modal de inscrição (mesmo sem estar logado)
-        // O modal permite criar conta e se inscrever ao mesmo tempo
         setTimeout(() => {
           setEnrollmentModal({
             isOpen: true,
             courseId: course.id,
             courseTitle: course.title
           })
-          // Remove o parâmetro da URL para não abrir novamente
           window.history.replaceState({}, '', '/')
         }, 800)
       }
     }
-  }, [searchParams, allCourses, loading])
+
+    if (enrollEventSlug && events.length > 0 && !eventsLoading) {
+      const event = events.find(e => e.slug === enrollEventSlug || e.id === enrollEventSlug)
+      if (event) {
+        setTimeout(() => {
+          setEventEnrollmentModal({
+            isOpen: true,
+            eventId: event.id,
+            eventTitle: event.title
+          })
+          window.history.replaceState({}, '', '/')
+        }, 800)
+      }
+    }
+  }, [searchParams, allCourses, loading, events, eventsLoading])
 
   const filterCourses = useCallback(() => {
     let filtered = [...allCourses]
