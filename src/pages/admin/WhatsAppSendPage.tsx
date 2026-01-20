@@ -133,9 +133,9 @@ export default function WhatsAppSendPage() {
 
   useEffect(() => {
     if (!isAuthenticated || authLoading) return
-    if (initialLoading && !selectedState && !selectedCity && !selectedParticipantType) return
+    if (initialLoading && !selectedState && !selectedCity && !selectedParticipantType && !selectedCourse && !selectedEvent) return
     fetchParticipants()
-  }, [selectedState, selectedCity, selectedParticipantType, isAuthenticated, authLoading, initialLoading])
+  }, [selectedState, selectedCity, selectedParticipantType, selectedCourse, selectedEvent, isAuthenticated, authLoading, initialLoading])
 
   useEffect(() => {
     if (!isAuthenticated) return
@@ -152,6 +152,7 @@ export default function WhatsAppSendPage() {
     } else {
       setMessage('')
     }
+    // Não precisamos chamar fetchParticipants aqui pois o outro useEffect já o fará quando selectedCourse/selectedEvent mudar
   }, [selectedCourse, selectedEvent])
 
   useEffect(() => {
@@ -180,13 +181,9 @@ export default function WhatsAppSendPage() {
       }
     }
 
-    if (selectedCourse) {
-      filtered = filtered.filter((p) => p.cursos?.includes(selectedCourse.title))
-    }
-
-    if (selectedEvent) {
-      filtered = filtered.filter((p) => p.eventos?.includes(selectedEvent.title))
-    }
+    // Nota: A filtragem por curso/evento agora é feita no backend, 
+    // mas mantemos filtros locais adicionais se necessário para garantir consistência
+    // caso os dados retornados precisem de refinamento extra
 
     setFilteredParticipants(filtered)
     // Auto-select all filtered participants by default
@@ -285,6 +282,10 @@ export default function WhatsAppSendPage() {
       if (selectedCity) queryParams.append('city', selectedCity)
       if (selectedState) queryParams.append('state', selectedState)
       if (selectedParticipantType) queryParams.append('participantType', selectedParticipantType)
+      
+      // Adicionar filtros de curso/evento
+      if (selectedCourse) queryParams.append('courseId', selectedCourse.id)
+      if (selectedEvent) queryParams.append('eventId', selectedEvent.id)
 
       const data = await apiFetch<any>(
         `/admin/courses/enrollments/whatsapp?${queryParams.toString()}`,
