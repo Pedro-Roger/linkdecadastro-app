@@ -7,6 +7,7 @@ import MobileNavbar from '@/components/ui/MobileNavbar'
 import CourseEnrollmentModal from '@/components/modals/CourseEnrollmentModal'
 import { apiFetch, normalizeImageUrl } from '@/lib/api'
 import { useAuth } from '@/lib/useAuth'
+import EventEnrollmentModal from '@/components/modals/EventEnrollmentModal'
 
 interface Course {
   id: string
@@ -57,6 +58,11 @@ export default function HomePage() {
     isOpen: false,
     courseId: '',
     courseTitle: ''
+  })
+  const [eventEnrollmentModal, setEventEnrollmentModal] = useState<{ isOpen: boolean; eventId: string; eventTitle: string }>({
+    isOpen: false,
+    eventId: '',
+    eventTitle: ''
   })
   const [enrollmentFeedback, setEnrollmentFeedback] = useState<{
     message: string
@@ -616,12 +622,18 @@ export default function HomePage() {
                       )}
 
                       <div className="mt-auto pt-4">
-                        <Link
-                          to={`/e/${event.slug || event.id}`}
+                        <button
+                          onClick={() => {
+                            setEventEnrollmentModal({
+                              isOpen: true,
+                              eventId: event.id,
+                              eventTitle: event.title
+                            })
+                          }}
                           className="block w-full bg-[#003366] text-white text-center py-3 rounded-md font-semibold hover:bg-[#002244] transition-colors"
                         >
                           Inscrever-se no Evento
-                        </Link>
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -643,6 +655,16 @@ export default function HomePage() {
         courseId={enrollmentModal.courseId}
         courseTitle={enrollmentModal.courseTitle}
         onSuccess={handleEnrollmentSuccess}
+      />
+
+      <EventEnrollmentModal
+        isOpen={eventEnrollmentModal.isOpen}
+        onClose={() => setEventEnrollmentModal({ isOpen: false, eventId: '', eventTitle: '' })}
+        eventId={eventEnrollmentModal.eventId}
+        eventTitle={eventEnrollmentModal.eventTitle}
+        onSuccess={() => {
+           // Optional: Show success feedback or refetch
+        }}
       />
     </div>
   )
