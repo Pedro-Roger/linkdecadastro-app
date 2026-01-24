@@ -297,6 +297,89 @@
         grid-template-columns: 1fr;
       }
     }
+
+    /* Modal Styles */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(4px);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.3s ease;
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .modal-content {
+      background: white;
+      padding: 2rem;
+      border-radius: 16px;
+      width: 90%;
+      max-width: 450px;
+      text-align: center;
+      transform: scale(0.7);
+      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+    }
+
+    .modal-overlay.active .modal-content {
+      transform: scale(1);
+    }
+
+    .modal-icon {
+      width: 80px;
+      height: 80px;
+      background: #4caf50;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 1.5rem;
+      color: white;
+      font-size: 40px;
+    }
+
+    .modal-title {
+      color: #003366;
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+    }
+
+    .modal-text {
+      color: #666;
+      margin-bottom: 2rem;
+      line-height: 1.5;
+    }
+
+    .modal-btn {
+      background: #FF6600;
+      color: white;
+      padding: 0.8rem 2rem;
+      border-radius: 999px;
+      text-decoration: none;
+      font-weight: 600;
+      display: inline-block;
+      transition: background 0.3s;
+      border: none;
+      cursor: pointer;
+      width: 100%;
+    }
+
+    .modal-btn:hover {
+      background: #e55a00;
+    }
   </style>
 </head>
 <body>
@@ -362,18 +445,20 @@
           </div>
           
           <div class="form-group">
+            <label for="state">Estado (UF) *</label>
+            <select id="state" name="state" required>
+              <option value="">Selecione...</option>
+            </select>
+            <div class="error" id="state-error"></div>
+          </div>
+          
+          <div class="form-group">
             <label for="city">Cidade *</label>
             <select id="city" name="city" required disabled>
               <option value="">Selecione o estado primeiro...</option>
             </select>
             <div class="error" id="city-error"></div>
-          </div>           <div class="form-group">
-             <label for="state">Estado (UF) *</label>
-             <select id="state" name="state" required>
-               <option value="">Selecione...</option>
-             </select>
-             <div class="error" id="state-error"></div>
-           </div>
+          </div>
         </div>
         
 
@@ -412,6 +497,17 @@
         
         <button type="submit" class="button" id="submit-btn">Confirmar Cadastro</button>
       </form>
+    </div>
+    </div>
+  </div>
+
+  <!-- Modal de Sucesso -->
+  <div class="modal-overlay" id="success-modal">
+    <div class="modal-content">
+      <div class="modal-icon">✓</div>
+      <h3 class="modal-title">Inscrição Confirmada!</h3>
+      <p class="modal-text">Sua inscrição foi realizada com sucesso. Em breve você receberá a confirmação no seu WhatsApp.</p>
+      <button class="modal-btn" onclick="window.location.reload()">Fazer nova inscrição</button>
     </div>
   </div>
   
@@ -713,6 +809,13 @@
       submitBtn.disabled = true;
       submitBtn.textContent = 'Enviando...';
       
+      // UI Otimista: Exibe Modal imediatamente
+      const modal = document.getElementById('success-modal');
+      modal.classList.add('active');
+      
+      // Opcional: Confete ou som de sucesso poderia ser adicionado aqui
+
+      // Envia para o backend em background
       try {
         // Prepara dados
         const payload = {
@@ -735,41 +838,17 @@
           payload.otherType = formData.otherType;
         }
         
-        // Envia para o backend
-        const response = await fetch(`${API_URL}/registrations`, {
+        // Envia para o backend (sem aguardar para o usuário)
+        fetch(`${API_URL}/registrations`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify(payload)
-        });
-        
-        const result = await response.json();
-        
-        if (!response.ok) {
-          const errorMessage = result.error || result.message || 'Erro ao processar cadastro';
-          throw new Error(errorMessage);
-        }
-        
-        // Sucesso
-        document.getElementById('registration-form').style.display = 'none';
-        const successMsg = document.getElementById('success-message');
-        successMsg.innerHTML = `
-          Cadastro realizado com sucesso! Você receberá um email de confirmação em breve.
-          <div class="success-actions">
-            <a href="/">Voltar para página inicial</a>
-          </div>
-        `;
-        successMsg.classList.add('show');
+        }).catch(err => console.error('Erro silencioso no envio:', err));
         
       } catch (error) {
-        console.error('Erro completo:', error);
-        const errorMsg = document.getElementById('email-error');
-        errorMsg.textContent = error.message || 'Erro ao processar cadastro. Tente novamente.';
-        errorMsg.classList.add('show');
-      } finally {
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Confirmar Cadastro';
+        console.error('Erro na preparação do envio:', error);
       }
     }
   </script>

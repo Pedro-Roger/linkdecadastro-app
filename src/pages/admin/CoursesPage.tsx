@@ -458,12 +458,20 @@ export default function AdminCoursesPage() {
                     <span>{course._count?.enrollments || 0} alunos</span>
                   </div>
                   <div className="space-y-2">
-                    <Link
-                      to={`/admin/courses/${course.id}/lessons`}
-                      className="block w-full bg-[#FF6600] text-white py-2 px-4 rounded-md font-semibold hover:bg-[#e55a00] transition-colors text-center text-sm"
-                    >
-                      Gerenciar Aulas
-                    </Link>
+                    <div className="grid grid-cols-2 gap-2 mb-2">
+                       <Link
+                        to={`/admin/courses/${course.id}/lessons`}
+                        className="block w-full bg-[#FF6600] text-white py-2 px-4 rounded-md font-semibold hover:bg-[#e55a00] transition-colors text-center text-sm"
+                      >
+                        Gerenciar Aulas
+                      </Link>
+                      <Link
+                        to={`/admin/courses/${course.id}/classes`}
+                        className="block w-full bg-[#003366] text-white py-2 px-4 rounded-md font-semibold hover:bg-[#00264d] transition-colors text-center text-sm"
+                      >
+                        Ver Turmas
+                      </Link>
+                    </div>
                     <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
                       <Link
                         to={`/admin/courses/${course.id}/enrollments`}

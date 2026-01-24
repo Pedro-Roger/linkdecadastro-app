@@ -373,6 +373,12 @@ Esperamos você! 😊`
       return
     }
 
+    let phoneToSend = pairingPhone.replace(/\D/g, '')
+    // Se o número tiver 10 ou 11 dígitos, assume que é BR e adiciona 55
+    if (phoneToSend.length >= 10 && phoneToSend.length <= 11 && !phoneToSend.startsWith('55')) {
+      phoneToSend = `55${phoneToSend}`
+    }
+
     setPairingLoading(true)
     setError(null)
     setPairingCode(null)
@@ -381,7 +387,7 @@ Esperamos você! 😊`
       const result = await apiFetch<any>('/api/whatsapp/pair', {
         method: 'POST',
         auth: true,
-        body: JSON.stringify({ phoneNumber: pairingPhone }),
+        body: JSON.stringify({ phoneNumber: phoneToSend }),
       })
 
       if (result.success && result.code) {
@@ -500,8 +506,21 @@ Esperamos você! 😊`
     return <LoadingScreen />
   }
 
-  if (!isAuthenticated || user?.role !== 'ADMIN') {
-    return null
+
+
+  const formatPhone = (phone: string) => {
+    if (!phone) return '-'
+    const clean = phone.replace(/\D/g, '')
+    // Format: +55 85 98658-3270
+    if (clean.length === 13 && clean.startsWith('55')) {
+       return `+${clean.substring(0, 2)} ${clean.substring(2, 4)} ${clean.substring(4, 9)}-${clean.substring(9)}`
+    }
+    // Format: 85 98658-3270 (assuming BR local)
+    if (clean.length === 11) {
+       return `+55 ${clean.substring(0, 2)} ${clean.substring(2, 7)}-${clean.substring(7)}`
+    }
+    // Fallback
+    return phone
   }
 
   const participantTypeLabels: Record<string, string> = {
@@ -916,7 +935,7 @@ Esperamos você! 😊`
                           {participant.nome}
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-600">
-                          {participant.telefone}
+                          {formatPhone(participant.telefone)}
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-600">
                           {participant.cidade || '-'}

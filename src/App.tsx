@@ -14,6 +14,7 @@ const AdminNewCoursePage = lazy(() => import('./pages/admin/NewCoursePage'))
 const AdminCoursePage = lazy(() => import('./pages/admin/CoursePage'))
 const AdminCourseLessonsPage = lazy(() => import('./pages/admin/CourseLessonsPage'))
 const AdminCourseEnrollmentsPage = lazy(() => import('./pages/admin/CourseEnrollmentsPage'))
+const AdminCourseClassesPage = lazy(() => import('./pages/admin/CourseClassesPage'))
 const AdminEventsPage = lazy(() => import('./pages/admin/EventsPage'))
 const AdminNewEventPage = lazy(() => import('./pages/admin/NewEventPage'))
 const EventRegistrationsPage = lazy(() => import('./pages/admin/EventRegistrationsPage'))
@@ -60,6 +61,7 @@ function App() {
           <Route path="/admin/courses/:courseId" element={<AdminCoursePage />} />
           <Route path="/admin/courses/:courseId/lessons" element={<AdminCourseLessonsPage />} />
           <Route path="/admin/courses/:courseId/enrollments" element={<AdminCourseEnrollmentsPage />} />
+          <Route path="/admin/courses/:courseId/classes" element={<AdminCourseClassesPage />} />
           <Route path="/admin/events" element={<AdminEventsPage />} />
           <Route path="/admin/events/new" element={<AdminNewEventPage />} />
           <Route path="/admin/events/:eventId/registrations" element={<EventRegistrationsPage />} />

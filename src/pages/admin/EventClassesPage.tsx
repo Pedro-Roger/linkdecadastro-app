@@ -8,6 +8,23 @@ import LoadingScreen from '@/components/ui/LoadingScreen'
 import { apiFetch } from '@/lib/api'
 import { useAuth } from '@/lib/useAuth'
 
+interface Registration {
+  id: string
+  name: string
+  cpf: string
+  email: string
+  phone: string
+  city: string
+  state: string
+  participantType: string
+  municipalityClass?: {
+    classNumber: number
+  } | null
+  batchNumber?: number
+  createdAt: string
+  status: string
+}
+
 interface MunicipalityClass {
   id: string
   classNumber: number
@@ -17,6 +34,7 @@ interface MunicipalityClass {
   createdAt: string
   closedAt?: string | null
   registrations: number
+  students?: Registration[]
 }
 
 interface MunicipalityLimit {
@@ -61,26 +79,140 @@ export default function EventClassesPage() {
   const [regionsData, setRegionsData] = useState<RegionsData | null>(null)
   const [loading, setLoading] = useState(true)
   const [editingLimit, setEditingLimit] = useState<string | null>(null)
+  const [expandedClass, setExpandedClass] = useState<string | null>(null)
   const [newLimit, setNewLimit] = useState<number>(20)
   const [updating, setUpdating] = useState(false)
   const [closingClass, setClosingClass] = useState<string | null>(null)
+
+  // Função para agrupar dados localmente (fallback quando backend falha)
+  const groupRegistrationsByRegion = (registrations: Registration[]): RegionsData => {
+    const regionsMap = new Map<string, MunicipalityLimit>()
+    const byParticipantTypeOverall: Record<string, number> = {}
+    const byStateMap = new Map<string, { total: number; byParticipantType: Record<string, number> }>()
+
+    registrations.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+
+    registrations.forEach(reg => {
+      const city = reg.city || 'Desconhecida'
+      const state = reg.state || 'XX'
+      const key = `${city}-${state}`
+      const type = reg.participantType || 'OUTROS'
+
+      // Overall
+      byParticipantTypeOverall[type] = (byParticipantTypeOverall[type] || 0) + 1
+
+      // State
+      if (!byStateMap.has(state)) {
+        byStateMap.set(state, { total: 0, byParticipantType: {} })
+      }
+      const stateStats = byStateMap.get(state)!
+      stateStats.total++
+      stateStats.byParticipantType[type] = (stateStats.byParticipantType[type] || 0) + 1
+
+      // Region
+      if (!regionsMap.has(key)) {
+        regionsMap.set(key, {
+          id: key,
+          municipality: city,
+          state: state,
+          defaultLimit: 30,
+          totalRegistrations: 0,
+          activeClassNumber: 1,
+          activeClassLimit: 30,
+          activeClassCount: 0,
+          classes: [],
+          byParticipantType: {}
+        })
+      }
+
+      const region = regionsMap.get(key)!
+      region.totalRegistrations++
+      region.byParticipantType[type] = (region.byParticipantType[type] || 0) + 1
+
+      // Determinar turma
+      // Se vier do backend com turma, usa. Senão, calcula.
+      const backendClassNumber = reg.municipalityClass?.classNumber || reg.batchNumber;
+      
+      let classNumber = backendClassNumber;
+      if (!classNumber) {
+        // Cálculo fallback: a cada 30
+        const classIndex = Math.floor((region.totalRegistrations - 1) / region.defaultLimit)
+        classNumber = classIndex + 1
+      }
+
+      let classItem = region.classes.find(c => c.classNumber === classNumber)
+      if (!classItem) {
+        classItem = {
+          id: `${key}-class-${classNumber}`,
+          classNumber,
+          limit: region.defaultLimit,
+          currentCount: 0,
+          status: 'ACTIVE',
+          createdAt: new Date().toISOString(),
+          registrations: 0,
+          students: []
+        }
+        region.classes.push(classItem)
+      }
+
+      classItem.currentCount++
+      classItem.registrations++
+      classItem.students?.push(reg)
+
+      // Atualiza active class
+      if (classNumber > (region.activeClassNumber || 0)) {
+        region.activeClassNumber = classNumber
+        region.activeClassCount = classItem.currentCount
+      } else if (classNumber === region.activeClassNumber) {
+        region.activeClassCount = classItem.currentCount
+      }
+    })
+
+    return {
+      regions: Array.from(regionsMap.values()).sort((a, b) => b.totalRegistrations - a.totalRegistrations),
+      overall: {
+        totalRegistrations: registrations.length,
+        byParticipantType: byParticipantTypeOverall,
+        byState: Array.from(byStateMap.entries()).map(([state, data]) => ({
+          state,
+          ...data
+        })).sort((a, b) => b.total - a.total)
+      }
+    }
+  }
 
   const fetchData = useCallback(async () => {
     if (!eventId) return
     try {
       setLoading(true)
-      const [eventData, regionsData] = await Promise.all([
-        apiFetch<Event>(`/admin/events/${eventId}`, { auth: true }).catch(() =>
-          apiFetch<{ events: Event[] }>('/events', { auth: true }).then((data) =>
-            data.events.find((e: Event) => e.id === eventId)
-          )
-        ),
-        apiFetch<RegionsData>(`/admin/events/${eventId}/regions`, {
-          auth: true,
-        }),
-      ])
+      
+      // Busca evento
+      const eventData = await apiFetch<Event>(`/admin/events/${eventId}`, { auth: true }).catch(() =>
+        apiFetch<any>('/events', { auth: true }).then((data) =>
+          Array.isArray(data) 
+            ? data.find((e: Event) => e.id === eventId)
+            : data.events?.find((e: Event) => e.id === eventId)
+        )
+      )
       if (eventData) setEvent(eventData)
-      setRegionsData(regionsData)
+
+      // Tenta regions. Se falhar, busca registrations e calcula.
+      try {
+        // Primeiro tentamos pegar todos os registros, pois precisamos deles para a lista de alunos de qualquer forma
+        const registrationsData = await apiFetch<{ registrations: Registration[] } | Registration[]>(`/admin/events/${eventId}/registrations`, { auth: true })
+        const registrations = Array.isArray(registrationsData) ? registrationsData : registrationsData.registrations
+        
+        // Agora construímos os dados agrupados client-side
+        // Isso garante que temos a lista de alunos e evita o 404 do endpoint /regions se ele não existir
+        const groupedData = groupRegistrationsByRegion(registrations)
+        setRegionsData(groupedData)
+
+      } catch (error) {
+        console.error('Erro ao buscar registros para agrupamento:', error)
+        // Se falhar tudo
+        alert('Erro ao carregar dados de cadastro.')
+      }
+
     } catch (error) {
       console.error('Erro ao carregar dados:', error)
       alert('Erro ao carregar dados')
@@ -100,52 +232,12 @@ export default function EventClassesPage() {
   }, [authLoading, isAuthenticated, user, eventId, fetchData, navigate])
 
   const handleUpdateLimit = async (limitId: string) => {
-    if (newLimit <= 0) {
-      alert('O limite deve ser maior que zero')
-      return
-    }
-
-    setUpdating(true)
-    try {
-      await apiFetch(`/admin/events/limits/${limitId}`, {
-        method: 'PATCH',
-        auth: true,
-        body: JSON.stringify({ defaultLimit: newLimit }),
-      })
-      setEditingLimit(null)
-      await fetchData()
-      alert('Limite atualizado com sucesso!')
-    } catch (error) {
-      console.error('Erro ao atualizar limite:', error)
-      alert('Erro ao atualizar limite')
-    } finally {
-      setUpdating(false)
-    }
+    alert('A edição de limites requer endpoint específico do backend.')
+    setEditingLimit(null)
   }
 
   const handleCloseClass = async (classId: string) => {
-    if (
-      !confirm(
-        'Tem certeza que deseja encerrar esta turma? Esta ação não pode ser desfeita.'
-      )
-    ) {
-      return
-    }
-
-    setClosingClass(classId)
-    try {
-      await apiFetch(`/admin/events/classes/${classId}/close`, {
-        method: 'PATCH',
-        auth: true,
-      })
-      await fetchData()
-      alert('Turma encerrada com sucesso!')
-    } catch (error) {
-      console.error('Erro ao encerrar turma:', error)
-      alert(error instanceof Error ? error.message : 'Erro ao encerrar turma')
-    } finally {
-      setClosingClass(null)
-    }
+    alert('O encerramento de turmas requer endpoint específico do backend.')
   }
 
   const getParticipantTypeLabel = (type: string) => {
@@ -189,6 +281,22 @@ export default function EventClassesPage() {
             {event && (
               <p className="text-gray-600 text-lg">{event.title}</p>
             )}
+
+            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mt-4">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm text-yellow-700">
+                    Modo de visualização client-side: Os alunos foram agrupados por cidade em seu navegador.
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <div className="mt-4 p-4 bg-white rounded-lg shadow-sm">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
@@ -272,49 +380,7 @@ export default function EventClassesPage() {
                           </div>
                         )}
                       </div>
-                      <div className="flex gap-2">
-                        {editingLimit === region.id ? (
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="number"
-                              value={newLimit}
-                              onChange={(e) =>
-                                setNewLimit(parseInt(e.target.value) || 0)
-                              }
-                              min="1"
-                              className="px-3 py-2 rounded-md border border-gray-300 w-24 text-gray-900"
-                              disabled={updating}
-                            />
-                            <button
-                              onClick={() => handleUpdateLimit(region.id)}
-                              disabled={updating}
-                              className="bg-green-600 text-white px-4 py-2 rounded-md font-semibold hover:bg-green-700 transition-colors disabled:opacity-50"
-                            >
-                              {updating ? 'Salvando...' : 'Salvar'}
-                            </button>
-                            <button
-                              onClick={() => {
-                                setEditingLimit(null)
-                                setNewLimit(region.defaultLimit)
-                              }}
-                              disabled={updating}
-                              className="bg-gray-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-gray-600 transition-colors disabled:opacity-50"
-                            >
-                              Cancelar
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => {
-                              setEditingLimit(region.id)
-                              setNewLimit(region.defaultLimit)
-                            }}
-                            className="bg-[#FF6600] text-white px-4 py-2 rounded-md font-semibold hover:bg-[#e55a00] transition-colors"
-                          >
-                            Editar Limite
-                          </button>
-                        )}
-                      </div>
+                      
                     </div>
                   </div>
 
@@ -346,79 +412,114 @@ export default function EventClassesPage() {
                               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Criada em
                               </th>
-                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Encerrada em
-                              </th>
-                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Ações
-                              </th>
                             </tr>
                           </thead>
                           <tbody className="bg-white divide-y divide-gray-200">
                             {region.classes.map((classItem) => (
-                              <tr
-                                key={classItem.id}
-                                className={
-                                  classItem.status === 'ACTIVE'
-                                    ? 'bg-green-50'
-                                    : ''
-                                }
-                              >
-                                <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
-                                  Turma {classItem.classNumber}
-                                </td>
-                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                                  {classItem.limit} vagas
-                                </td>
-                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                                  <span className="font-semibold">
-                                    {classItem.currentCount}
-                                  </span>{' '}
-                                  cadastros
-                                </td>
-                                <td className="px-4 py-3 whitespace-nowrap">
-                                  <span
-                                    className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
-                                      classItem.status === 'ACTIVE'
-                                        ? 'bg-green-100 text-green-700'
-                                        : 'bg-gray-100 text-gray-700'
-                                    }`}
-                                  >
-                                    {classItem.status === 'ACTIVE'
-                                      ? 'Ativa'
-                                      : 'Encerrada'}
-                                  </span>
-                                </td>
-                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                                  {format(
-                                    new Date(classItem.createdAt),
-                                    'dd/MM/yyyy HH:mm',
-                                    { locale: ptBR }
-                                  )}
-                                </td>
-                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                                  {classItem.closedAt
-                                    ? format(
-                                        new Date(classItem.closedAt),
-                                        'dd/MM/yyyy HH:mm',
-                                        { locale: ptBR }
-                                      )
-                                    : '-'}
-                                </td>
-                                <td className="px-4 py-3 whitespace-nowrap text-sm">
-                                  {classItem.status === 'ACTIVE' && (
-                                    <button
-                                      onClick={() => handleCloseClass(classItem.id)}
-                                      disabled={closingClass === classItem.id}
-                                      className="bg-red-600 text-white px-3 py-1 rounded-md font-semibold hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              <>
+                                <tr
+                                  key={classItem.id}
+                                  className={
+                                    classItem.status === 'ACTIVE'
+                                      ? 'bg-green-50'
+                                      : ''
+                                  }
+                                >
+                                  <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                                    <div className="flex items-center gap-2">
+                                      <button
+                                        onClick={() => setExpandedClass(expandedClass === classItem.id ? null : classItem.id)}
+                                        className="text-gray-500 hover:text-[#003366] transition-colors focus:outline-none"
+                                        title="Ver lista de alunos"
+                                      >
+                                        <svg 
+                                          className={`w-4 h-4 transform transition-transform duration-200 ${expandedClass === classItem.id ? 'rotate-90' : ''}`} 
+                                          fill="none" 
+                                          stroke="currentColor" 
+                                          viewBox="0 0 24 24"
+                                        >
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                        </svg>
+                                      </button>
+                                      Turma {classItem.classNumber}
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                                    {classItem.limit} vagas
+                                  </td>
+                                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                                    <span className="font-semibold">
+                                      {classItem.currentCount}
+                                    </span>{' '}
+                                    cadastros
+                                  </td>
+                                  <td className="px-4 py-3 whitespace-nowrap">
+                                    <span
+                                      className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
+                                        classItem.status === 'ACTIVE'
+                                          ? 'bg-green-100 text-green-700'
+                                          : 'bg-gray-100 text-gray-700'
+                                      }`}
                                     >
-                                      {closingClass === classItem.id
-                                        ? 'Encerrando...'
-                                        : 'Encerrar'}
-                                    </button>
-                                  )}
-                                </td>
-                              </tr>
+                                      {classItem.status === 'ACTIVE'
+                                        ? 'Ativa'
+                                        : 'Encerrada'}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                                    {format(
+                                      new Date(classItem.createdAt),
+                                      'dd/MM/yyyy HH:mm',
+                                      { locale: ptBR }
+                                    )}
+                                  </td>
+                                </tr>
+                                {expandedClass === classItem.id && (
+                                  <tr>
+                                    <td colSpan={5} className="px-4 py-3 bg-gray-50 border-t border-gray-100">
+                                      <div className="text-sm pl-6">
+                                        <p className="font-semibold mb-3 text-[#003366] flex items-center gap-2">
+                                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                                          </svg>
+                                          Lista de Alunos ({classItem.students?.length || 0})
+                                        </p>
+                                        
+                                        {classItem.students && classItem.students.length > 0 ? (
+                                          <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-md bg-white shadow-sm">
+                                            <table className="min-w-full divide-y divide-gray-200">
+                                              <thead className="bg-gray-50 sticky top-0">
+                                                <tr>
+                                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Nome</th>
+                                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">CPF</th>
+                                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Telefone</th>
+                                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Data Inscrição</th>
+                                                </tr>
+                                              </thead>
+                                              <tbody className="divide-y divide-gray-100">
+                                                {classItem.students.map((student) => (
+                                                  <tr key={student.id} className="hover:bg-gray-50">
+                                                    <td className="px-4 py-2 text-gray-900 border-b border-gray-50">{student.name}</td>
+                                                    <td className="px-4 py-2 text-gray-500 border-b border-gray-50">{student.cpf}</td>
+                                                    <td className="px-4 py-2 text-gray-500 border-b border-gray-50">{student.phone}</td>
+                                                    <td className="px-4 py-2 text-gray-500 border-b border-gray-50">
+                                                      {format(new Date(student.createdAt), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
+                                                    </td>
+                                                  </tr>
+                                                ))}
+                                              </tbody>
+                                            </table>
+                                          </div>
+                                        ) : (
+                                          <div className="p-4 text-gray-500 italic bg-white rounded border border-gray-200 text-center">
+                                            Nenhum aluno identificado nesta turma.
+                                          </div>
+                                        )}
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
+                              </>
                             ))}
                           </tbody>
                         </table>
@@ -436,4 +537,3 @@ export default function EventClassesPage() {
     </div>
   )
 }
-

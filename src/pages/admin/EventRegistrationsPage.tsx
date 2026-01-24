@@ -7,6 +7,7 @@ import Footer from '@/components/ui/Footer'
 import LoadingScreen from '@/components/ui/LoadingScreen'
 import { apiFetch, getApiUrl } from '@/lib/api'
 import { useAuth } from '@/lib/useAuth'
+import jsPDF from 'jspdf'
 
 interface Registration {
   id: string
@@ -21,7 +22,7 @@ interface Registration {
   participantType: string
   otherType?: string | null
   pondCount?: number | null
-  waterDepth?: number | null
+  waterArea?: number | null
   status: string
   createdAt: string
   batchNumber: number
@@ -76,7 +77,7 @@ export default function EventRegistrationsPage() {
     { key: 'participantType', label: 'Tipo de Participante' },
     { key: 'otherType', label: 'O que você é?' },
     { key: 'pondCount', label: 'Quantidade de Viveiros' },
-    { key: 'waterDepth', label: 'Lâmina d\'água (metros)' },
+    { key: 'waterArea', label: "Lâmina d'água (ha)" },
     { key: 'classNumber', label: 'Turma' },
     { key: 'status', label: 'Status' },
     { key: 'createdAt', label: 'Data de Cadastro' },
@@ -125,6 +126,68 @@ export default function EventRegistrationsPage() {
       return
     }
 
+    if (format === 'pdf') {
+      try {
+        const doc = new jsPDF()
+        
+        // Configuração
+        const pageWidth = doc.internal.pageSize.getWidth()
+        const margin = 10
+        let y = 20
+        const lineHeight = 7
+        
+        // Título
+        doc.setFontSize(16)
+        doc.text(`Cadastros: ${event?.title || 'Evento'}`, margin, y)
+        y += 15
+        
+        // Filtra campos selecionados
+        const fieldsToExport = availableFields.filter(f => selectedFields.includes(f.key))
+        
+        doc.setFontSize(10)
+        
+        registrations.forEach((reg, index) => {
+          // Verifica se precisa de nova página
+          if (y > doc.internal.pageSize.getHeight() - 20) {
+             doc.addPage()
+             y = 20
+          }
+          
+          doc.setFont('helvetica', 'bold')
+          doc.text(`Participante #${index + 1}`, margin, y)
+          y += 5
+          doc.setFont('helvetica', 'normal')
+          
+          fieldsToExport.forEach(field => {
+            if (field.key === 'number') return
+            
+            let value = ''
+            // Mapeamento de valores
+            if (field.key === 'participantType') value = getParticipantTypeLabel(reg.participantType)
+            else if (field.key === 'status') value = getStatusLabel(reg.status)
+            else if (field.key === 'createdAt') value = format(new Date(reg.createdAt), 'dd/MM/yyyy HH:mm', { locale: ptBR })
+            else if (field.key === 'classNumber') value = reg.municipalityClass?.classNumber?.toString() || reg.batchNumber?.toString() || '-'
+            // @ts-ignore
+            else value = reg[field.key]?.toString() || '-'
+
+            // Quebra de linha se texto for longo
+            const text = `${field.label}: ${value}`
+            const textLines = doc.splitTextToSize(text, pageWidth - (margin * 2))
+            doc.text(textLines, margin, y)
+            y += (lineHeight * textLines.length)
+          })
+          y += 5 // Espaço entre participantes
+        })
+        
+        doc.save(`cadastros-${event?.title?.replace(/[^a-z0-9]/gi, '-').toLowerCase() || 'evento'}.pdf`)
+        setExportModalOpen(false)
+      } catch (error) {
+        console.error('Erro ao gerar PDF:', error)
+        alert('Erro ao gerar PDF')
+      }
+      return
+    }
+
     try {
       const fieldsParam = selectedFields.filter((f) => f !== 'number').join(',')
       const url = `${getApiUrl()}/admin/events/${eventId}/export?format=${format}&fields=${fieldsParam}`
@@ -140,7 +203,7 @@ export default function EventRegistrationsPage() {
         const downloadUrl = window.URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = downloadUrl
-        a.download = `cadastros-${event?.title?.replace(/[^a-z0-9]/gi, '-').toLowerCase() || 'evento'}.${format === 'csv' ? 'csv' : format === 'pdf' ? 'pdf' : 'xlsx'}`
+        a.download = `cadastros-${event?.title?.replace(/[^a-z0-9]/gi, '-').toLowerCase() || 'evento'}.${format === 'csv' ? 'csv' : 'xlsx'}`
         document.body.appendChild(a)
         a.click()
         window.URL.revokeObjectURL(downloadUrl)
