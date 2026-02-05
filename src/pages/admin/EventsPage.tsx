@@ -93,7 +93,7 @@ export default function AdminEventsPage() {
 
   const buildShareData = (eventItem: EventItem): ShareData => {
     const origin = typeof window !== 'undefined' ? window.location.origin : ''
-    const url = eventItem.slug 
+    const url = eventItem.slug
       ? (origin ? `${origin}/register-event.html?event=${eventItem.slug}` : `/register-event.html?event=${eventItem.slug}`)
       : (origin ? `${origin}/register-event.html?event=${eventItem.linkId}` : `/register-event.html?event=${eventItem.linkId}`)
 
@@ -105,7 +105,7 @@ export default function AdminEventsPage() {
     return {
       url,
       bannerUrl,
-      message: `Confira o link de cadastro "${eventItem.title}" no Link de Cadastro: ${url}`,
+      message: `🚀 *Inscrições Abertas!*\n\nParticipe do evento *${eventItem.title}*!\n\nGaranta sua vaga agora mesmo clicando no link abaixo:\n👇👇👇\n${url}`,
     }
   }
 
@@ -329,19 +329,18 @@ export default function AdminEventsPage() {
                           </td>
                           <td className="px-4 py-3 align-top">
                             <span
-                              className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
-                                event.status === 'ACTIVE'
+                              className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${event.status === 'ACTIVE'
                                   ? 'bg-green-100 text-green-700'
                                   : event.status === 'INACTIVE'
-                                  ? 'bg-gray-100 text-gray-700'
-                                  : 'bg-red-100 text-red-700'
-                              }`}
+                                    ? 'bg-gray-100 text-gray-700'
+                                    : 'bg-red-100 text-red-700'
+                                }`}
                             >
                               {event.status === 'ACTIVE'
                                 ? 'Ativo'
                                 : event.status === 'INACTIVE'
-                                ? 'Inativo'
-                                : 'Encerrado'}
+                                  ? 'Inativo'
+                                  : 'Encerrado'}
                             </span>
                           </td>
                           <td className="px-4 py-3 align-top">
