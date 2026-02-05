@@ -7,6 +7,8 @@ import Footer from '@/components/ui/Footer'
 import LoadingScreen from '@/components/ui/LoadingScreen'
 import { apiFetch } from '@/lib/api'
 import { useAuth } from '@/lib/useAuth'
+import * as XLSX from 'xlsx'
+import jsPDF from 'jspdf'
 
 interface Registration {
   id: string
@@ -240,103 +242,6 @@ export default function EventClassesPage() {
     alert('O encerramento de turmas requer endpoint específico do backend.')
   }
 
-  /* Função de Exportação de Turma */
-  const handleExportRegion = async (
-    municipality: string,
-    state: string,
-    format: 'csv' | 'xlsx' | 'pdf' = 'csv',
-    municipalityId?: string
-  ) => {
-    try {
-      if (!eventId) return;
-
-      let url = `${getApiUrl()}/admin/events/${eventId}/export?format=${format}`;
-      
-      // Se tivermos um ID real (não gerado), usamos. Senão, usamos nome.
-      // IDs gerados no frontend geralmente tem formato "Cidade-UF"
-      const isGenerateId = municipalityId && municipalityId.includes('-');
-      
-      if (municipalityId && !isGenerateId) {
-          url += `&municipalityId=${municipalityId}`;
-      } else {
-          url += `&city=${encodeURIComponent(municipality)}&state=${encodeURIComponent(state)}`;
-      }
-
-      const token =
-        typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-
-      const response = await fetch(url, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      });
-
-      if (response.ok) {
-        const blob = await response.blob();
-        const downloadUrl = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = downloadUrl;
-        
-        const contentDisposition = response.headers.get('Content-Disposition');
-        let filename = `municipio-${municipality}.${format}`;
-        if (contentDisposition) {
-            const match = contentDisposition.match(/filename="?([^"]+)"?/);
-            if (match && match[1]) filename = match[1];
-        }
-
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(downloadUrl);
-        document.body.removeChild(a);
-      } else {
-        alert('Erro ao exportar dados do município.');
-      }
-    } catch (error) {
-      console.error('Erro ao exportar:', error);
-      alert('Erro ao exportar dados do município');
-    }
-  };
-
-  const handleExportClass = async (classId: string, format: 'csv' | 'xlsx' | 'pdf' = 'csv') => {
-    try {
-      if (!eventId) return
-      
-      // Feedback visual simples (cursor change no body ou algo assim seria ideal, usando alert por enquanto se falhar)
-      
-      const url = `${getApiUrl()}/admin/events/${eventId}/export?format=${format}&classId=${classId}`
-      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
-
-      const response = await fetch(url, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      })
-
-      if (response.ok) {
-        const blob = await response.blob()
-        const downloadUrl = window.URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = downloadUrl
-        
-        // Tentar pegar nome do arquivo do header
-        const contentDisposition = response.headers.get('Content-Disposition');
-        let filename = `turma.${format}`;
-        if (contentDisposition) {
-            const match = contentDisposition.match(/filename="?([^"]+)"?/);
-            if (match && match[1]) filename = match[1];
-        }
-
-        a.download = filename
-        document.body.appendChild(a)
-        a.click()
-        window.URL.revokeObjectURL(downloadUrl)
-        document.body.removeChild(a)
-      } else {
-        alert('Erro ao exportar dados da turma. Verifique se há alunos.')
-      }
-    } catch (error) {
-      console.error('Erro ao exportar:', error)
-      alert('Erro ao exportar dados da turma')
-    }
-  }
-
   const getParticipantTypeLabel = (type: string) => {
     const labels: Record<string, string> = {
       PRODUTOR: 'Produtor',
@@ -345,6 +250,114 @@ export default function EventClassesPage() {
       PESQUISADOR: 'Pesquisador',
     }
     return labels[type] || type
+  }
+
+  /* Exportação Client-Side */
+  const exportToClientSide = (
+    data: any[],
+    filename: string,
+    exportFormat: 'csv' | 'xlsx' | 'pdf',
+    title: string
+  ) => {
+    if (exportFormat === 'csv' || exportFormat === 'xlsx') {
+      const worksheet = XLSX.utils.json_to_sheet(data);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Dados');
+      XLSX.writeFile(workbook, `${filename}.${exportFormat}`);
+    } else if (exportFormat === 'pdf') {
+       const doc = new jsPDF();
+       doc.setFontSize(16);
+       doc.text(title, 10, 20);
+       doc.setFontSize(10);
+       
+       let y = 30;
+       data.forEach((row, index) => {
+           if (y > 270) {
+               doc.addPage();
+               y = 20;
+           }
+           const text = `${row['Nº']}. ${row['Nome Completo']} - CPF: ${row['CPF']} - Tel: ${row['Telefone']}`;
+           doc.text(text, 10, y);
+           y += 7;
+       });
+       doc.save(`${filename}.pdf`);
+    }
+  };
+
+  const prepareStudentsForExport = (students: Registration[]) => {
+      return students.map((student, index) => ({
+          'Nº': index + 1,
+          'Nome Completo': student.name,
+          'CPF': student.cpf,
+          'Email': student.email,
+          'Telefone': student.phone,
+          'Cidade': student.city,
+          'Estado': student.state,
+          'Tipo': getParticipantTypeLabel(student.participantType || ''),
+          'Data Inscrição': format(new Date(student.createdAt), 'dd/MM/yyyy HH:mm', { locale: ptBR }),
+      }));
+  };
+
+  /* Função de Exportação de Turma */
+  const handleExportRegion = async (
+    municipality: string,
+    state: string,
+    exportFormat: 'csv' | 'xlsx' | 'pdf' = 'csv',
+    municipalityId?: string
+  ) => {
+      if (!regionsData) return;
+
+      const region = regionsData.regions.find(r => 
+        (municipalityId && r.id === municipalityId) || 
+        (r.municipality === municipality && r.state === state)
+      );
+
+      if (!region) {
+          alert('Região não encontrada para exportação.');
+          return;
+      }
+
+      // Coletar todos os alunos de todas as turmas da região
+      const allStudents = region.classes.flatMap(c => c.students || []);
+      
+      if (allStudents.length === 0) {
+          alert('Nenhum aluno nesta região para exportar.');
+          return;
+      }
+
+      const preparedData = prepareStudentsForExport(allStudents);
+      const filename = `cidade-${municipality}-${state}`;
+      exportToClientSide(preparedData, filename, exportFormat, `Relatório - ${municipality}/${state}`);
+  };
+
+  const handleExportClass = async (classId: string, exportFormat: 'csv' | 'xlsx' | 'pdf' = 'csv') => {
+    if (!regionsData) return;
+
+    let targetClass: MunicipalityClass | undefined;
+    let targetRegion: MunicipalityLimit | undefined;
+
+    for (const region of regionsData.regions) {
+        const found = region.classes.find(c => c.id === classId);
+        if (found) {
+            targetClass = found;
+            targetRegion = region;
+            break;
+        }
+    }
+
+    if (!targetClass || !targetRegion) {
+        alert('Turma não encontrada.');
+        return;
+    }
+
+    if (!targetClass.students || targetClass.students.length === 0) {
+        alert('Nenhum aluno nesta turma para exportar.');
+        return;
+    }
+
+    const preparedData = prepareStudentsForExport(targetClass.students);
+    const filename = `turma-${targetClass.classNumber}-${targetRegion.municipality}`;
+    exportToClientSide(preparedData, filename, exportFormat, `Turma ${targetClass.classNumber} - ${targetRegion.municipality}`);
   }
 
   if (authLoading || loading) {
