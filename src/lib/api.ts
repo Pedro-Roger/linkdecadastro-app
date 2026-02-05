@@ -31,8 +31,10 @@ export async function apiFetch<T = any>(
 ): Promise<T> {
   const url = path.startsWith('http') ? path : `${API_URL}${path}`;
 
+  const isFormData = options.body instanceof FormData;
+
   const finalHeaders: HeadersInit = {
-    'Content-Type': 'application/json',
+    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     ...(headers || {}),
   };
 

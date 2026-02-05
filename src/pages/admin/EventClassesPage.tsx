@@ -240,6 +240,103 @@ export default function EventClassesPage() {
     alert('O encerramento de turmas requer endpoint específico do backend.')
   }
 
+  /* Função de Exportação de Turma */
+  const handleExportRegion = async (
+    municipality: string,
+    state: string,
+    format: 'csv' | 'xlsx' | 'pdf' = 'csv',
+    municipalityId?: string
+  ) => {
+    try {
+      if (!eventId) return;
+
+      let url = `${getApiUrl()}/admin/events/${eventId}/export?format=${format}`;
+      
+      // Se tivermos um ID real (não gerado), usamos. Senão, usamos nome.
+      // IDs gerados no frontend geralmente tem formato "Cidade-UF"
+      const isGenerateId = municipalityId && municipalityId.includes('-');
+      
+      if (municipalityId && !isGenerateId) {
+          url += `&municipalityId=${municipalityId}`;
+      } else {
+          url += `&city=${encodeURIComponent(municipality)}&state=${encodeURIComponent(state)}`;
+      }
+
+      const token =
+        typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+
+      const response = await fetch(url, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        
+        const contentDisposition = response.headers.get('Content-Disposition');
+        let filename = `municipio-${municipality}.${format}`;
+        if (contentDisposition) {
+            const match = contentDisposition.match(/filename="?([^"]+)"?/);
+            if (match && match[1]) filename = match[1];
+        }
+
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(downloadUrl);
+        document.body.removeChild(a);
+      } else {
+        alert('Erro ao exportar dados do município.');
+      }
+    } catch (error) {
+      console.error('Erro ao exportar:', error);
+      alert('Erro ao exportar dados do município');
+    }
+  };
+
+  const handleExportClass = async (classId: string, format: 'csv' | 'xlsx' | 'pdf' = 'csv') => {
+    try {
+      if (!eventId) return
+      
+      // Feedback visual simples (cursor change no body ou algo assim seria ideal, usando alert por enquanto se falhar)
+      
+      const url = `${getApiUrl()}/admin/events/${eventId}/export?format=${format}&classId=${classId}`
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
+
+      const response = await fetch(url, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      })
+
+      if (response.ok) {
+        const blob = await response.blob()
+        const downloadUrl = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = downloadUrl
+        
+        // Tentar pegar nome do arquivo do header
+        const contentDisposition = response.headers.get('Content-Disposition');
+        let filename = `turma.${format}`;
+        if (contentDisposition) {
+            const match = contentDisposition.match(/filename="?([^"]+)"?/);
+            if (match && match[1]) filename = match[1];
+        }
+
+        a.download = filename
+        document.body.appendChild(a)
+        a.click()
+        window.URL.revokeObjectURL(downloadUrl)
+        document.body.removeChild(a)
+      } else {
+        alert('Erro ao exportar dados da turma. Verifique se há alunos.')
+      }
+    } catch (error) {
+      console.error('Erro ao exportar:', error)
+      alert('Erro ao exportar dados da turma')
+    }
+  }
+
   const getParticipantTypeLabel = (type: string) => {
     const labels: Record<string, string> = {
       PRODUTOR: 'Produtor',
@@ -264,6 +361,9 @@ export default function EventClassesPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
+    {/* ... resto do código ... */}
+    {/* Vou injetar o botão no outro bloco replace abaixo, aqui só a função */}
+
       <MobileNavbar />
 
       <main className="flex-1">
@@ -381,6 +481,26 @@ export default function EventClassesPage() {
                         )}
                       </div>
                       
+                      <div className="flex flex-col gap-2">
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => handleExportRegion(region.municipality, region.state, 'xlsx', region.id)}
+                                className="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5"
+                                title="Exportar Excel do Município Inteiro"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                Excel
+                            </button>
+                            <button
+                                onClick={() => handleExportRegion(region.municipality, region.state, 'csv', region.id)}
+                                className="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5"
+                                title="Exportar CSV do Município Inteiro"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                CSV
+                            </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
@@ -478,12 +598,41 @@ export default function EventClassesPage() {
                                   <tr>
                                     <td colSpan={5} className="px-4 py-3 bg-gray-50 border-t border-gray-100">
                                       <div className="text-sm pl-6">
-                                        <p className="font-semibold mb-3 text-[#003366] flex items-center gap-2">
-                                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                                          </svg>
-                                          Lista de Alunos ({classItem.students?.length || 0})
-                                        </p>
+                                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 gap-2">
+                                            <p className="font-semibold text-[#003366] flex items-center gap-2">
+                                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                                              </svg>
+                                              Lista de Alunos ({classItem.students?.length || 0})
+                                            </p>
+                                            
+                                            <div className="flex gap-2">
+                                                <button 
+                                                    onClick={() => handleExportClass(classItem.id, 'csv')}
+                                                    className="inline-flex items-center px-3 py-1.5 bg-blue-100 text-blue-700 text-xs font-medium rounded hover:bg-blue-200 transition-colors"
+                                                    title="Baixar CSV"
+                                                >
+                                                    <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                                                    CSV
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleExportClass(classItem.id, 'pdf')}
+                                                    className="inline-flex items-center px-3 py-1.5 bg-red-100 text-red-700 text-xs font-medium rounded hover:bg-red-200 transition-colors"
+                                                    title="Baixar PDF"
+                                                >
+                                                    <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                                                    PDF
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleExportClass(classItem.id, 'xlsx')}
+                                                    className="inline-flex items-center px-3 py-1.5 bg-green-100 text-green-700 text-xs font-medium rounded hover:bg-green-200 transition-colors"
+                                                    title="Baixar Excel"
+                                                >
+                                                    <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                                    Excel
+                                                </button>
+                                            </div>
+                                        </div>
                                         
                                         {classItem.students && classItem.students.length > 0 ? (
                                           <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-md bg-white shadow-sm">

@@ -505,7 +505,7 @@
       <div class="modal-icon">✓</div>
       <h3 class="modal-title">Inscrição Confirmada!</h3>
       <p class="modal-text">Sua inscrição foi realizada com sucesso. Em breve você receberá a confirmação no seu WhatsApp.</p>
-      <button class="modal-btn" onclick="window.location.reload()">Fazer nova inscrição</button>
+      <button class="modal-btn" onclick="window.location.href='https://linkdecadastro.com.br'">Voltar para o Início</button>
     </div>
   </div>
   
@@ -661,7 +661,82 @@
       });
       
       // Formatação de campos
-      document.getElementById('cpf').addEventListener('input', formatCPF);
+      const cpfInput = document.getElementById('cpf');
+      cpfInput.addEventListener('input', formatCPF);
+      
+      // AUTOCOMPLETE POR CPF
+      cpfInput.addEventListener('blur', async (e) => {
+        const cpf = e.target.value.replace(/\D/g, '');
+        if (cpf.length === 11) {
+            try {
+                // Mostrar feedback visual
+                document.getElementById('name').placeholder = "Buscando dados...";
+                
+                const res = await fetch(`${API_URL}/registrations/cpf/${cpf}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    
+                    // Preencher campos básicos
+                    if (data.name) document.getElementById('name').value = data.name;
+                    if (data.email) document.getElementById('email').value = data.email;
+                    if (data.phone) {
+                        const phone = data.phone.replace(/\D/g, '');
+                        // Re-formatar telefone
+                        if (phone.length <= 10) {
+                            document.getElementById('phone').value = `(${phone.slice(0, 2)}) ${phone.slice(2, 6)}-${phone.slice(6)}`;
+                        } else {
+                            document.getElementById('phone').value = `(${phone.slice(0, 2)}) ${phone.slice(2, 7)}-${phone.slice(7)}`;
+                        }
+                    }
+                    if (data.cep) document.getElementById('cep').value = data.cep;
+                    if (data.locality) document.getElementById('locality').value = data.locality;
+                    
+                    // Lidar com Estado e Cidade
+                    if (data.state) {
+                        stateSelect.value = data.state;
+                        // Forçar carregamento das cidades
+                        await loadCities(data.state);
+                        
+                        // Selecionar cidade após carregamento
+                        if (data.city) {
+                             // Pequeno delay para garantir renderização do select, se necessario
+                             setTimeout(() => {
+                                 citySelect.value = data.city;
+                                 if (!citySelect.value) {
+                                     // Tenta achar com case insensitive se falhar
+                                     const option = Array.from(citySelect.options).find(opt => opt.value.toLowerCase() === data.city.toLowerCase());
+                                     if (option) citySelect.value = option.value;
+                                 }
+                             }, 100);
+                        }
+                    }
+
+                    // Lidar com Tipo de Participante
+                    if (data.participantType) {
+                        document.getElementById('participantType').value = data.participantType;
+                        // Disparar evento change manualmente para mostrar/esconder campos extras
+                        document.getElementById('participantType').dispatchEvent(new Event('change'));
+                        
+                        if (data.participantType === 'PRODUTOR') {
+                             if (data.pondCount) document.getElementById('pondCount').value = data.pondCount;
+                             if (data.waterArea) document.getElementById('waterArea').value = data.waterArea;
+                        } else if (data.participantType === 'OUTROS') { // Ajuste se seu backend retornar OUTROS ou o valor customizado
+                             if (data.otherType) document.getElementById('otherType').value = data.otherType;
+                        } 
+                    }
+                    
+                    document.getElementById('name').placeholder = "";
+                    console.log('Dados preenchidos automaticamente pelo CPF');
+                }
+            } catch (error) {
+                console.error('Erro ao buscar dados do CPF:', error);
+                document.getElementById('name').placeholder = "";
+            } finally {
+                 document.getElementById('name').placeholder = "";
+            }
+        }
+      });
+
       document.getElementById('phone').addEventListener('input', formatWhatsApp);
       document.getElementById('cep').addEventListener('input', formatCEP);
       
@@ -867,6 +942,11 @@
       // UI Otimista: Exibe Modal imediatamente
       const modal = document.getElementById('success-modal');
       modal.classList.add('active');
+      
+      // Redirecionamento automático após 5 segundos
+      setTimeout(() => {
+        window.location.href = 'https://linkdecadastro.com.br';
+      }, 5000);
       
       // Opcional: Confete ou som de sucesso poderia ser adicionado aqui
 

@@ -16,22 +16,21 @@ const baseEnrollmentSchema = z.object({
     .string()
     .email('Email inválido')
     .optional(),
-  password: z
-    .string()
-    .min(6, 'Senha deve ter no mínimo 6 caracteres')
-    .optional(),
+  password: z.string().optional(),
   cpf: z.string().min(11, 'CPF deve ter 11 dígitos'),
-  birthDate: z.string().min(1, 'Data de nascimento é obrigatória'),
+  birthDate: z.string().optional(), // Made optional
   participantType: z.enum(participantTypes, {
     required_error: 'Selecione o tipo de participante'
   }),
   schoolOrUniversity: z.string().optional(),
   hectares: z.string().optional(),
-  waterArea: z.string().optional(), // Hectares de lâmina d'água (Was waterDepth, now waterArea)
-  ponds: z.string().optional(), // Quantidade de viveiros
+  waterArea: z.string().optional(),
+  ponds: z.string().optional(),
   state: z.string().min(2, 'Estado é obrigatório'),
   city: z.string().min(1, 'Cidade é obrigatória'),
-  phone: z.string().min(10, 'Informe o WhatsApp com DDD') // Using 'phone' to match RegistrationForm somewhat, but modal used whatsappNumber. Let's stick to phone/whatsappNumber consistency.
+  cep: z.string().min(8, 'CEP é obrigatório'),
+  locality: z.string().min(1, 'Endereço/Bairro é obrigatório'),
+  phone: z.string().min(10, 'Informe o WhatsApp com DDD')
 })
 
 const createEnrollmentSchema = (needsAccount: boolean, emailExists: boolean = false) =>
@@ -53,28 +52,22 @@ const createEnrollmentSchema = (needsAccount: boolean, emailExists: boolean = fa
         path: ['phone']
       })
     }
-
-    if (data.participantType === 'PROFESSOR') {
-      if (!data.schoolOrUniversity || data.schoolOrUniversity.trim().length === 0) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: 'Escola ou universidade é obrigatória para professores',
-          path: ['schoolOrUniversity']
-        })
-      }
+    
+    const cepDigits = data.cep.replace(/\D/g, '')
+    if (cepDigits.length !== 8) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'CEP deve ter 8 dígitos',
+        path: ['cep']
+      })
     }
+    
 
     if (data.participantType === 'PRODUTOR') {
-      const hectaresValue = parseFloat(data.hectares ?? '')
-      // waterArea validation
-      const waterAreaValue = parseFloat(data.waterArea ?? '')
-      const pondsValue = parseInt(data.ponds ?? '')
-
-      // Making them optional/required based on context if needed, but let's keep strict for PRODUTOR
-      // Note: RegistrationForm.tsx requires them.
-      if (Number.isNaN(waterAreaValue)) { // Relaxed validation slightly or strict?
-         // Keeping strict
-      }
+      // Keep strict validation for PRODUTOR fields if they are in the UI?
+      // User didn't remove these from UI, so we keep basic check if necessary, 
+      // but based on request "make it work like register-event", register-event requires them.
+      // So checks are fine if the fields are present.
     }
 
     if (needsAccount) {
@@ -94,13 +87,7 @@ const createEnrollmentSchema = (needsAccount: boolean, emailExists: boolean = fa
             path: ['name']
           })
         }
-        if (!data.password) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: 'Senha é obrigatória',
-            path: ['password']
-          })
-        }
+        // Password check removed
       }
     }
   })
@@ -283,6 +270,9 @@ export default function EventEnrollmentModal({
     const requestData = {
         ...data,
         eventId,
+        cpf: data.cpf.replace(/\D/g, ''),
+        phone: data.phone.replace(/\D/g, ''),
+        cep: data.cep.replace(/\D/g, ''),
         waterArea: data.waterArea ? parseFloat(data.waterArea.replace(',', '.')) : undefined,
         hectares: data.hectares ? parseFloat(data.hectares.replace(',', '.')) : undefined,
         ponds: data.ponds ? parseInt(data.ponds) : undefined,
@@ -341,12 +331,12 @@ export default function EventEnrollmentModal({
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Nome *</label>
-                            <input {...register('name')} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#FF6600] focus:ring-[#FF6600]" />
+                            <input {...register('name')} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#FF6600] focus:ring-[#FF6600] text-gray-900" />
                             {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
                         </div>
                          <div>
                             <label className="block text-sm font-medium text-gray-700">CPF *</label>
-                            <input {...register('cpf')} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#FF6600] focus:ring-[#FF6600]" maxLength={11} />
+                            <input {...register('cpf')} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#FF6600] focus:ring-[#FF6600] text-gray-900" maxLength={11} />
                             {errors.cpf && <p className="text-red-500 text-xs mt-1">{errors.cpf.message}</p>}
                         </div>
                     </div>
@@ -354,13 +344,27 @@ export default function EventEnrollmentModal({
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                          <div>
                             <label className="block text-sm font-medium text-gray-700">Email *</label>
-                            <input {...register('email')} type="email" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#FF6600] focus:ring-[#FF6600]" />
+                            <input {...register('email')} type="email" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#FF6600] focus:ring-[#FF6600] text-gray-900" />
                              {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
                         </div>
                          <div>
                             <label className="block text-sm font-medium text-gray-700">Telefone/WhatsApp *</label>
-                            <input {...register('phone')} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#FF6600] focus:ring-[#FF6600]" />
+                            <input {...register('phone')} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#FF6600] focus:ring-[#FF6600] text-gray-900" />
                              {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone.message}</p>}
+                        </div>
+                    </div>
+
+                    {/* Address Fields */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                         <div>
+                            <label className="block text-sm font-medium text-gray-700">CEP *</label>
+                            <input {...register('cep')} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#FF6600] focus:ring-[#FF6600] text-gray-900" maxLength={9} placeholder="00000-000" />
+                             {errors.cep && <p className="text-red-500 text-xs mt-1">{errors.cep.message}</p>}
+                        </div>
+                         <div>
+                            <label className="block text-sm font-medium text-gray-700">Endereço/Bairro *</label>
+                            <input {...register('locality')} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#FF6600] focus:ring-[#FF6600] text-gray-900" />
+                             {errors.locality && <p className="text-red-500 text-xs mt-1">{errors.locality.message}</p>}
                         </div>
                     </div>
 
@@ -398,7 +402,7 @@ export default function EventEnrollmentModal({
 
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Perfil *</label>
-                         <select {...register('participantType')} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#FF6600] focus:ring-[#FF6600]">
+                         <select {...register('participantType')} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#FF6600] focus:ring-[#FF6600] text-gray-900">
                             {participantTypes.map(t => <option key={t} value={t}>{t}</option>)}
                          </select>
                     </div>
@@ -407,11 +411,11 @@ export default function EventEnrollmentModal({
                         <div className="space-y-4 border-t pt-4">
                              <div>
                                 <label className="block text-sm font-medium text-gray-700">Quantidade de Viveiros</label>
-                                <input {...register('ponds')} type="number" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#FF6600] focus:ring-[#FF6600]" />
+                                <input {...register('ponds')} type="number" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#FF6600] focus:ring-[#FF6600] text-gray-900" />
                             </div>
                              <div>
                                 <label className="block text-sm font-medium text-gray-700">Hectares de Lâmina d'Água</label>
-                                <input {...register('waterArea')} type="number" step="0.01" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#FF6600] focus:ring-[#FF6600]" />
+                                <input {...register('waterArea')} type="number" step="0.01" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#FF6600] focus:ring-[#FF6600] text-gray-900" />
                             </div>
                         </div>
                     )}

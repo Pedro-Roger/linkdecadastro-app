@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import MobileNavbar from '@/components/ui/MobileNavbar'
 import Footer from '@/components/ui/Footer'
 import LoadingScreen from '@/components/ui/LoadingScreen'
-import { apiFetch } from '@/lib/api'
+import { apiFetch, normalizeImageUrl } from '@/lib/api'
 import { useAuth } from '@/lib/useAuth'
 
 interface Participant {
@@ -25,12 +25,14 @@ interface Course {
   id: string
   title: string
   slug?: string | null
+  bannerUrl?: string | null
 }
 
 interface Event {
   id: string
   title: string
   slug?: string | null
+  coverUrl?: string | null
 }
 
 interface StateOption {
@@ -52,6 +54,63 @@ export default function WhatsAppSendPage() {
   const [sending, setSending] = useState(false)
   const [whatsappStatus, setWhatsappStatus] = useState<any>(null)
   const [message, setMessage] = useState('')
+  // NOVOS ESTADOS PARA UPLOAD
+  const [mediaFile, setMediaFile] = useState<File | null>(null)
+  const [mediaPreview, setMediaPreview] = useState<string | null>(null)
+  const [uploadedMediaUrl, setUploadedMediaUrl] = useState<string | null>(null)
+  const [uploadedMediaType, setUploadedMediaType] = useState<'image' | 'video' | null>(null)
+  const [isUploading, setIsUploading] = useState(false)
+  // const [includeImage, setIncludeImage] = useState(true) // REMOVIDO
+
+  /* Função de Upload */
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Preview Local
+    const objectUrl = URL.createObjectURL(file)
+    setMediaPreview(objectUrl)
+    setMediaFile(file)
+    setUploadedMediaUrl(null) // Resetar URL anterior enquanto sobe a nova
+
+    // Detectar tipo
+    const type = file.type.startsWith('video/') ? 'video' : 'image'
+    setUploadedMediaType(type)
+
+    // Upload Imediato
+    const formData = new FormData()
+    formData.append('file', file)
+
+    setIsUploading(true)
+    try {
+        const res = await apiFetch<any>('/admin/upload', {
+            method: 'POST',
+            body: formData,
+            auth: true
+        });
+        
+        // Backend retorna { url: '/uploads/...', type: 'image'|'video' }
+        setUploadedMediaUrl(normalizeImageUrl(res.url)) 
+        // Se backend retornar type use ele, senão use o que detectamos
+        if (res.type) setUploadedMediaType(res.type)
+        
+    } catch (err) {
+        console.error('Erro no upload:', err)
+        setError('Falha ao fazer upload da mídia.')
+        setMediaPreview(null)
+        setMediaFile(null)
+    } finally {
+        setIsUploading(false)
+    }
+  }
+
+  // Handle Remove Media
+  const handleRemoveMedia = () => {
+    setMediaFile(null)
+    setMediaPreview(null)
+    setUploadedMediaUrl(null)
+    setUploadedMediaType(null)
+  }
   const [selectedCity, setSelectedCity] = useState<string>('')
   const [selectedParticipantType, setSelectedParticipantType] = useState<string>('')
   const [selectedState, setSelectedState] = useState<string>('')
@@ -91,8 +150,9 @@ export default function WhatsAppSendPage() {
       } else {
         fetchCourses()
         fetchEvents()
-        fetchParticipants(true)
+        // Removido fetchParticipants(true) - só buscar quando houver filtro aplicado
         checkWhatsAppStatus()
+        setInitialLoading(false) // Marca como carregado
       }
     }
   }, [authLoading, isAuthenticated, user, navigate])
@@ -287,12 +347,20 @@ export default function WhatsAppSendPage() {
       if (selectedCourse) queryParams.append('courseId', selectedCourse.id)
       if (selectedEvent) queryParams.append('eventId', selectedEvent.id)
 
+      const url = `/admin/courses/enrollments/whatsapp?${queryParams.toString()}`
+      console.log('[FRONTEND] Chamando API:', url)
+
       const data = await apiFetch<any>(
-        `/admin/courses/enrollments/whatsapp?${queryParams.toString()}`,
+        url,
         { auth: true }
       )
+      
+      console.log('[FRONTEND] Resposta recebida:', data)
+      console.log('[FRONTEND] Total de participantes:', data?.participantes?.length || 0)
+      
       setParticipants(data.participantes || [])
     } catch (error) {
+      console.error('[FRONTEND] Erro ao carregar participantes:', error)
       setError('Erro ao carregar participantes')
     } finally {
       if (useInitialLoader) {
@@ -471,30 +539,76 @@ Esperamos você! 😊`
       // Filtrar apenas os IDs selecionados
       const participantesFinais = filteredParticipants.filter(p => selectedParticipantIds.has(p.id_contato))
 
-      const participantesComNome = participantesFinais.map((p) => ({
-        id_contato: p.id_contato,
-        nome: p.nome,
-        cidade: p.cidade,
-        estado: p.estado,
-        produtor: p.produtor,
-        professor: p.professor,
-        estudante: p.estudante,
-      }))
+      console.log('[FRONTEND] Participantes selecionados:', participantesFinais.length)
+      console.log('[FRONTEND] Primeiro participante:', participantesFinais[0])
+
+      const participantesComNome = participantesFinais.map((p) => {
+        let phoneToSend = p.id_contato.replace(/\D/g, '')
+        // Se o número tiver 10 ou 11 dígitos, assume que é BR e adiciona 55
+        // A menos que já comece com 55 e tenha 12 ou 13 dígitos
+        if (phoneToSend.length >= 10 && phoneToSend.length <= 11) {
+          phoneToSend = `55${phoneToSend}`
+        }
+        
+        return {
+          id_contato: phoneToSend,
+          nome: p.nome,
+          cidade: p.cidade,
+          estado: p.estado,
+          produtor: p.produtor,
+          professor: p.professor,
+          estudante: p.estudante,
+        }
+      })
+
+      console.log('[FRONTEND] Participantes formatados:', participantesComNome)
+      console.log('[FRONTEND] Mensagem a enviar:', message)
+
+      // Preparar Payload com Mídia Opcional - Forçando Recompilação
+      let mediaUrl: string | undefined = undefined
+      let mediaType: 'image' | 'video' | undefined = undefined
+
+      if (uploadedMediaUrl) {
+          mediaUrl = uploadedMediaUrl
+          mediaType = uploadedMediaType || 'image'
+      } else if (mediaFile) {
+          alert('Aguarde o término do upload da mídia.')
+          return
+      }
 
       // O backend irá personalizar a mensagem substituindo {nome} pelo nome de cada participante
+      const payload = {
+        mensagem: message, // Mensagem com {nome} que será substituído no backend
+        participantes: participantesComNome,
+        filtros: {}, // Sem filtros, pois já filtramos antes no frontend
+        mediaUrl,
+        mediaType
+      }
+
+      console.log('[FRONTEND] Payload completo:', payload)
+
       const result = await apiFetch<any>('/api/whatsapp/enviar-mensagem-segmentada', {
         method: 'POST',
         auth: true,
-        body: JSON.stringify({
-          mensagem: message, // Mensagem com {nome} que será substituído no backend
-          participantes: participantesComNome,
-          filtros: {}, // Sem filtros, pois já filtramos antes no frontend
-        }),
+        body: JSON.stringify(payload),
       })
 
-      setSuccess(
-        `Mensagem enviada com sucesso! ${result.enviadas || 0} mensagens enviadas, ${result.falhas || 0} falhas.`
-      )
+      console.log('[FRONTEND] Resultado do envio:', result)
+
+      const enviadas = result.mensagens_enviadas || 0
+      const falhas = result.mensagens_falhadas || 0
+
+      if (enviadas === 0 && falhas === 0) {
+        setError('Nenhuma mensagem foi enviada. O backend não processou nenhum envio. Verifique os logs do servidor.')
+        setSuccess(null)
+      } else if (enviadas === 0) {
+         setError(`Falha ao enviar mensagens. ${falhas} falhas registradas. Verifique a conexão com o WhatsApp.`)
+         setSuccess(null)
+      } else {
+        setSuccess(
+          `Mensagem enviada com sucesso! ${enviadas} mensagens enviadas, ${falhas} falhas.`
+        )
+      }
     } catch (error: any) {
       setError(error?.message || 'Erro ao enviar mensagem')
     } finally {
@@ -962,6 +1076,59 @@ Esperamos você! 😊`
               </div>
             </div>
           )}
+
+
+
+  // ... (código existente) ...
+
+          {/* Área de Upload de Mídia */}
+          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 className="text-xl font-semibold text-[#003366] mb-4">Anexar Mídia (Opcional)</h2>
+            
+            {!mediaPreview ? (
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 flex flex-col items-center justify-center text-center hover:bg-gray-50 transition-colors cursor-pointer relative">
+                    <input 
+                        type="file" 
+                        accept="image/*,video/*" 
+                        onChange={handleFileChange}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    />
+                    <div className="text-gray-400 mb-2">
+                        <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                    </div>
+                    <p className="text-gray-600 font-medium">Clique para selecionar uma imagem ou vídeo</p>
+                    <p className="text-gray-400 text-sm mt-1">MP4, JPG, PNG (Max 30MB)</p>
+                </div>
+            ) : (
+                <div className="relative rounded-lg border overflow-hidden bg-gray-100 flex items-center justify-center">
+                    {/* Botão Remover */}
+                    <button 
+                        onClick={handleRemoveMedia}
+                        className="absolute top-2 right-2 bg-red-600 text-white p-1 rounded-full hover:bg-red-700 z-10"
+                        title="Remover mídia"
+                    >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+
+                    {/* Preview Imagem ou Vídeo */}
+                    {uploadedMediaType === 'video' ? (
+                        <video src={mediaPreview} controls className="max-h-64 max-w-full rounded" />
+                    ) : (
+                        <img src={mediaPreview} alt="Preview" className="max-h-64 object-contain rounded" />
+                    )}
+
+                    {/* Loading Overlay */}
+                    {isUploading && (
+                        <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+                            <div className="text-white font-medium flex items-center gap-2">
+                                <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                Enviando...
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+          </div>
 
           {/* Botão de enviar */}
           <div className="flex justify-end gap-4">
