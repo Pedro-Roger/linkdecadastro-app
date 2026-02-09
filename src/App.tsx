@@ -17,9 +17,12 @@ const AdminCourseEnrollmentsPage = lazy(() => import('./pages/admin/CourseEnroll
 const AdminCourseClassesPage = lazy(() => import('./pages/admin/CourseClassesPage'))
 const AdminEventsPage = lazy(() => import('./pages/admin/EventsPage'))
 const AdminNewEventPage = lazy(() => import('./pages/admin/NewEventPage'))
+const AdminEditEventPage = lazy(() => import('./pages/admin/EditEventPage'))
 const EventRegistrationsPage = lazy(() => import('./pages/admin/EventRegistrationsPage'))
 const EventClassesPage = lazy(() => import('./pages/admin/EventClassesPage'))
 const WhatsAppSendPage = lazy(() => import('./pages/admin/WhatsAppSendPage'))
+const ChatPage = lazy(() => import('./pages/admin/ChatPage'))
+const DashboardLayout = lazy(() => import('./components/layout/DashboardLayout'))
 const UserCoursesPage = lazy(() => import('./pages/user/CoursesPage'))
 const UserMyCoursesPage = lazy(() => import('./pages/user/MyCoursesPage'))
 const UserCoursePage = lazy(() => import('./pages/user/CoursePage'))
@@ -50,24 +53,29 @@ function App() {
           <Route path="/complete-profile" element={<CompleteProfilePage />} />
           <Route path="/auth/google/callback" element={<GoogleCallbackPage />} />
 
-          <Route path="/courses" element={<ProtectedUserRoute><UserCoursesPage /></ProtectedUserRoute>} />
-          <Route path="/my-courses" element={<ProtectedUserRoute><UserMyCoursesPage /></ProtectedUserRoute>} />
-          <Route path="/course/:courseId" element={<ProtectedUserRoute><UserCoursePage /></ProtectedUserRoute>} />
-          <Route path="/profile" element={<ProtectedUserRoute><UserProfilePage /></ProtectedUserRoute>} />
+          {/* Dashboard Routes */}
+          <Route element={<DashboardLayout />}>
+            <Route path="/courses" element={<ProtectedUserRoute><UserCoursesPage /></ProtectedUserRoute>} />
+            <Route path="/my-courses" element={<ProtectedUserRoute><UserMyCoursesPage /></ProtectedUserRoute>} />
+            <Route path="/course/:courseId" element={<ProtectedUserRoute><UserCoursePage /></ProtectedUserRoute>} />
+            <Route path="/profile" element={<ProtectedUserRoute><UserProfilePage /></ProtectedUserRoute>} />
 
-          <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
-          <Route path="/admin/courses" element={<AdminCoursesPage />} />
-          <Route path="/admin/courses/new" element={<AdminNewCoursePage />} />
-          <Route path="/admin/courses/:courseId" element={<AdminCoursePage />} />
-          <Route path="/admin/courses/:courseId/lessons" element={<AdminCourseLessonsPage />} />
-          <Route path="/admin/courses/:courseId/enrollments" element={<AdminCourseEnrollmentsPage />} />
-          <Route path="/admin/courses/:courseId/classes" element={<AdminCourseClassesPage />} />
-          <Route path="/admin/events" element={<AdminEventsPage />} />
-          <Route path="/admin/events/new" element={<AdminNewEventPage />} />
-          <Route path="/admin/events/:eventId/registrations" element={<EventRegistrationsPage />} />
-          <Route path="/admin/events/:eventId/classes" element={<EventClassesPage />} />
-          <Route path="/admin/whatsapp/send" element={<WhatsAppSendPage />} />
-          
+            <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
+            <Route path="/admin/courses" element={<AdminCoursesPage />} />
+            <Route path="/admin/courses/new" element={<AdminNewCoursePage />} />
+            <Route path="/admin/courses/:courseId" element={<AdminCoursePage />} />
+            <Route path="/admin/courses/:courseId/lessons" element={<AdminCourseLessonsPage />} />
+            <Route path="/admin/courses/:courseId/enrollments" element={<AdminCourseEnrollmentsPage />} />
+            <Route path="/admin/courses/:courseId/classes" element={<AdminCourseClassesPage />} />
+            <Route path="/admin/events" element={<AdminEventsPage />} />
+            <Route path="/admin/events/new" element={<AdminNewEventPage />} />
+            <Route path="/admin/events/:eventId/edit" element={<AdminEditEventPage />} />
+            <Route path="/admin/events/:eventId/registrations" element={<EventRegistrationsPage />} />
+            <Route path="/admin/events/:eventId/classes" element={<EventClassesPage />} />
+            <Route path="/admin/whatsapp/send" element={<WhatsAppSendPage />} />
+            <Route path="/admin/whatsapp/chat" element={<ChatPage />} />
+          </Route>
+
           {/* Rota 404 - deve ser a última */}
           <Route path="*" element={<NotFoundPage />} />
         </Routes>

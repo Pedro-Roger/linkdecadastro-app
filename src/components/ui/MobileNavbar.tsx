@@ -30,7 +30,7 @@ export default function MobileNavbar() {
 
   return (
     <>
-
+      {/* Desktop Navigation */}
       <nav className="hidden md:block bg-white shadow-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-2">
           <div className="flex items-center justify-between">
@@ -41,47 +41,60 @@ export default function MobileNavbar() {
                 className="h-20 md:h-24 w-auto object-contain"
               />
             </Link>
-            <div className="flex items-center gap-4">
-              <Link
-                to="/courses"
-                className={`font-medium transition-colors ${isActive('/courses')
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-6 mr-4">
+                <Link
+                  to="/courses"
+                  className={`font-medium text-sm lg:text-base transition-colors ${isActive('/courses')
                     ? 'text-[#FF6600]'
                     : 'text-[#003366] hover:text-[#FF6600]'
-                  }`}
-              >
-                Cursos
-              </Link>
-              <Link
-                to="/events"
-                className={`font-medium transition-colors ${isActive('/events')
+                    }`}
+                >
+                  Cursos
+                </Link>
+                <Link
+                  to="/events"
+                  className={`font-medium text-sm lg:text-base transition-colors ${isActive('/events')
                     ? 'text-[#FF6600]'
                     : 'text-[#003366] hover:text-[#FF6600]'
-                  }`}
-              >
-                Eventos
-              </Link>
+                    }`}
+                >
+                  Eventos
+                </Link>
+              </div>
+
               {isAuthenticated && user ? (
-                <>
+                <div className="flex items-center gap-4">
                   <Link
                     to={user.role === 'ADMIN' ? '/admin/dashboard' : '/my-courses'}
-                    className={`font-medium transition-colors ${isActive('/my-courses') || isActive('/admin/dashboard')
-                        ? 'text-[#FF6600]'
-                        : 'text-[#003366] hover:text-[#FF6600]'
+                    className={`font-medium text-sm lg:text-base transition-colors ${isActive('/my-courses') || isActive('/admin/dashboard')
+                      ? 'text-[#FF6600]'
+                      : 'text-[#003366] hover:text-[#FF6600]'
                       }`}
                   >
                     {user.role === 'ADMIN' ? 'Dashboard' : 'Meus Cursos'}
                   </Link>
+
+                  <div className="h-6 w-px bg-gray-200 mx-2"></div>
+
                   <NotificationBell />
 
                   <div className="relative">
                     <button
                       onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                      className={`w-10 h-10 rounded-full font-bold flex items-center justify-center transition-colors ${isActive('/profile')
-                          ? 'bg-[#FF6600] text-white'
-                          : 'bg-gray-200 text-gray-700 hover:bg-[#FF6600] hover:text-white'
+                      className={`flex items-center gap-2 rounded-full p-1 pr-3 transition-colors ${isActive('/profile')
+                        ? 'bg-orange-50 text-[#FF6600]'
+                        : 'hover:bg-gray-50 text-gray-700'
                         }`}
                     >
-                      {user.name?.charAt(0).toUpperCase() || 'A'}
+                      <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#FF6600] to-[#FF8C00] text-white font-bold flex items-center justify-center shadow-md">
+                        {user.name?.charAt(0).toUpperCase() || 'A'}
+                      </div>
+                      <div className="hidden lg:block text-left">
+                        <span className="block text-xs font-bold text-[#003366] leading-none">{user.name.split(' ')[0]}</span>
+                        <span className="block text-[10px] text-gray-500 leading-none mt-0.5">Aluno</span>
+                      </div>
+                      <svg className={`w-4 h-4 text-gray-400 transition-transform ${isUserMenuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                     </button>
 
 
@@ -91,25 +104,52 @@ export default function MobileNavbar() {
                           className="fixed inset-0 z-40"
                           onClick={() => setIsUserMenuOpen(false)}
                         />
-                        <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg z-50 border border-gray-200">
-                          <div className="py-2">
-                            <div className="px-4 py-3 border-b border-gray-200">
-                              <p className="text-sm font-semibold text-gray-900">{user.name}</p>
-                              <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                        <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-xl z-50 border border-gray-100 overflow-hidden ring-1 ring-black ring-opacity-5">
+                          <div className="p-4 bg-gray-50 border-b border-gray-100">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#003366] to-[#004080] text-white font-bold flex items-center justify-center text-lg shadow-sm">
+                                {user.name?.charAt(0).toUpperCase() || 'A'}
+                              </div>
+                              <div className="overflow-hidden">
+                                <p className="text-sm font-bold text-[#003366] truncate">{user.name}</p>
+                                <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                              </div>
                             </div>
+                          </div>
+
+                          <div className="py-2">
+                            <div className="px-4 py-2">
+                              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Meu Aprendizado</p>
+                              <Link
+                                to="/my-courses"
+                                onClick={() => setIsUserMenuOpen(false)}
+                                className="flex items-center justify-between p-2 rounded-lg bg-orange-50 text-[#FF6600] group"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
+                                  <span className="text-sm font-bold">Meus Cursos</span>
+                                </div>
+                                {/* Mocked number or visual indicator */}
+                                <span className="bg-white px-2 py-0.5 rounded text-xs font-bold shadow-sm group-hover:scale-105 transition-transform">Ver</span>
+                              </Link>
+                            </div>
+
+                            <div className="border-t border-gray-100 my-2"></div>
+
                             <Link
                               to="/profile"
                               onClick={() => setIsUserMenuOpen(false)}
-                              className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                              className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                             >
                               <div className="flex items-center gap-2">
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                                 </svg>
-                                Meu Perfil
+                                Editar Perfil
                               </div>
                             </Link>
-                            <div className="border-t border-gray-200 mt-2 pt-2">
+
+                            <div className="border-t border-gray-100 mt-2 pt-2">
                               <button
                                 onClick={() => {
                                   setIsUserMenuOpen(false)
@@ -121,7 +161,7 @@ export default function MobileNavbar() {
                                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                                   </svg>
-                                  Sair
+                                  Sair da Conta
                                 </div>
                               </button>
                             </div>
@@ -130,29 +170,29 @@ export default function MobileNavbar() {
                       </>
                     )}
                   </div>
-                </>
+                </div>
               ) : (
-                <>
+                <div className="flex items-center gap-3">
                   <Link
                     to="/login"
-                    className="text-[#003366] hover:text-[#FF6600] font-medium transition-colors"
+                    className="text-[#003366] hover:text-[#FF6600] font-bold text-sm transition-colors"
                   >
                     Entrar
                   </Link>
                   <Link
                     to="/register"
-                    className="bg-[#FF6600] text-white px-4 py-2 rounded-md font-semibold hover:bg-[#e55a00] transition-colors"
+                    className="bg-[#FF6600] text-white px-5 py-2.5 rounded-full font-bold text-sm hover:bg-[#e55a00] hover:shadow-lg hover:-translate-y-0.5 transition-all"
                   >
-                    Cadastrar
+                    Começar Agora
                   </Link>
-                </>
+                </div>
               )}
             </div>
           </div>
         </div>
       </nav>
 
-
+      {/* Mobile Top Navigation */}
       <nav className={`md:hidden bg-white relative z-50 border-b ${isScrolled ? 'shadow-sm' : 'shadow-sm'
         }`}>
         <div className="container mx-auto px-4 py-3">
@@ -208,8 +248,8 @@ export default function MobileNavbar() {
                     to="/courses"
                     onClick={() => setIsMenuOpen(false)}
                     className={`block py-3 px-4 rounded-lg font-medium transition-colors ${isActive('/courses')
-                        ? 'bg-[#FF6600] text-white'
-                        : 'text-gray-700 hover:bg-gray-100'
+                      ? 'bg-[#FF6600] text-white'
+                      : 'text-gray-700 hover:bg-gray-100'
                       }`}
                   >
                     📚 Cursos
@@ -218,8 +258,8 @@ export default function MobileNavbar() {
                     to="/events"
                     onClick={() => setIsMenuOpen(false)}
                     className={`block py-3 px-4 rounded-lg font-medium transition-colors ${isActive('/events')
-                        ? 'bg-[#FF6600] text-white'
-                        : 'text-gray-700 hover:bg-gray-100'
+                      ? 'bg-[#FF6600] text-white'
+                      : 'text-gray-700 hover:bg-gray-100'
                       }`}
                   >
                     📅 Eventos
@@ -230,8 +270,8 @@ export default function MobileNavbar() {
                         to={user.role === 'ADMIN' ? '/admin/dashboard' : '/my-courses'}
                         onClick={() => setIsMenuOpen(false)}
                         className={`block py-3 px-4 rounded-lg font-medium transition-colors ${isActive('/my-courses') || isActive('/admin/dashboard')
-                            ? 'bg-[#FF6600] text-white'
-                            : 'text-gray-700 hover:bg-gray-100'
+                          ? 'bg-[#FF6600] text-white'
+                          : 'text-gray-700 hover:bg-gray-100'
                           }`}
                       >
                         {user.role === 'ADMIN' ? '⚙️ Dashboard' : '📖 Meus Cursos'}
@@ -240,8 +280,8 @@ export default function MobileNavbar() {
                         to="/profile"
                         onClick={() => setIsMenuOpen(false)}
                         className={`block py-3 px-4 rounded-lg font-medium transition-colors ${isActive('/profile')
-                            ? 'bg-[#FF6600] text-white'
-                            : 'text-gray-700 hover:bg-gray-100'
+                          ? 'bg-[#FF6600] text-white'
+                          : 'text-gray-700 hover:bg-gray-100'
                           }`}
                       >
                         👤 Perfil
@@ -283,7 +323,7 @@ export default function MobileNavbar() {
         </div>
       </nav>
 
-
+      {/* Mobile Bottom Navigation */}
       {isAuthenticated && user && (
         <nav
           className={`md:hidden fixed bottom-0 left-0 right-0 bg-white border-t z-50 transition-all duration-300 ${isScrolled ? 'shadow-2xl' : 'shadow-lg'
@@ -298,8 +338,8 @@ export default function MobileNavbar() {
             <Link
               to="/"
               className={`flex flex-col items-center justify-center px-4 py-2 rounded-lg transition-colors ${isActive('/')
-                  ? 'text-[#FF6600]'
-                  : 'text-gray-600 hover:text-[#FF6600]'
+                ? 'text-[#FF6600]'
+                : 'text-gray-600 hover:text-[#FF6600]'
                 }`}
             >
               <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -311,8 +351,8 @@ export default function MobileNavbar() {
             <Link
               to="/courses"
               className={`flex flex-col items-center justify-center px-4 py-2 rounded-lg transition-colors ${isActive('/courses')
-                  ? 'text-[#FF6600]'
-                  : 'text-gray-600 hover:text-[#FF6600]'
+                ? 'text-[#FF6600]'
+                : 'text-gray-600 hover:text-[#FF6600]'
                 }`}
             >
               <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -324,8 +364,8 @@ export default function MobileNavbar() {
             <Link
               to="/events"
               className={`flex flex-col items-center justify-center px-4 py-2 rounded-lg transition-colors ${isActive('/events')
-                  ? 'text-[#FF6600]'
-                  : 'text-gray-600 hover:text-[#FF6600]'
+                ? 'text-[#FF6600]'
+                : 'text-gray-600 hover:text-[#FF6600]'
                 }`}
             >
               <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -338,8 +378,8 @@ export default function MobileNavbar() {
               <Link
                 to="/admin/dashboard"
                 className={`flex flex-col items-center justify-center px-4 py-2 rounded-lg transition-colors ${isActive('/admin/dashboard') || isActive('/admin/courses')
-                    ? 'text-[#FF6600]'
-                    : 'text-gray-600 hover:text-[#FF6600]'
+                  ? 'text-[#FF6600]'
+                  : 'text-gray-600 hover:text-[#FF6600]'
                   }`}
               >
                 <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -351,8 +391,8 @@ export default function MobileNavbar() {
               <Link
                 to="/my-courses"
                 className={`flex flex-col items-center justify-center px-4 py-2 rounded-lg transition-colors ${isActive('/my-courses')
-                    ? 'text-[#FF6600]'
-                    : 'text-gray-600 hover:text-[#FF6600]'
+                  ? 'text-[#FF6600]'
+                  : 'text-gray-600 hover:text-[#FF6600]'
                   }`}
               >
                 <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -372,14 +412,14 @@ export default function MobileNavbar() {
             <Link
               to="/profile"
               className={`flex flex-col items-center justify-center px-4 py-2 rounded-lg transition-colors ${isActive('/profile')
-                  ? 'text-[#FF6600]'
-                  : 'text-gray-600 hover:text-[#FF6600]'
+                ? 'text-[#FF6600]'
+                : 'text-gray-600 hover:text-[#FF6600]'
                 }`}
             >
               <div
                 className={`w-8 h-8 rounded-full font-bold flex items-center justify-center mb-1 text-sm ${isActive('/profile')
-                    ? 'bg-[#FF6600] text-white'
-                    : 'bg-gray-200 text-gray-700'
+                  ? 'bg-[#FF6600] text-white'
+                  : 'bg-gray-200 text-gray-700'
                   }`}
               >
                 {user.name?.charAt(0).toUpperCase() || 'A'}
@@ -390,7 +430,7 @@ export default function MobileNavbar() {
         </nav>
       )}
 
-
+      {/* Spacer for bottom nav */}
       {isAuthenticated && user && <div className="md:hidden h-20" />}
     </>
   )

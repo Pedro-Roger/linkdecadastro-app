@@ -59,6 +59,7 @@ const courseSchema = z.object({
     { message: 'URL do YouTube inválida' }
   ),
   firstLessonDescription: z.string().optional(),
+  firstLessonDuration: z.string().optional(),
 })
 
 type CourseFormData = z.infer<typeof courseSchema>
@@ -267,7 +268,7 @@ export default function NewCoursePage() {
 
       setValue('bannerUrl', data.url, { shouldValidate: true })
       setBannerPreview(data.url)
-      
+
 
       setError(null)
     } catch (err) {
@@ -299,15 +300,15 @@ export default function NewCoursePage() {
       }
       setValue('status', course.status || 'ACTIVE')
       setValue('type', course.type || 'ONLINE')
-      if (course.maxEnrollments) setValue('maxEnrollments', String(course.maxEnrollments))
+      if (course.maxEnrollments) setValue('maxEnrollments', String(course.maxEnrollments) as any)
       setValue('waitlistEnabled', course.waitlistEnabled || false)
-      if (course.waitlistLimit) setValue('waitlistLimit', String(course.waitlistLimit))
+      if (course.waitlistLimit) setValue('waitlistLimit', String(course.waitlistLimit) as any)
       setValue('regionRestrictionEnabled', course.regionRestrictionEnabled || false)
       setValue('allowAllRegions', course.allowAllRegions ?? true)
-      if (course.defaultRegionLimit) setValue('defaultRegionLimit', String(course.defaultRegionLimit))
+      if (course.defaultRegionLimit) setValue('defaultRegionLimit', String(course.defaultRegionLimit) as any)
       // Não clonar datas e slug (deixa vazio para o usuário definir)
       setValue('slug', '') // Garantir que o slug seja limpo ao clonar
-      
+
       // Preencher quotas regionais
       if (course.regionQuotas && course.regionQuotas.length > 0) {
         const quotas = course.regionQuotas.map((q: any) => ({
@@ -390,8 +391,8 @@ export default function NewCoursePage() {
 
 
       const finalBannerUrl = (data.bannerUrl && data.bannerUrl.trim()) || (bannerPreview && bannerPreview.trim()) || undefined
-      
-      
+
+
 
       const payload: any = {
         title: data.title,
@@ -418,9 +419,9 @@ export default function NewCoursePage() {
         endDate: data.endDate && data.endDate.trim() ? data.endDate : undefined,
         slug: data.slug || undefined, // Já vem transformado do schema
 
-        firstLesson: (showFirstLesson && 
-                     data.firstLessonTitle && data.firstLessonTitle.trim() && 
-                     data.firstLessonVideoUrl && data.firstLessonVideoUrl.trim()) ? {
+        firstLesson: (showFirstLesson &&
+          data.firstLessonTitle && data.firstLessonTitle.trim() &&
+          data.firstLessonVideoUrl && data.firstLessonVideoUrl.trim()) ? {
           title: data.firstLessonTitle.trim(),
           videoUrl: data.firstLessonVideoUrl.trim(),
           description: data.firstLessonDescription?.trim() || undefined,
@@ -429,11 +430,11 @@ export default function NewCoursePage() {
         regionQuotas:
           data.regionRestrictionEnabled
             ? regionQuotas.map((quota) => ({
-                state: quota.state,
-                city: quota.city || null,
-                limit: quota.limit,
-                waitlistLimit: quota.waitlistLimit ?? 0
-              }))
+              state: quota.state,
+              city: quota.city || null,
+              limit: quota.limit,
+              waitlistLimit: quota.waitlistLimit ?? 0
+            }))
             : []
       }
 
@@ -481,9 +482,9 @@ export default function NewCoursePage() {
         status: err?.status,
         data: err?.data
       })
-      
+
       let errorMessage = 'Erro ao criar curso'
-      
+
       if (err?.response) {
         try {
           const errorData = await err.response.json()
@@ -494,7 +495,7 @@ export default function NewCoursePage() {
       } else if (err?.message) {
         errorMessage = err.message
       }
-      
+
       setError(errorMessage)
     } finally {
       setSubmitting(false)
@@ -507,7 +508,7 @@ export default function NewCoursePage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      
+
       <header className="bg-white shadow-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-2">
           <div className="flex flex-col md:flex-row items-center justify-between space-y-2 md:space-y-0">
@@ -580,7 +581,7 @@ export default function NewCoursePage() {
               <p className="text-xs text-gray-500 mb-2">
                 Formatos aceitos: JPG, PNG, GIF. Tamanho máximo: 5MB. Se não fornecer, o banner será extraído automaticamente do vídeo do YouTube da primeira aula.
               </p>
-              
+
               <div className="space-y-3">
                 <div>
                   <input
@@ -609,7 +610,7 @@ export default function NewCoursePage() {
                     <p className="text-sm text-green-600 mt-1">✅ Upload concluído com sucesso!</p>
                   )}
                 </div>
-                
+
                 <div>
                   <label className="block text-sm text-gray-600 mb-1">
                     Ou informe a URL do banner (opcional):
@@ -631,7 +632,7 @@ export default function NewCoursePage() {
                     Deixe em branco se já fez upload de uma imagem acima
                   </p>
                 </div>
-                
+
                 {(bannerUrl || bannerPreview) && (
                   <div className="mt-3">
                     <p className="text-sm text-gray-600 mb-2">Preview:</p>
@@ -919,7 +920,7 @@ export default function NewCoursePage() {
               {errors.slug && <p className="text-red-500 text-sm mt-1">{errors.slug.message}</p>}
             </div>
 
-            
+
             <div className="border-t pt-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
@@ -953,7 +954,7 @@ export default function NewCoursePage() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       <span className="flex items-center gap-2">
                         <svg className="w-5 h-5 text-red-600" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                          <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
                         </svg>
                         Link do Vídeo do YouTube *
                       </span>

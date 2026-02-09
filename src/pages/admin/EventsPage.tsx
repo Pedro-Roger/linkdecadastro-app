@@ -330,10 +330,10 @@ export default function AdminEventsPage() {
                           <td className="px-4 py-3 align-top">
                             <span
                               className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${event.status === 'ACTIVE'
-                                  ? 'bg-green-100 text-green-700'
-                                  : event.status === 'INACTIVE'
-                                    ? 'bg-gray-100 text-gray-700'
-                                    : 'bg-red-100 text-red-700'
+                                ? 'bg-green-100 text-green-700'
+                                : event.status === 'INACTIVE'
+                                  ? 'bg-gray-100 text-gray-700'
+                                  : 'bg-red-100 text-red-700'
                                 }`}
                             >
                               {event.status === 'ACTIVE'
@@ -345,6 +345,12 @@ export default function AdminEventsPage() {
                           </td>
                           <td className="px-4 py-3 align-top">
                             <div className="flex flex-col gap-2">
+                              <Link
+                                to={`/admin/events/${event.id}/edit`}
+                                className="rounded-md border border-[#003366] px-3 py-1 text-xs font-semibold text-[#003366] transition-colors hover:bg-[#003366] hover:text-white text-center"
+                              >
+                                Editar
+                              </Link>
                               <Link
                                 to={`/admin/events/${event.id}/registrations`}
                                 className="rounded-md bg-[#FF6600] px-3 py-1 text-xs font-semibold text-white transition-colors hover:bg-[#e55a00] text-center"

@@ -185,22 +185,18 @@ export default function CoursesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      
-      <MobileNavbar />
+    <div className="flex flex-col bg-gray-50 h-full">
 
-      
       <div className="bg-white border-b">
         <div className="container mx-auto px-4 py-6 space-y-4">
           {enrollmentFeedback && (
             <div
-              className={`rounded-lg border px-4 py-3 text-sm ${
-                enrollmentFeedback.tone === 'success'
-                  ? 'border-green-200 bg-green-50 text-green-800'
-                  : enrollmentFeedback.tone === 'warning'
+              className={`rounded-lg border px-4 py-3 text-sm ${enrollmentFeedback.tone === 'success'
+                ? 'border-green-200 bg-green-50 text-green-800'
+                : enrollmentFeedback.tone === 'warning'
                   ? 'border-yellow-200 bg-yellow-50 text-yellow-800'
                   : 'border-blue-200 bg-blue-50 text-blue-800'
-              }`}
+                }`}
             >
               {enrollmentFeedback.message}
             </div>
@@ -232,57 +228,52 @@ export default function CoursesPage() {
         </div>
       </div>
 
-      
+
       <div className="bg-white border-b">
         <div className="container mx-auto px-4 py-4">
           <div className="flex flex-wrap gap-3 justify-center">
             <button
               onClick={() => setActiveFilter('all')}
-              className={`px-4 py-2 rounded-full font-medium transition-colors ${
-                activeFilter === 'all'
-                  ? 'bg-[#FF6600] text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
+              className={`px-4 py-2 rounded-full font-medium transition-colors ${activeFilter === 'all'
+                ? 'bg-[#FF6600] text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
             >
               Todos ({allCourses.length})
             </button>
             <button
               onClick={() => setActiveFilter('available')}
-              className={`px-4 py-2 rounded-full font-medium transition-colors ${
-                activeFilter === 'available'
-                  ? 'bg-[#FF6600] text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
+              className={`px-4 py-2 rounded-full font-medium transition-colors ${activeFilter === 'available'
+                ? 'bg-[#FF6600] text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
             >
               Inscrições Abertas ({getFilterCount('available')})
             </button>
             <button
               onClick={() => setActiveFilter('ongoing')}
-              className={`px-4 py-2 rounded-full font-medium transition-colors ${
-                activeFilter === 'ongoing'
-                  ? 'bg-[#FF6600] text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
+              className={`px-4 py-2 rounded-full font-medium transition-colors ${activeFilter === 'ongoing'
+                ? 'bg-[#FF6600] text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
             >
               Em Andamento ({getFilterCount('ongoing')})
             </button>
             <button
               onClick={() => setActiveFilter('upcoming')}
-              className={`px-4 py-2 rounded-full font-medium transition-colors ${
-                activeFilter === 'upcoming'
-                  ? 'bg-[#FF6600] text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
+              className={`px-4 py-2 rounded-full font-medium transition-colors ${activeFilter === 'upcoming'
+                ? 'bg-[#FF6600] text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
             >
               Em Breve ({getFilterCount('upcoming')})
             </button>
             <button
               onClick={() => setActiveFilter('closed')}
-              className={`px-4 py-2 rounded-full font-medium transition-colors ${
-                activeFilter === 'closed'
-                  ? 'bg-[#FF6600] text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
+              className={`px-4 py-2 rounded-full font-medium transition-colors ${activeFilter === 'closed'
+                ? 'bg-[#FF6600] text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
             >
               Encerradas ({getFilterCount('closed')})
             </button>
@@ -292,7 +283,7 @@ export default function CoursesPage() {
 
       <div className="container mx-auto px-4 py-8 pb-24 md:pb-8 flex-1">
         <h1 className="text-3xl font-bold mb-8 text-[#003366]">Cursos Disponíveis</h1>
-        
+
         {loading ? (
           <div className="text-center py-24">
             <div className="text-xl text-gray-600">Carregando cursos...</div>
@@ -308,10 +299,10 @@ export default function CoursesPage() {
               const now = new Date()
               const startDate = course.startDate ? new Date(course.startDate) : null
               const endDate = course.endDate ? new Date(course.endDate) : null
-              
+
               let statusLabel = 'Disponível'
               let statusColor = 'bg-green-500'
-              
+
               if (endDate && endDate < now) {
                 statusLabel = 'Encerrado'
                 statusColor = 'bg-gray-500'
@@ -385,12 +376,6 @@ export default function CoursesPage() {
 
       </div>
 
-      <Footer />
-      
-      
-      <div className="md:hidden h-20" />
-
-      
       <CourseEnrollmentModal
         isOpen={enrollmentModal.isOpen}
         onClose={() => setEnrollmentModal({ isOpen: false, courseId: '', courseTitle: '' })}

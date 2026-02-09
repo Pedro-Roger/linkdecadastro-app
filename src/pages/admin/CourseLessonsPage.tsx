@@ -104,7 +104,7 @@ export default function CourseLessonsPage() {
     redirectTo: '/login',
   })
   const courseId = params.courseId as string
-  
+
   const [course, setCourse] = useState<any>(null)
   const [lessons, setLessons] = useState<any[]>([])
   const [showForm, setShowForm] = useState(false)
@@ -145,13 +145,13 @@ export default function CourseLessonsPage() {
     }
   })
 
-  const { 
-    register: registerCourse, 
-    handleSubmit: handleSubmitCourse, 
-    formState: { errors: courseErrors }, 
-    reset: resetCourse, 
-    setValue: setCourseValue, 
-    watch: watchCourse 
+  const {
+    register: registerCourse,
+    handleSubmit: handleSubmitCourse,
+    formState: { errors: courseErrors },
+    reset: resetCourse,
+    setValue: setCourseValue,
+    watch: watchCourse
   } = useForm<CourseEditFormData>({
     resolver: zodResolver(courseEditSchema),
     defaultValues: {
@@ -314,7 +314,7 @@ export default function CourseLessonsPage() {
         auth: true,
       })
       setCourse(data)
-      
+
       // Preencher formulário de edição do curso
       if (data) {
         setCourseValue('title', data.title)
@@ -322,20 +322,20 @@ export default function CourseLessonsPage() {
         setCourseValue('bannerUrl', data.bannerUrl || '')
         setCourseValue('status', data.status || 'ACTIVE')
         setCourseValue('type', data.type || 'ONLINE')
-        setCourseValue('maxEnrollments', data.maxEnrollments ? String(data.maxEnrollments) : '')
+        setCourseValue('maxEnrollments', (data.maxEnrollments ? String(data.maxEnrollments) : '') as any)
         setCourseValue('waitlistEnabled', data.waitlistEnabled || false)
-        setCourseValue('waitlistLimit', data.waitlistLimit ? String(data.waitlistLimit) : '0')
+        setCourseValue('waitlistLimit', (data.waitlistLimit ? String(data.waitlistLimit) : '0') as any)
         setCourseValue('regionRestrictionEnabled', data.regionRestrictionEnabled || false)
         setCourseValue('allowAllRegions', data.allowAllRegions ?? true)
-        setCourseValue('defaultRegionLimit', data.defaultRegionLimit ? String(data.defaultRegionLimit) : '')
+        setCourseValue('defaultRegionLimit', (data.defaultRegionLimit ? String(data.defaultRegionLimit) : '') as any)
         setCourseValue('startDate', data.startDate ? data.startDate.split('T')[0] : '')
         setCourseValue('endDate', data.endDate ? data.endDate.split('T')[0] : '')
         setCourseValue('slug', data.slug || '')
-        
+
         if (data.bannerUrl) {
           setBannerPreview(data.bannerUrl)
         }
-        
+
         // Preencher quotas regionais
         if (data.regionQuotas && data.regionQuotas.length > 0) {
           setRegionQuotas(data.regionQuotas.map((q: any) => ({
@@ -383,12 +383,12 @@ export default function CourseLessonsPage() {
         slug: data.slug && data.slug.trim() ? data.slug.trim().toLowerCase() : undefined,
         regionQuotas: data.regionRestrictionEnabled
           ? regionQuotas.map((quota) => ({
-              id: quota.id || null,
-              state: quota.state,
-              city: quota.city || null,
-              limit: quota.limit,
-              waitlistLimit: quota.waitlistLimit ?? 0
-            }))
+            id: quota.id || null,
+            state: quota.state,
+            city: quota.city || null,
+            limit: quota.limit,
+            waitlistLimit: quota.waitlistLimit ?? 0
+          }))
           : []
       }
 
@@ -518,7 +518,7 @@ export default function CourseLessonsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      
+
       <header className="bg-white shadow-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-2">
           <div className="flex flex-col md:flex-row items-center justify-between space-y-2 md:space-y-0">
@@ -954,29 +954,29 @@ export default function CourseLessonsPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   <span className="flex items-center gap-2">
                     <svg className="w-5 h-5 text-red-600" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                      <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
                     </svg>
                     Link do Vídeo do YouTube *
                   </span>
                 </label>
-                        <input
-                          type="text"
-                          {...register('videoUrl')}
-                          placeholder="Cole aqui o link do YouTube (ex: https://www.youtube.com/watch?v=... ou https://youtu.be/...)"
-                          className="w-full px-4 py-3 border-2 border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-[#FF6600] text-gray-900"
-                          onChange={(e) => {
-                            const value = e.target.value
-                            setValue('videoUrl', value, { shouldValidate: false })
+                <input
+                  type="text"
+                  {...register('videoUrl')}
+                  placeholder="Cole aqui o link do YouTube (ex: https://www.youtube.com/watch?v=... ou https://youtu.be/...)"
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-[#FF6600] text-gray-900"
+                  onChange={(e) => {
+                    const value = e.target.value
+                    setValue('videoUrl', value, { shouldValidate: false })
 
-                            if (value && value.trim()) {
-                              const thumbnail = extractYouTubeThumbnail(value)
-                              if (thumbnail && (!bannerUrl || bannerUrl === '')) {
-                                setValue('bannerUrl', thumbnail, { shouldValidate: false })
-                                setBannerPreview(thumbnail)
-                              }
-                            }
-                          }}
-                        />
+                    if (value && value.trim()) {
+                      const thumbnail = extractYouTubeThumbnail(value)
+                      if (thumbnail && (!bannerUrl || bannerUrl === '')) {
+                        setValue('bannerUrl', thumbnail, { shouldValidate: false })
+                        setBannerPreview(thumbnail)
+                      }
+                    }
+                  }}
+                />
                 <p className="text-xs text-gray-500 mt-1">
                   Aceita links do YouTube em qualquer formato: youtube.com/watch?v=..., youtu.be/..., ou youtube.com/embed/...
                 </p>
@@ -988,10 +988,10 @@ export default function CourseLessonsPage() {
                   Banner/Thumbnail da Aula (opcional)
                 </label>
                 <p className="text-xs text-gray-500 mb-2">
-                  O banner será extraído automaticamente do YouTube quando você inserir o link do vídeo. 
+                  O banner será extraído automaticamente do YouTube quando você inserir o link do vídeo.
                   Ou você pode fazer upload de uma imagem personalizada.
                 </p>
-                
+
                 <div className="space-y-3">
                   <div>
                     <input
@@ -1010,23 +1010,23 @@ export default function CourseLessonsPage() {
                       <p className="text-sm text-blue-600 mt-1">Fazendo upload...</p>
                     )}
                   </div>
-                  
-                          <div>
-                            <label className="block text-sm text-gray-600 mb-1">
-                              Ou informe a URL do banner:
-                            </label>
-                            <input
-                              type="text"
-                              {...register('bannerUrl')}
-                              placeholder="URL do banner/thumbnail (ex: https://exemplo.com/banner.jpg ou /uploads/banners/banner.jpg)"
-                              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
-                              onChange={(e) => {
-                                const value = e.target.value.trim()
-                                setValue('bannerUrl', value, { shouldValidate: false })
-                                setBannerPreview(value || null)
-                              }}
-                            />
-                          </div>
+
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">
+                      Ou informe a URL do banner:
+                    </label>
+                    <input
+                      type="text"
+                      {...register('bannerUrl')}
+                      placeholder="URL do banner/thumbnail (ex: https://exemplo.com/banner.jpg ou /uploads/banners/banner.jpg)"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
+                      onChange={(e) => {
+                        const value = e.target.value.trim()
+                        setValue('bannerUrl', value, { shouldValidate: false })
+                        setBannerPreview(value || null)
+                      }}
+                    />
+                  </div>
 
                   {bannerPreview && (
                     <div className="mt-3">
@@ -1052,7 +1052,7 @@ export default function CourseLessonsPage() {
                     </div>
                   )}
                 </div>
-                
+
                 {errors.bannerUrl && <p className="text-red-500 text-sm mt-1">{errors.bannerUrl.message}</p>}
               </div>
 
