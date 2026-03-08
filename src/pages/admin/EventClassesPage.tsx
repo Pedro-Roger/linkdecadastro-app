@@ -90,7 +90,7 @@ export default function EventClassesPage() {
   const [updating, setUpdating] = useState(false)
   const [closingClass, setClosingClass] = useState<string | null>(null)
   const [exportModalOpen, setExportModalOpen] = useState(false)
-  const [exportScope, setExportScope] = useState<{ municipality: string, state: string } | null>(null)
+  const [exportScope, setExportScope] = useState<{ municipality: string, state: string, id?: string } | null>(null)
   const [selectedFields, setSelectedFields] = useState<string[]>([
     'number',
     'name',
@@ -341,8 +341,9 @@ export default function EventClassesPage() {
   const handleExportRegion = async (
     municipality: string,
     state: string,
+    municipalityId?: string
   ) => {
-    setExportScope({ municipality, state });
+    setExportScope({ municipality, state, id: municipalityId });
     setExportModalOpen(true);
   };
 
@@ -396,7 +397,11 @@ export default function EventClassesPage() {
       let url = `${import.meta.env.VITE_API_URL || 'http://localhost:3005'}/admin/events/${eventId}/export?format=${format}&fields=${fieldsParam}`
 
       if (exportScope) {
-        url += `&municipality=${encodeURIComponent(exportScope.municipality)}&state=${encodeURIComponent(exportScope.state)}`
+        if (exportScope.id) {
+          url += `&municipalityId=${exportScope.id}`
+        } else {
+          url += `&city=${encodeURIComponent(exportScope.municipality)}&state=${encodeURIComponent(exportScope.state)}`
+        }
       }
 
       const token = localStorage.getItem('token')
@@ -629,7 +634,7 @@ export default function EventClassesPage() {
                       <div className="flex flex-col gap-2">
                         <div className="flex gap-2">
                           <button
-                            onClick={() => handleExportRegion(region.municipality, region.state)}
+                            onClick={() => handleExportRegion(region.municipality, region.state, region.id)}
                             className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 border border-white/10 active:scale-95 shadow-lg"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
