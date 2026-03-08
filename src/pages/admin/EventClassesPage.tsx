@@ -90,6 +90,7 @@ export default function EventClassesPage() {
   const [updating, setUpdating] = useState(false)
   const [closingClass, setClosingClass] = useState<string | null>(null)
   const [exportModalOpen, setExportModalOpen] = useState(false)
+  const [exportScope, setExportScope] = useState<{ municipality: string, state: string } | null>(null)
   const [selectedFields, setSelectedFields] = useState<string[]>([
     'number',
     'name',
@@ -337,36 +338,12 @@ export default function EventClassesPage() {
     }));
   };
 
-  /* Função de Exportação de Turma */
   const handleExportRegion = async (
     municipality: string,
     state: string,
-    exportFormat: 'csv' | 'xlsx' | 'pdf' = 'csv',
-    municipalityId?: string
   ) => {
-    if (!regionsData) return;
-
-    const region = regionsData.regions.find(r =>
-      (municipalityId && r.id === municipalityId) ||
-      (r.municipality === municipality && r.state === state)
-    );
-
-    if (!region) {
-      alert('Região não encontrada para exportação.');
-      return;
-    }
-
-    // Coletar todos os alunos de todas as turmas da região
-    const allStudents = region.classes.flatMap(c => c.students || []);
-
-    if (allStudents.length === 0) {
-      alert('Nenhum aluno nesta região para exportar.');
-      return;
-    }
-
-    const preparedData = prepareStudentsForExport(allStudents);
-    const filename = `cidade-${municipality}-${state}`;
-    exportToClientSide(preparedData, filename, exportFormat, `Relatório - ${municipality}/${state}`);
+    setExportScope({ municipality, state });
+    setExportModalOpen(true);
   };
 
   const handleExportClass = async (classId: string, exportFormat: 'csv' | 'xlsx' | 'pdf' = 'csv') => {
@@ -416,7 +393,12 @@ export default function EventClassesPage() {
 
     try {
       const fieldsParam = selectedFields.filter((f) => f !== 'number').join(',')
-      const url = `${import.meta.env.VITE_API_URL || 'http://localhost:3005'}/admin/events/${eventId}/export?format=${format}&fields=${fieldsParam}`
+      let url = `${import.meta.env.VITE_API_URL || 'http://localhost:3005'}/admin/events/${eventId}/export?format=${format}&fields=${fieldsParam}`
+
+      if (exportScope) {
+        url += `&municipality=${encodeURIComponent(exportScope.municipality)}&state=${encodeURIComponent(exportScope.state)}`
+      }
+
       const token = localStorage.getItem('token')
 
       const response = await fetch(url, {
@@ -513,7 +495,10 @@ export default function EventClassesPage() {
               </div>
 
               <button
-                onClick={() => setExportModalOpen(true)}
+                onClick={() => {
+                  setExportScope(null);
+                  setExportModalOpen(true);
+                }}
                 className="bg-green-600 text-white px-6 py-3 rounded-md font-semibold hover:bg-green-700 transition-colors flex items-center gap-2 shadow-sm"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -644,20 +629,11 @@ export default function EventClassesPage() {
                       <div className="flex flex-col gap-2">
                         <div className="flex gap-2">
                           <button
-                            onClick={() => handleExportRegion(region.municipality, region.state, 'xlsx', region.id)}
-                            className="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5"
-                            title="Exportar Excel do Município Inteiro"
+                            onClick={() => handleExportRegion(region.municipality, region.state)}
+                            className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 border border-white/10 active:scale-95 shadow-lg"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                            Excel
-                          </button>
-                          <button
-                            onClick={() => handleExportRegion(region.municipality, region.state, 'csv', region.id)}
-                            className="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5"
-                            title="Exportar CSV do Município Inteiro"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                            CSV
+                            EXPORTAR CIDADE
                           </button>
                         </div>
                       </div>
@@ -848,7 +824,9 @@ export default function EventClassesPage() {
           <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl animate-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between border-b px-6 py-4">
               <h2 className="text-lg font-semibold text-[#003366]">
-                Exportar Dados do Evento
+                {exportScope
+                  ? `Exportar: ${exportScope.municipality} - ${exportScope.state}`
+                  : 'Exportar Todos os Cadastros do Evento'}
               </h2>
               <button
                 onClick={() => setExportModalOpen(false)}
