@@ -45,8 +45,8 @@ export default function MobileNavbar() {
               <Link
                 to="/courses"
                 className={`font-medium transition-colors ${isActive('/courses')
-                    ? 'text-[#FF6600]'
-                    : 'text-[#003366] hover:text-[#FF6600]'
+                  ? 'text-[#FF6600]'
+                  : 'text-[#003366] hover:text-[#FF6600]'
                   }`}
               >
                 Cursos
@@ -54,19 +54,30 @@ export default function MobileNavbar() {
               <Link
                 to="/events"
                 className={`font-medium transition-colors ${isActive('/events')
-                    ? 'text-[#FF6600]'
-                    : 'text-[#003366] hover:text-[#FF6600]'
+                  ? 'text-[#FF6600]'
+                  : 'text-[#003366] hover:text-[#FF6600]'
                   }`}
               >
                 Eventos
               </Link>
+              {isAuthenticated && user?.role === 'ADMIN' && (
+                <Link
+                  to="/admin/chat"
+                  className={`font-medium transition-colors ${isActive('/admin/chat')
+                    ? 'text-[#FF6600]'
+                    : 'text-[#003366] hover:text-[#FF6600]'
+                    }`}
+                >
+                  Atendimento
+                </Link>
+              )}
               {isAuthenticated && user ? (
                 <>
                   <Link
                     to={user.role === 'ADMIN' ? '/admin/dashboard' : '/my-courses'}
                     className={`font-medium transition-colors ${isActive('/my-courses') || isActive('/admin/dashboard')
-                        ? 'text-[#FF6600]'
-                        : 'text-[#003366] hover:text-[#FF6600]'
+                      ? 'text-[#FF6600]'
+                      : 'text-[#003366] hover:text-[#FF6600]'
                       }`}
                   >
                     {user.role === 'ADMIN' ? 'Dashboard' : 'Meus Cursos'}
@@ -77,8 +88,8 @@ export default function MobileNavbar() {
                     <button
                       onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                       className={`w-10 h-10 rounded-full font-bold flex items-center justify-center transition-colors ${isActive('/profile')
-                          ? 'bg-[#FF6600] text-white'
-                          : 'bg-gray-200 text-gray-700 hover:bg-[#FF6600] hover:text-white'
+                        ? 'bg-[#FF6600] text-white'
+                        : 'bg-gray-200 text-gray-700 hover:bg-[#FF6600] hover:text-white'
                         }`}
                     >
                       {user.name?.charAt(0).toUpperCase() || 'A'}
@@ -208,8 +219,8 @@ export default function MobileNavbar() {
                     to="/courses"
                     onClick={() => setIsMenuOpen(false)}
                     className={`block py-3 px-4 rounded-lg font-medium transition-colors ${isActive('/courses')
-                        ? 'bg-[#FF6600] text-white'
-                        : 'text-gray-700 hover:bg-gray-100'
+                      ? 'bg-[#FF6600] text-white'
+                      : 'text-gray-700 hover:bg-gray-100'
                       }`}
                   >
                     📚 Cursos
@@ -218,20 +229,32 @@ export default function MobileNavbar() {
                     to="/events"
                     onClick={() => setIsMenuOpen(false)}
                     className={`block py-3 px-4 rounded-lg font-medium transition-colors ${isActive('/events')
-                        ? 'bg-[#FF6600] text-white'
-                        : 'text-gray-700 hover:bg-gray-100'
+                      ? 'bg-[#FF6600] text-white'
+                      : 'text-gray-700 hover:bg-gray-100'
                       }`}
                   >
                     📅 Eventos
                   </Link>
+                  {isAuthenticated && user?.role === 'ADMIN' && (
+                    <Link
+                      to="/admin/chat"
+                      onClick={() => setIsMenuOpen(false)}
+                      className={`block py-3 px-4 rounded-lg font-medium transition-colors ${isActive('/admin/chat')
+                        ? 'bg-[#FF6600] text-white'
+                        : 'text-gray-700 hover:bg-gray-100'
+                        }`}
+                    >
+                      💬 Atendimento
+                    </Link>
+                  )}
                   {isAuthenticated && user ? (
                     <>
                       <Link
                         to={user.role === 'ADMIN' ? '/admin/dashboard' : '/my-courses'}
                         onClick={() => setIsMenuOpen(false)}
                         className={`block py-3 px-4 rounded-lg font-medium transition-colors ${isActive('/my-courses') || isActive('/admin/dashboard')
-                            ? 'bg-[#FF6600] text-white'
-                            : 'text-gray-700 hover:bg-gray-100'
+                          ? 'bg-[#FF6600] text-white'
+                          : 'text-gray-700 hover:bg-gray-100'
                           }`}
                       >
                         {user.role === 'ADMIN' ? '⚙️ Dashboard' : '📖 Meus Cursos'}
@@ -240,8 +263,8 @@ export default function MobileNavbar() {
                         to="/profile"
                         onClick={() => setIsMenuOpen(false)}
                         className={`block py-3 px-4 rounded-lg font-medium transition-colors ${isActive('/profile')
-                            ? 'bg-[#FF6600] text-white'
-                            : 'text-gray-700 hover:bg-gray-100'
+                          ? 'bg-[#FF6600] text-white'
+                          : 'text-gray-700 hover:bg-gray-100'
                           }`}
                       >
                         👤 Perfil
@@ -298,8 +321,8 @@ export default function MobileNavbar() {
             <Link
               to="/"
               className={`flex flex-col items-center justify-center px-4 py-2 rounded-lg transition-colors ${isActive('/')
-                  ? 'text-[#FF6600]'
-                  : 'text-gray-600 hover:text-[#FF6600]'
+                ? 'text-[#FF6600]'
+                : 'text-gray-600 hover:text-[#FF6600]'
                 }`}
             >
               <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -311,8 +334,8 @@ export default function MobileNavbar() {
             <Link
               to="/courses"
               className={`flex flex-col items-center justify-center px-4 py-2 rounded-lg transition-colors ${isActive('/courses')
-                  ? 'text-[#FF6600]'
-                  : 'text-gray-600 hover:text-[#FF6600]'
+                ? 'text-[#FF6600]'
+                : 'text-gray-600 hover:text-[#FF6600]'
                 }`}
             >
               <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -324,8 +347,8 @@ export default function MobileNavbar() {
             <Link
               to="/events"
               className={`flex flex-col items-center justify-center px-4 py-2 rounded-lg transition-colors ${isActive('/events')
-                  ? 'text-[#FF6600]'
-                  : 'text-gray-600 hover:text-[#FF6600]'
+                ? 'text-[#FF6600]'
+                : 'text-gray-600 hover:text-[#FF6600]'
                 }`}
             >
               <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -338,8 +361,8 @@ export default function MobileNavbar() {
               <Link
                 to="/admin/dashboard"
                 className={`flex flex-col items-center justify-center px-4 py-2 rounded-lg transition-colors ${isActive('/admin/dashboard') || isActive('/admin/courses')
-                    ? 'text-[#FF6600]'
-                    : 'text-gray-600 hover:text-[#FF6600]'
+                  ? 'text-[#FF6600]'
+                  : 'text-gray-600 hover:text-[#FF6600]'
                   }`}
               >
                 <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -351,8 +374,8 @@ export default function MobileNavbar() {
               <Link
                 to="/my-courses"
                 className={`flex flex-col items-center justify-center px-4 py-2 rounded-lg transition-colors ${isActive('/my-courses')
-                    ? 'text-[#FF6600]'
-                    : 'text-gray-600 hover:text-[#FF6600]'
+                  ? 'text-[#FF6600]'
+                  : 'text-gray-600 hover:text-[#FF6600]'
                   }`}
               >
                 <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -372,14 +395,14 @@ export default function MobileNavbar() {
             <Link
               to="/profile"
               className={`flex flex-col items-center justify-center px-4 py-2 rounded-lg transition-colors ${isActive('/profile')
-                  ? 'text-[#FF6600]'
-                  : 'text-gray-600 hover:text-[#FF6600]'
+                ? 'text-[#FF6600]'
+                : 'text-gray-600 hover:text-[#FF6600]'
                 }`}
             >
               <div
                 className={`w-8 h-8 rounded-full font-bold flex items-center justify-center mb-1 text-sm ${isActive('/profile')
-                    ? 'bg-[#FF6600] text-white'
-                    : 'bg-gray-200 text-gray-700'
+                  ? 'bg-[#FF6600] text-white'
+                  : 'bg-gray-200 text-gray-700'
                   }`}
               >
                 {user.name?.charAt(0).toUpperCase() || 'A'}
