@@ -83,24 +83,24 @@ export default function WhatsAppSendPage() {
 
     setIsUploading(true)
     try {
-        const res = await apiFetch<any>('/admin/upload', {
-            method: 'POST',
-            body: formData,
-            auth: true
-        });
-        
-        // Backend retorna { url: '/uploads/...', type: 'image'|'video' }
-        setUploadedMediaUrl(normalizeImageUrl(res.url)) 
-        // Se backend retornar type use ele, senão use o que detectamos
-        if (res.type) setUploadedMediaType(res.type)
-        
+      const res = await apiFetch<any>('/admin/upload', {
+        method: 'POST',
+        body: formData,
+        auth: true
+      });
+
+      // Backend retorna { url: '/uploads/...', type: 'image'|'video' }
+      setUploadedMediaUrl(normalizeImageUrl(res.url))
+      // Se backend retornar type use ele, senão use o que detectamos
+      if (res.type) setUploadedMediaType(res.type)
+
     } catch (err) {
-        console.error('Erro no upload:', err)
-        setError('Falha ao fazer upload da mídia.')
-        setMediaPreview(null)
-        setMediaFile(null)
+      console.error('Erro no upload:', err)
+      setError('Falha ao fazer upload da mídia.')
+      setMediaPreview(null)
+      setMediaFile(null)
     } finally {
-        setIsUploading(false)
+      setIsUploading(false)
     }
   }
 
@@ -118,7 +118,7 @@ export default function WhatsAppSendPage() {
   const [success, setSuccess] = useState<string | null>(null)
   const [courses, setCourses] = useState<Course[]>([])
   const [events, setEvents] = useState<Event[]>([])
-  const [selectedType, setSelectedType] = useState<'course' | 'event' | ''>('course')
+  const [selectedType, setSelectedType] = useState<'course' | 'event' | 'all' | ''>('course')
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null)
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
   const [stateOptions, setStateOptions] = useState<StateOption[]>([])
@@ -207,13 +207,13 @@ export default function WhatsAppSendPage() {
 
   // Gerar mensagem automaticamente quando curso ou evento for selecionado
   useEffect(() => {
-    if (selectedCourse || selectedEvent) {
+    if (selectedCourse || selectedEvent || selectedType === 'all') {
       generateMessage()
     } else {
       setMessage('')
     }
     // Não precisamos chamar fetchParticipants aqui pois o outro useEffect já o fará quando selectedCourse/selectedEvent mudar
-  }, [selectedCourse, selectedEvent])
+  }, [selectedCourse, selectedEvent, selectedType])
 
   useEffect(() => {
     // Aplicar filtros
@@ -342,7 +342,7 @@ export default function WhatsAppSendPage() {
       if (selectedCity) queryParams.append('city', selectedCity)
       if (selectedState) queryParams.append('state', selectedState)
       if (selectedParticipantType) queryParams.append('participantType', selectedParticipantType)
-      
+
       // Adicionar filtros de curso/evento
       if (selectedCourse) queryParams.append('courseId', selectedCourse.id)
       if (selectedEvent) queryParams.append('eventId', selectedEvent.id)
@@ -354,10 +354,10 @@ export default function WhatsAppSendPage() {
         url,
         { auth: true }
       )
-      
+
       console.log('[FRONTEND] Resposta recebida:', data)
       console.log('[FRONTEND] Total de participantes:', data?.participantes?.length || 0)
-      
+
       setParticipants(data.participantes || [])
     } catch (error) {
       console.error('[FRONTEND] Erro ao carregar participantes:', error)
@@ -372,13 +372,27 @@ export default function WhatsAppSendPage() {
   }
 
   function generateMessage() {
-    if (!selectedCourse && !selectedEvent) {
+    if (!selectedCourse && !selectedEvent && selectedType !== 'all') {
       setMessage('')
       return
     }
 
-    // Gerar link baseado no tipo selecionado
     const origin = typeof window !== 'undefined' ? window.location.origin : ''
+
+    if (selectedType === 'all') {
+      const messageTemplate = `Olá, {nome}!
+
+Espero que esteja bem. 😊
+
+Passando para te convidar a conhecer as novidades do *Link de Cadastro*. Temos novos cursos e eventos disponíveis em nossa plataforma que podem ser do seu interesse.
+
+Acesse nosso portal para conferir:
+${origin}
+
+Qualquer dúvida, estamos à disposição!`
+      setMessage(messageTemplate)
+      return
+    }
     let link = ''
     let title = ''
     const tipo = selectedCourse ? 'curso' : 'evento'
@@ -414,7 +428,7 @@ Esperamos você! 😊`
     setMessage(messageTemplate)
   }
 
-  function handleTypeChange(type: 'course' | 'event' | '') {
+  function handleTypeChange(type: 'course' | 'event' | 'all' | '') {
     setSelectedType(type)
     setSelectedCourse(null)
     setSelectedEvent(null)
@@ -486,8 +500,8 @@ Esperamos você! 😊`
       return
     }
 
-    if (!selectedCourse && !selectedEvent) {
-      setError('Por favor, selecione um curso ou evento para compartilhar')
+    if (!selectedCourse && !selectedEvent && selectedType !== 'all') {
+      setError('Por favor, selecione um curso, evento ou a opção "Todos" para compartilhar')
       return
     }
 
@@ -549,7 +563,7 @@ Esperamos você! 😊`
         if (phoneToSend.length >= 10 && phoneToSend.length <= 11) {
           phoneToSend = `55${phoneToSend}`
         }
-        
+
         return {
           id_contato: phoneToSend,
           nome: p.nome,
@@ -569,11 +583,11 @@ Esperamos você! 😊`
       let mediaType: 'image' | 'video' | undefined = undefined
 
       if (uploadedMediaUrl) {
-          mediaUrl = uploadedMediaUrl
-          mediaType = uploadedMediaType || 'image'
+        mediaUrl = uploadedMediaUrl
+        mediaType = uploadedMediaType || 'image'
       } else if (mediaFile) {
-          alert('Aguarde o término do upload da mídia.')
-          return
+        alert('Aguarde o término do upload da mídia.')
+        return
       }
 
       // O backend irá personalizar a mensagem substituindo {nome} pelo nome de cada participante
@@ -602,8 +616,8 @@ Esperamos você! 😊`
         setError('Nenhuma mensagem foi enviada. O backend não processou nenhum envio. Verifique os logs do servidor.')
         setSuccess(null)
       } else if (enviadas === 0) {
-         setError(`Falha ao enviar mensagens. ${falhas} falhas registradas. Verifique a conexão com o WhatsApp.`)
-         setSuccess(null)
+        setError(`Falha ao enviar mensagens. ${falhas} falhas registradas. Verifique a conexão com o WhatsApp.`)
+        setSuccess(null)
       } else {
         setSuccess(
           `Mensagem enviada com sucesso! ${enviadas} mensagens enviadas, ${falhas} falhas.`
@@ -627,11 +641,11 @@ Esperamos você! 😊`
     const clean = phone.replace(/\D/g, '')
     // Format: +55 85 98658-3270
     if (clean.length === 13 && clean.startsWith('55')) {
-       return `+${clean.substring(0, 2)} ${clean.substring(2, 4)} ${clean.substring(4, 9)}-${clean.substring(9)}`
+      return `+${clean.substring(0, 2)} ${clean.substring(2, 4)} ${clean.substring(4, 9)}-${clean.substring(9)}`
     }
     // Format: 85 98658-3270 (assuming BR local)
     if (clean.length === 11) {
-       return `+55 ${clean.substring(0, 2)} ${clean.substring(2, 7)}-${clean.substring(7)}`
+      return `+55 ${clean.substring(0, 2)} ${clean.substring(2, 7)}-${clean.substring(7)}`
     }
     // Fallback
     return phone
@@ -829,6 +843,16 @@ Esperamos você! 😊`
                   >
                     Evento
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => handleTypeChange('all')}
+                    className={`px-4 py-2 rounded-md font-medium transition-colors ${selectedType === 'all'
+                      ? 'bg-[#FF6600] text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                  >
+                    Todos
+                  </button>
                 </div>
               </div>
 
@@ -872,13 +896,13 @@ Esperamos você! 😊`
                 </div>
               )}
 
-              {(selectedCourse || selectedEvent) && (
+              {(selectedCourse || selectedEvent || selectedType === 'all') && (
                 <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
                   <p className="text-sm text-blue-800">
-                    <strong>Selecionado:</strong> {(selectedCourse || selectedEvent)?.title}
+                    <strong>Selecionado:</strong> {selectedType === 'all' ? 'Todos os Contatos' : (selectedCourse || selectedEvent)?.title}
                   </p>
                   <p className="text-xs text-blue-600 mt-1">
-                    A mensagem será gerada automaticamente com saudação personalizada e o link abaixo
+                    A mensagem será gerada automaticamente com saudação personalizada {selectedType !== 'all' && 'e o link direto'}
                   </p>
                 </div>
               )}
@@ -978,10 +1002,10 @@ Esperamos você! 😊`
             <textarea
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder={selectedCourse || selectedEvent ? "A mensagem será gerada automaticamente..." : "Selecione um curso ou evento acima para gerar a mensagem"}
+              placeholder={selectedCourse || selectedEvent || selectedType === 'all' ? "A mensagem será gerada automaticamente..." : "Selecione um curso ou evento acima para gerar a mensagem"}
               rows={8}
               className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
-              readOnly={!selectedCourse && !selectedEvent}
+              readOnly={!selectedCourse && !selectedEvent && selectedType !== 'all'}
             />
             {message && (
               <div className="mt-2">
@@ -1084,49 +1108,49 @@ Esperamos você! 😊`
           {/* Área de Upload de Mídia */}
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
             <h2 className="text-xl font-semibold text-[#003366] mb-4">Anexar Mídia (Opcional)</h2>
-            
+
             {!mediaPreview ? (
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 flex flex-col items-center justify-center text-center hover:bg-gray-50 transition-colors cursor-pointer relative">
-                    <input 
-                        type="file" 
-                        accept="image/*,video/*" 
-                        onChange={handleFileChange}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    />
-                    <div className="text-gray-400 mb-2">
-                        <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                    </div>
-                    <p className="text-gray-600 font-medium">Clique para selecionar uma imagem ou vídeo</p>
-                    <p className="text-gray-400 text-sm mt-1">MP4, JPG, PNG (Max 30MB)</p>
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 flex flex-col items-center justify-center text-center hover:bg-gray-50 transition-colors cursor-pointer relative">
+                <input
+                  type="file"
+                  accept="image/*,video/*"
+                  onChange={handleFileChange}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                />
+                <div className="text-gray-400 mb-2">
+                  <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                 </div>
+                <p className="text-gray-600 font-medium">Clique para selecionar uma imagem ou vídeo</p>
+                <p className="text-gray-400 text-sm mt-1">MP4, JPG, PNG (Max 30MB)</p>
+              </div>
             ) : (
-                <div className="relative rounded-lg border overflow-hidden bg-gray-100 flex items-center justify-center">
-                    {/* Botão Remover */}
-                    <button 
-                        onClick={handleRemoveMedia}
-                        className="absolute top-2 right-2 bg-red-600 text-white p-1 rounded-full hover:bg-red-700 z-10"
-                        title="Remover mídia"
-                    >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                    </button>
+              <div className="relative rounded-lg border overflow-hidden bg-gray-100 flex items-center justify-center">
+                {/* Botão Remover */}
+                <button
+                  onClick={handleRemoveMedia}
+                  className="absolute top-2 right-2 bg-red-600 text-white p-1 rounded-full hover:bg-red-700 z-10"
+                  title="Remover mídia"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
 
-                    {/* Preview Imagem ou Vídeo */}
-                    {uploadedMediaType === 'video' ? (
-                        <video src={mediaPreview} controls className="max-h-64 max-w-full rounded" />
-                    ) : (
-                        <img src={mediaPreview} alt="Preview" className="max-h-64 object-contain rounded" />
-                    )}
+                {/* Preview Imagem ou Vídeo */}
+                {uploadedMediaType === 'video' ? (
+                  <video src={mediaPreview} controls className="max-h-64 max-w-full rounded" />
+                ) : (
+                  <img src={mediaPreview} alt="Preview" className="max-h-64 object-contain rounded" />
+                )}
 
-                    {/* Loading Overlay */}
-                    {isUploading && (
-                        <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-                            <div className="text-white font-medium flex items-center gap-2">
-                                <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                                Enviando...
-                            </div>
-                        </div>
-                    )}
-                </div>
+                {/* Loading Overlay */}
+                {isUploading && (
+                  <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+                    <div className="text-white font-medium flex items-center gap-2">
+                      <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                      Enviando...
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
           </div>
 
@@ -1140,7 +1164,7 @@ Esperamos você! 😊`
             </Link>
             <button
               onClick={handleSendMessage}
-              disabled={sending || !selectedCourse && !selectedEvent || !message.trim() || selectedParticipantIds.size === 0 || whatsappStatus?.status !== 'READY'}
+              disabled={sending || (!selectedCourse && !selectedEvent && selectedType !== 'all') || !message.trim() || selectedParticipantIds.size === 0 || whatsappStatus?.status !== 'READY'}
               className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               {sending ? (
