@@ -9,6 +9,7 @@ import { apiFetch } from '@/lib/api'
 import { useAuth } from '@/lib/useAuth'
 import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
+import { X } from 'lucide-react'
 
 interface Registration {
   id: string
@@ -80,11 +81,46 @@ export default function EventClassesPage() {
   const [event, setEvent] = useState<Event | null>(null)
   const [regionsData, setRegionsData] = useState<RegionsData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [activeRightTab, setActiveRightTab] = useState('info'); // info, quick, notes
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchTerm, setSearchTerm] = useState('')
   const [editingLimit, setEditingLimit] = useState<string | null>(null)
   const [expandedClass, setExpandedClass] = useState<string | null>(null)
   const [newLimit, setNewLimit] = useState<number>(20)
   const [updating, setUpdating] = useState(false)
   const [closingClass, setClosingClass] = useState<string | null>(null)
+  const [exportModalOpen, setExportModalOpen] = useState(false)
+  const [selectedFields, setSelectedFields] = useState<string[]>([
+    'number',
+    'name',
+    'cpf',
+    'email',
+    'phone',
+    'city',
+    'state',
+    'participantType',
+    'classNumber',
+    'createdAt',
+  ])
+
+  const availableFields = [
+    { key: 'number', label: 'Nº' },
+    { key: 'name', label: 'Nome Completo' },
+    { key: 'cpf', label: 'CPF' },
+    { key: 'email', label: 'E-mail' },
+    { key: 'phone', label: 'Telefone' },
+    { key: 'cep', label: 'CEP' },
+    { key: 'locality', label: 'Localidade/Bairro' },
+    { key: 'city', label: 'Cidade' },
+    { key: 'state', label: 'Estado' },
+    { key: 'participantType', label: 'Tipo de Participante' },
+    { key: 'otherType', label: 'O que você é?' },
+    { key: 'pondCount', label: 'Quantidade de Viveiros' },
+    { key: 'waterArea', label: "Lâmina d'água (ha)" },
+    { key: 'classNumber', label: 'Turma' },
+    { key: 'status', label: 'Status' },
+    { key: 'createdAt', label: 'Data de Cadastro' },
+  ]
 
   // Função para agrupar dados localmente (fallback quando backend falha)
   const groupRegistrationsByRegion = (registrations: Registration[]): RegionsData => {
@@ -117,7 +153,7 @@ export default function EventClassesPage() {
           id: key,
           municipality: city,
           state: state,
-          defaultLimit: 30,
+          defaultLimit: 9999,
           totalRegistrations: 0,
           activeClassNumber: 1,
           activeClassLimit: 30,
@@ -134,11 +170,14 @@ export default function EventClassesPage() {
       // Determinar turma
       // Se vier do backend com turma, usa. Senão, calcula.
       const backendClassNumber = reg.municipalityClass?.classNumber || reg.batchNumber;
-      
+
       let classNumber = backendClassNumber;
       if (!classNumber) {
-        // Cálculo fallback: a cada 30
-        const classIndex = Math.floor((region.totalRegistrations - 1) / region.defaultLimit)
+        // Se não tiver turma do backend, e não houver limite definido (usamos 0 no backend ou 30 aqui), 
+        // talvez devêssemos manter tudo em uma turma.
+        // O usuário reclamou de separar por 30. Vamos aumentar esse default consideravelmente.
+        const effectiveLimit = region.defaultLimit || 99999;
+        const classIndex = Math.floor((region.totalRegistrations - 1) / effectiveLimit)
         classNumber = classIndex + 1
       }
 
@@ -187,11 +226,11 @@ export default function EventClassesPage() {
     if (!eventId) return
     try {
       setLoading(true)
-      
+
       // Busca evento
       const eventData = await apiFetch<Event>(`/admin/events/${eventId}`, { auth: true }).catch(() =>
         apiFetch<any>('/events', { auth: true }).then((data) =>
-          Array.isArray(data) 
+          Array.isArray(data)
             ? data.find((e: Event) => e.id === eventId)
             : data.events?.find((e: Event) => e.id === eventId)
         )
@@ -203,7 +242,7 @@ export default function EventClassesPage() {
         // Primeiro tentamos pegar todos os registros, pois precisamos deles para a lista de alunos de qualquer forma
         const registrationsData = await apiFetch<{ registrations: Registration[] } | Registration[]>(`/admin/events/${eventId}/registrations`, { auth: true })
         const registrations = Array.isArray(registrationsData) ? registrationsData : registrationsData.registrations
-        
+
         // Agora construímos os dados agrupados client-side
         // Isso garante que temos a lista de alunos e evita o 404 do endpoint /regions se ele não existir
         const groupedData = groupRegistrationsByRegion(registrations)
@@ -265,37 +304,37 @@ export default function EventClassesPage() {
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Dados');
       XLSX.writeFile(workbook, `${filename}.${exportFormat}`);
     } else if (exportFormat === 'pdf') {
-       const doc = new jsPDF();
-       doc.setFontSize(16);
-       doc.text(title, 10, 20);
-       doc.setFontSize(10);
-       
-       let y = 30;
-       data.forEach((row, index) => {
-           if (y > 270) {
-               doc.addPage();
-               y = 20;
-           }
-           const text = `${row['Nº']}. ${row['Nome Completo']} - CPF: ${row['CPF']} - Tel: ${row['Telefone']}`;
-           doc.text(text, 10, y);
-           y += 7;
-       });
-       doc.save(`${filename}.pdf`);
+      const doc = new jsPDF();
+      doc.setFontSize(16);
+      doc.text(title, 10, 20);
+      doc.setFontSize(10);
+
+      let y = 30;
+      data.forEach((row, index) => {
+        if (y > 270) {
+          doc.addPage();
+          y = 20;
+        }
+        const text = `${row['Nº']}. ${row['Nome Completo']} - CPF: ${row['CPF']} - Tel: ${row['Telefone']}`;
+        doc.text(text, 10, y);
+        y += 7;
+      });
+      doc.save(`${filename}.pdf`);
     }
   };
 
   const prepareStudentsForExport = (students: Registration[]) => {
-      return students.map((student, index) => ({
-          'Nº': index + 1,
-          'Nome Completo': student.name,
-          'CPF': student.cpf,
-          'Email': student.email,
-          'Telefone': student.phone,
-          'Cidade': student.city,
-          'Estado': student.state,
-          'Tipo': getParticipantTypeLabel(student.participantType || ''),
-          'Data Inscrição': format(new Date(student.createdAt), 'dd/MM/yyyy HH:mm', { locale: ptBR }),
-      }));
+    return students.map((student, index) => ({
+      'Nº': index + 1,
+      'Nome Completo': student.name,
+      'CPF': student.cpf,
+      'Email': student.email,
+      'Telefone': student.phone,
+      'Cidade': student.city,
+      'Estado': student.state,
+      'Tipo': getParticipantTypeLabel(student.participantType || ''),
+      'Data Inscrição': format(new Date(student.createdAt), 'dd/MM/yyyy HH:mm', { locale: ptBR }),
+    }));
   };
 
   /* Função de Exportação de Turma */
@@ -305,29 +344,29 @@ export default function EventClassesPage() {
     exportFormat: 'csv' | 'xlsx' | 'pdf' = 'csv',
     municipalityId?: string
   ) => {
-      if (!regionsData) return;
+    if (!regionsData) return;
 
-      const region = regionsData.regions.find(r => 
-        (municipalityId && r.id === municipalityId) || 
-        (r.municipality === municipality && r.state === state)
-      );
+    const region = regionsData.regions.find(r =>
+      (municipalityId && r.id === municipalityId) ||
+      (r.municipality === municipality && r.state === state)
+    );
 
-      if (!region) {
-          alert('Região não encontrada para exportação.');
-          return;
-      }
+    if (!region) {
+      alert('Região não encontrada para exportação.');
+      return;
+    }
 
-      // Coletar todos os alunos de todas as turmas da região
-      const allStudents = region.classes.flatMap(c => c.students || []);
-      
-      if (allStudents.length === 0) {
-          alert('Nenhum aluno nesta região para exportar.');
-          return;
-      }
+    // Coletar todos os alunos de todas as turmas da região
+    const allStudents = region.classes.flatMap(c => c.students || []);
 
-      const preparedData = prepareStudentsForExport(allStudents);
-      const filename = `cidade-${municipality}-${state}`;
-      exportToClientSide(preparedData, filename, exportFormat, `Relatório - ${municipality}/${state}`);
+    if (allStudents.length === 0) {
+      alert('Nenhum aluno nesta região para exportar.');
+      return;
+    }
+
+    const preparedData = prepareStudentsForExport(allStudents);
+    const filename = `cidade-${municipality}-${state}`;
+    exportToClientSide(preparedData, filename, exportFormat, `Relatório - ${municipality}/${state}`);
   };
 
   const handleExportClass = async (classId: string, exportFormat: 'csv' | 'xlsx' | 'pdf' = 'csv') => {
@@ -337,27 +376,71 @@ export default function EventClassesPage() {
     let targetRegion: MunicipalityLimit | undefined;
 
     for (const region of regionsData.regions) {
-        const found = region.classes.find(c => c.id === classId);
-        if (found) {
-            targetClass = found;
-            targetRegion = region;
-            break;
-        }
+      const found = region.classes.find(c => c.id === classId);
+      if (found) {
+        targetClass = found;
+        targetRegion = region;
+        break;
+      }
     }
 
     if (!targetClass || !targetRegion) {
-        alert('Turma não encontrada.');
-        return;
+      alert('Turma não encontrada.');
+      return;
     }
 
     if (!targetClass.students || targetClass.students.length === 0) {
-        alert('Nenhum aluno nesta turma para exportar.');
-        return;
+      alert('Nenhum aluno nesta turma para exportar.');
+      return;
     }
 
     const preparedData = prepareStudentsForExport(targetClass.students);
     const filename = `turma-${targetClass.classNumber}-${targetRegion.municipality}`;
     exportToClientSide(preparedData, filename, exportFormat, `Turma ${targetClass.classNumber} - ${targetRegion.municipality}`);
+  }
+
+  const toggleField = (fieldKey: string) => {
+    if (fieldKey === 'number') return
+    setSelectedFields((prev) =>
+      prev.includes(fieldKey)
+        ? prev.filter((f) => f !== fieldKey)
+        : [...prev, fieldKey]
+    )
+  }
+
+  const handleGlobalExport = async (format: 'xlsx' | 'csv' | 'pdf') => {
+    if (!eventId || selectedFields.length === 0) {
+      alert('Selecione pelo menos um campo para exportar')
+      return
+    }
+
+    try {
+      const fieldsParam = selectedFields.filter((f) => f !== 'number').join(',')
+      const url = `${import.meta.env.VITE_API_URL || 'http://localhost:3005'}/admin/events/${eventId}/export?format=${format}&fields=${fieldsParam}`
+      const token = localStorage.getItem('token')
+
+      const response = await fetch(url, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      })
+
+      if (response.ok) {
+        const blob = await response.blob()
+        const downloadUrl = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = downloadUrl
+        a.download = `cadastros-evento-${format === 'pdf' ? 'pdf' : format}.${format}`
+        document.body.appendChild(a)
+        a.click()
+        window.URL.revokeObjectURL(downloadUrl)
+        document.body.removeChild(a)
+        setExportModalOpen(false)
+      } else {
+        alert('Erro ao exportar dados')
+      }
+    } catch (error) {
+      console.error('Erro ao exportar:', error)
+      alert('Erro ao exportar dados')
+    }
   }
 
   if (authLoading || loading) {
@@ -372,10 +455,41 @@ export default function EventClassesPage() {
     )
   }
 
+  const getFilteredRegions = () => {
+    if (!searchTerm) return regionsData.regions;
+
+    const term = searchTerm.toLowerCase();
+
+    return regionsData.regions.map(region => {
+      // Filtrar alunos dentro das turmas
+      const filteredClasses = region.classes.map(cls => {
+        const filteredStudents = cls.students?.filter(s =>
+          s.name.toLowerCase().includes(term) ||
+          s.cpf.toLowerCase().includes(term) ||
+          s.phone.toLowerCase().includes(term) ||
+          s.city.toLowerCase().includes(term)
+        ) || [];
+
+        return { ...cls, students: filteredStudents, currentCount: filteredStudents.length };
+      }).filter(cls => cls.students.length > 0 || region.municipality.toLowerCase().includes(term));
+
+      if (filteredClasses.length > 0 || region.municipality.toLowerCase().includes(term)) {
+        return {
+          ...region,
+          classes: filteredClasses,
+          totalRegistrations: filteredClasses.reduce((sum, c) => sum + c.students.length, 0)
+        };
+      }
+      return null;
+    }).filter(region => region !== null) as MunicipalityLimit[];
+  }
+
+  const filteredRegions = getFilteredRegions();
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-    {/* ... resto do código ... */}
-    {/* Vou injetar o botão no outro bloco replace abaixo, aqui só a função */}
+      {/* ... resto do código ... */}
+      {/* Vou injetar o botão no outro bloco replace abaixo, aqui só a função */}
 
       <MobileNavbar />
 
@@ -388,12 +502,26 @@ export default function EventClassesPage() {
             ← Voltar para Eventos
           </Link>
           <div className="mb-6">
-            <h1 className="text-3xl font-bold text-[#003366] mb-2">
-              Gerenciamento de Turmas
-            </h1>
-            {event && (
-              <p className="text-gray-600 text-lg">{event.title}</p>
-            )}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+              <div>
+                <h1 className="text-3xl font-bold text-[#003366] mb-2">
+                  Gerenciamento de Turmas
+                </h1>
+                {event && (
+                  <p className="text-gray-600 text-lg">{event.title}</p>
+                )}
+              </div>
+
+              <button
+                onClick={() => setExportModalOpen(true)}
+                className="bg-green-600 text-white px-6 py-3 rounded-md font-semibold hover:bg-green-700 transition-colors flex items-center gap-2 shadow-sm"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Exportar Dados
+              </button>
+            </div>
 
             <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mt-4">
               <div className="flex">
@@ -441,17 +569,34 @@ export default function EventClassesPage() {
                 </div>
               </div>
             </div>
+
+            <div className="mt-6">
+              <div className="relative max-w-xl">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+                <input
+                  type="text"
+                  placeholder="Buscar por nome, CPF, cidade ou telefone..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900 shadow-sm"
+                />
+              </div>
+            </div>
           </div>
 
-          {regionsData.regions.length === 0 ? (
+          {filteredRegions.length === 0 ? (
             <div className="bg-white rounded-lg shadow-md p-12 text-center">
               <p className="text-gray-500 text-lg">
-                Nenhum município cadastrado ainda.
+                Nenhum município ou cadastro encontrado para sua busca.
               </p>
             </div>
           ) : (
             <div className="space-y-6">
-              {regionsData.regions.map((region) => (
+              {filteredRegions.map((region) => (
                 <div
                   key={region.id}
                   className="bg-white rounded-lg shadow-md overflow-hidden"
@@ -467,11 +612,13 @@ export default function EventClassesPage() {
                             Total: <strong>{region.totalRegistrations}</strong>{' '}
                             cadastros
                           </span>
-                          <span>
-                            Limite padrão: <strong>{region.defaultLimit}</strong>{' '}
-                            vagas
-                          </span>
-                          {region.activeClassNumber && (
+                          {region.defaultLimit < 9999 && (
+                            <span>
+                              Limite padrão: <strong>{region.defaultLimit}</strong>{' '}
+                              vagas
+                            </span>
+                          )}
+                          {region.activeClassNumber && region.defaultLimit < 9999 && (
                             <span>
                               Turma Ativa: <strong>Turma {region.activeClassNumber}</strong>{' '}
                               ({region.activeClassCount}/{region.activeClassLimit} vagas)
@@ -493,25 +640,25 @@ export default function EventClassesPage() {
                           </div>
                         )}
                       </div>
-                      
+
                       <div className="flex flex-col gap-2">
                         <div className="flex gap-2">
-                            <button
-                                onClick={() => handleExportRegion(region.municipality, region.state, 'xlsx', region.id)}
-                                className="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5"
-                                title="Exportar Excel do Município Inteiro"
-                            >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                                Excel
-                            </button>
-                            <button
-                                onClick={() => handleExportRegion(region.municipality, region.state, 'csv', region.id)}
-                                className="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5"
-                                title="Exportar CSV do Município Inteiro"
-                            >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                                CSV
-                            </button>
+                          <button
+                            onClick={() => handleExportRegion(region.municipality, region.state, 'xlsx', region.id)}
+                            className="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5"
+                            title="Exportar Excel do Município Inteiro"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                            Excel
+                          </button>
+                          <button
+                            onClick={() => handleExportRegion(region.municipality, region.state, 'csv', region.id)}
+                            className="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5"
+                            title="Exportar CSV do Município Inteiro"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                            CSV
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -565,10 +712,10 @@ export default function EventClassesPage() {
                                         className="text-gray-500 hover:text-[#003366] transition-colors focus:outline-none"
                                         title="Ver lista de alunos"
                                       >
-                                        <svg 
-                                          className={`w-4 h-4 transform transition-transform duration-200 ${expandedClass === classItem.id ? 'rotate-90' : ''}`} 
-                                          fill="none" 
-                                          stroke="currentColor" 
+                                        <svg
+                                          className={`w-4 h-4 transform transition-transform duration-200 ${expandedClass === classItem.id ? 'rotate-90' : ''}`}
+                                          fill="none"
+                                          stroke="currentColor"
                                           viewBox="0 0 24 24"
                                         >
                                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -588,11 +735,10 @@ export default function EventClassesPage() {
                                   </td>
                                   <td className="px-4 py-3 whitespace-nowrap">
                                     <span
-                                      className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
-                                        classItem.status === 'ACTIVE'
-                                          ? 'bg-green-100 text-green-700'
-                                          : 'bg-gray-100 text-gray-700'
-                                      }`}
+                                      className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${classItem.status === 'ACTIVE'
+                                        ? 'bg-green-100 text-green-700'
+                                        : 'bg-gray-100 text-gray-700'
+                                        }`}
                                     >
                                       {classItem.status === 'ACTIVE'
                                         ? 'Ativa'
@@ -612,41 +758,41 @@ export default function EventClassesPage() {
                                     <td colSpan={5} className="px-4 py-3 bg-gray-50 border-t border-gray-100">
                                       <div className="text-sm pl-6">
                                         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 gap-2">
-                                            <p className="font-semibold text-[#003366] flex items-center gap-2">
-                                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                                              </svg>
-                                              Lista de Alunos ({classItem.students?.length || 0})
-                                            </p>
-                                            
-                                            <div className="flex gap-2">
-                                                <button 
-                                                    onClick={() => handleExportClass(classItem.id, 'csv')}
-                                                    className="inline-flex items-center px-3 py-1.5 bg-blue-100 text-blue-700 text-xs font-medium rounded hover:bg-blue-200 transition-colors"
-                                                    title="Baixar CSV"
-                                                >
-                                                    <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                                                    CSV
-                                                </button>
-                                                <button 
-                                                    onClick={() => handleExportClass(classItem.id, 'pdf')}
-                                                    className="inline-flex items-center px-3 py-1.5 bg-red-100 text-red-700 text-xs font-medium rounded hover:bg-red-200 transition-colors"
-                                                    title="Baixar PDF"
-                                                >
-                                                    <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
-                                                    PDF
-                                                </button>
-                                                <button 
-                                                    onClick={() => handleExportClass(classItem.id, 'xlsx')}
-                                                    className="inline-flex items-center px-3 py-1.5 bg-green-100 text-green-700 text-xs font-medium rounded hover:bg-green-200 transition-colors"
-                                                    title="Baixar Excel"
-                                                >
-                                                    <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                                                    Excel
-                                                </button>
-                                            </div>
+                                          <p className="font-semibold text-[#003366] flex items-center gap-2">
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                                            </svg>
+                                            Lista de Alunos ({classItem.students?.length || 0})
+                                          </p>
+
+                                          <div className="flex gap-2">
+                                            <button
+                                              onClick={() => handleExportClass(classItem.id, 'csv')}
+                                              className="inline-flex items-center px-3 py-1.5 bg-blue-100 text-blue-700 text-xs font-medium rounded hover:bg-blue-200 transition-colors"
+                                              title="Baixar CSV"
+                                            >
+                                              <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                                              CSV
+                                            </button>
+                                            <button
+                                              onClick={() => handleExportClass(classItem.id, 'pdf')}
+                                              className="inline-flex items-center px-3 py-1.5 bg-red-100 text-red-700 text-xs font-medium rounded hover:bg-red-200 transition-colors"
+                                              title="Baixar PDF"
+                                            >
+                                              <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                                              PDF
+                                            </button>
+                                            <button
+                                              onClick={() => handleExportClass(classItem.id, 'xlsx')}
+                                              className="inline-flex items-center px-3 py-1.5 bg-green-100 text-green-700 text-xs font-medium rounded hover:bg-green-200 transition-colors"
+                                              title="Baixar Excel"
+                                            >
+                                              <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                              Excel
+                                            </button>
+                                          </div>
                                         </div>
-                                        
+
                                         {classItem.students && classItem.students.length > 0 ? (
                                           <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-md bg-white shadow-sm">
                                             <table className="min-w-full divide-y divide-gray-200">
@@ -696,6 +842,79 @@ export default function EventClassesPage() {
       </main>
 
       <Footer />
+
+      {exportModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6 backdrop-blur-sm">
+          <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b px-6 py-4">
+              <h2 className="text-lg font-semibold text-[#003366]">
+                Exportar Dados do Evento
+              </h2>
+              <button
+                onClick={() => setExportModalOpen(false)}
+                className="text-gray-400 transition-colors hover:text-gray-600 p-2"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <div className="px-6 py-6">
+              <div className="mb-6">
+                <label className="block text-sm font-bold text-gray-700 mb-3 uppercase tracking-wider">
+                  Selecione os campos para exportar:
+                </label>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-h-64 overflow-y-auto border border-gray-200 rounded-xl p-4 bg-gray-50">
+                  {availableFields.map((field) => (
+                    <label
+                      key={field.key}
+                      className={`flex items-center space-x-2 cursor-pointer p-2 rounded-lg transition-colors ${selectedFields.includes(field.key) ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'hover:bg-white text-gray-600 border border-transparent'}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedFields.includes(field.key)}
+                        onChange={() => toggleField(field.key)}
+                        disabled={field.key === 'number'}
+                        className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                      />
+                      <span className="text-sm font-medium">{field.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-3 justify-end">
+                <button
+                  onClick={() => handleGlobalExport('xlsx')}
+                  className="flex-1 sm:flex-none bg-emerald-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-emerald-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/10 active:scale-95"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                  Excel
+                </button>
+                <button
+                  onClick={() => handleGlobalExport('csv')}
+                  className="flex-1 sm:flex-none bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-900/10 active:scale-95"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                  CSV
+                </button>
+                <button
+                  onClick={() => handleGlobalExport('pdf')}
+                  className="flex-1 sm:flex-none bg-red-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-red-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-red-900/10 active:scale-95"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                  PDF
+                </button>
+                <button
+                  onClick={() => setExportModalOpen(false)}
+                  className="flex-1 sm:flex-none border border-gray-300 px-6 py-2.5 rounded-lg font-bold text-gray-600 hover:bg-gray-50 transition-all active:scale-95"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
