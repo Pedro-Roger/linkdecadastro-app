@@ -44,10 +44,12 @@ export default defineConfig({
           'form-vendor': ['react-hook-form', '@hookform/resolvers', 'zod'],
           'ui-vendor': ['react-player'],
           'utils-vendor': ['date-fns', 'axios'],
+          'pdf-vendor': ['jspdf', 'html2canvas'],
+          'excel-vendor': ['xlsx'],
         },
       },
     },
-    chunkSizeWarningLimit: 600,
+    chunkSizeWarningLimit: 1000,
   },
   server: {
     port: 3000,
