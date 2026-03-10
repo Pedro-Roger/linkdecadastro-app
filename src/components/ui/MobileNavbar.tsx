@@ -60,7 +60,7 @@ export default function MobileNavbar() {
               >
                 Eventos
               </Link>
-              {isAuthenticated && user?.role === 'ADMIN' && (
+              {isAuthenticated && (user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') && (
                 <Link
                   to="/admin/chat"
                   className={`font-medium transition-colors ${isActive('/admin/chat')
@@ -74,13 +74,13 @@ export default function MobileNavbar() {
               {isAuthenticated && user ? (
                 <>
                   <Link
-                    to={user.role === 'ADMIN' ? '/admin/dashboard' : '/my-courses'}
+                    to={(user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') ? '/admin/dashboard' : '/my-courses'}
                     className={`font-medium transition-colors ${isActive('/my-courses') || isActive('/admin/dashboard')
                       ? 'text-[#FF6600]'
                       : 'text-[#003366] hover:text-[#FF6600]'
                       }`}
                   >
-                    {user.role === 'ADMIN' ? 'Dashboard' : 'Meus Cursos'}
+                    {(user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') ? 'Dashboard' : 'Meus Cursos'}
                   </Link>
                   <NotificationBell />
 
@@ -92,7 +92,7 @@ export default function MobileNavbar() {
                         : 'bg-gray-200 text-gray-700 hover:bg-[#FF6600] hover:text-white'
                         }`}
                     >
-                      {user.name?.charAt(0).toUpperCase() || 'A'}
+                      {user.name?.charAt(0).toUpperCase() || (user.role === 'SUPER_ADMIN' ? 'S' : 'A')}
                     </button>
 
 
@@ -149,12 +149,6 @@ export default function MobileNavbar() {
                     className="text-[#003366] hover:text-[#FF6600] font-medium transition-colors"
                   >
                     Entrar
-                  </Link>
-                  <Link
-                    to="/register"
-                    className="bg-[#FF6600] text-white px-4 py-2 rounded-md font-semibold hover:bg-[#e55a00] transition-colors"
-                  >
-                    Cadastrar
                   </Link>
                 </>
               )}
@@ -235,7 +229,7 @@ export default function MobileNavbar() {
                   >
                     📅 Eventos
                   </Link>
-                  {isAuthenticated && user?.role === 'ADMIN' && (
+                  {isAuthenticated && (user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') && (
                     <Link
                       to="/admin/chat"
                       onClick={() => setIsMenuOpen(false)}
@@ -250,14 +244,14 @@ export default function MobileNavbar() {
                   {isAuthenticated && user ? (
                     <>
                       <Link
-                        to={user.role === 'ADMIN' ? '/admin/dashboard' : '/my-courses'}
+                        to={(user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') ? '/admin/dashboard' : '/my-courses'}
                         onClick={() => setIsMenuOpen(false)}
                         className={`block py-3 px-4 rounded-lg font-medium transition-colors ${isActive('/my-courses') || isActive('/admin/dashboard')
                           ? 'bg-[#FF6600] text-white'
                           : 'text-gray-700 hover:bg-gray-100'
                           }`}
                       >
-                        {user.role === 'ADMIN' ? '⚙️ Dashboard' : '📖 Meus Cursos'}
+                        {(user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') ? '⚙️ Dashboard' : '📖 Meus Cursos'}
                       </Link>
                       <Link
                         to="/profile"
@@ -289,13 +283,6 @@ export default function MobileNavbar() {
                         className="block py-3 px-4 rounded-lg font-medium text-gray-700 hover:bg-gray-100 transition-colors"
                       >
                         🔐 Entrar
-                      </Link>
-                      <Link
-                        to="/register"
-                        onClick={() => setIsMenuOpen(false)}
-                        className="block py-3 px-4 rounded-lg font-medium bg-[#FF6600] text-white text-center hover:bg-[#e55a00] transition-colors"
-                      >
-                        ✨ Cadastrar
                       </Link>
                     </>
                   )}
@@ -357,7 +344,7 @@ export default function MobileNavbar() {
               <span className="text-xs font-medium">Eventos</span>
             </Link>
 
-            {user.role === 'ADMIN' ? (
+            {(user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') ? (
               <Link
                 to="/admin/dashboard"
                 className={`flex flex-col items-center justify-center px-4 py-2 rounded-lg transition-colors ${isActive('/admin/dashboard') || isActive('/admin/courses')
@@ -405,7 +392,7 @@ export default function MobileNavbar() {
                   : 'bg-gray-200 text-gray-700'
                   }`}
               >
-                {user.name?.charAt(0).toUpperCase() || 'A'}
+                {user.name?.charAt(0).toUpperCase() || (user.role === 'SUPER_ADMIN' ? 'S' : 'A')}
               </div>
               <span className="text-xs font-medium">Perfil</span>
             </Link>

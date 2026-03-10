@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -157,208 +158,203 @@ export default function RegistrationForm({ eventId }: { eventId: string }) {
 
   if (success) {
     return (
-      <div className="text-center py-8">
-        <div className="text-green-600 text-2xl font-bold mb-4">
-          ✓ Cadastro realizado com sucesso!
+      <div className="text-center py-12 space-y-6 animate-in fade-in zoom-in duration-500">
+        <div className="w-20 h-20 bg-emerald-500/10 border border-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+          <svg className="w-10 h-10 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+          </svg>
         </div>
-        <p className="text-gray-600">
-          Você receberá um email de confirmação em breve.
-        </p>
-        <a
-          href="/"
-          className="inline-flex mt-4 px-6 py-3 bg-[#003366] text-white font-semibold rounded-full hover:bg-[#00264d] transition-colors"
-        >
-          Voltar para página inicial
-        </a>
+        <div className="space-y-2">
+          <h2 className="text-3xl font-black text-[var(--secondary)] tracking-tight">Cadastro Confirmado!</h2>
+          <p className="text-[var(--text-muted)] font-medium">
+            Tudo certo! Você receberá um e-mail com os detalhes em breve.
+          </p>
+        </div>
+        <div className="pt-6">
+          <Link
+            to="/"
+            className="inline-flex items-center justify-center px-8 py-4 bg-[var(--secondary)] text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/10 active:scale-95"
+          >
+            Voltar para Início
+          </Link>
+        </div>
       </div>
     )
   }
 
+  const inputClass = "w-full px-5 py-4 bg-[var(--bg-main)] border border-[var(--border-light)] rounded-2xl focus:ring-4 focus:ring-[var(--primary)]/10 focus:border-[var(--primary)] text-[var(--text-main)] font-medium transition-all outline-none placeholder:text-slate-400";
+  const labelClass = "block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2 ml-1";
+
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Nome Completo *
-        </label>
-        <input
-          {...register('name')}
-          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
-        />
-        {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name.message}</p>}
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+      <div className="space-y-6">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            CPF *
-          </label>
+          <label className={labelClass}>Nome Completo *</label>
           <input
-            {...register('cpf')}
-            maxLength={11}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
+            {...register('name')}
+            placeholder="Seu nome completo"
+            className={inputClass}
           />
-          {errors.cpf && <p className="text-red-500 text-sm mt-1">{errors.cpf.message}</p>}
+          {errors.name && <p className="text-red-500 text-[10px] font-bold uppercase tracking-wider mt-2 ml-1">{errors.name.message}</p>}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className={labelClass}>CPF *</label>
+            <input
+              {...register('cpf')}
+              placeholder="000.000.000-00"
+              maxLength={11}
+              className={inputClass}
+            />
+            {errors.cpf && <p className="text-red-500 text-[10px] font-bold uppercase tracking-wider mt-2 ml-1">{errors.cpf.message}</p>}
+          </div>
+
+          <div>
+            <label className={labelClass}>WhatsApp / Telefone *</label>
+            <input
+              {...register('phone')}
+              placeholder="(00) 00000-0000"
+              className={inputClass}
+            />
+            {errors.phone && <p className="text-red-500 text-[10px] font-bold uppercase tracking-wider mt-2 ml-1">{errors.phone.message}</p>}
+          </div>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Telefone *
-          </label>
+          <label className={labelClass}>E-mail Principal *</label>
           <input
-            {...register('phone')}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
+            type="email"
+            {...register('email')}
+            placeholder="exemplo@email.com"
+            className={inputClass}
           />
-          {errors.phone && <p className="text-red-500 text-sm mt-1">{errors.phone.message}</p>}
-        </div>
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          E-mail *
-        </label>
-        <input
-          type="email"
-          {...register('email')}
-          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
-        />
-        {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email.message}</p>}
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            CEP *
-          </label>
-          <input
-            {...register('cep')}
-            maxLength={8}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
-          />
-          {errors.cep && <p className="text-red-500 text-sm mt-1">{errors.cep.message}</p>}
+          {errors.email && <p className="text-red-500 text-[10px] font-bold uppercase tracking-wider mt-2 ml-1">{errors.email.message}</p>}
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Localidade/Bairro *
-          </label>
-          <input
-            {...register('locality')}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
-          />
-          {errors.locality && <p className="text-red-500 text-sm mt-1">{errors.locality.message}</p>}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div>
+            <label className={labelClass}>CEP *</label>
+            <input
+              {...register('cep')}
+              placeholder="00000-000"
+              maxLength={8}
+              className={inputClass}
+            />
+            {errors.cep && <p className="text-red-500 text-[10px] font-bold uppercase tracking-wider mt-2 ml-1">{errors.cep.message}</p>}
+          </div>
+
+          <div>
+            <label className={labelClass}>Bairro / Localidade *</label>
+            <input
+              {...register('locality')}
+              placeholder="Ex: Centro"
+              className={inputClass}
+            />
+            {errors.locality && <p className="text-red-500 text-[10px] font-bold uppercase tracking-wider mt-2 ml-1">{errors.locality.message}</p>}
+          </div>
+
+          <div>
+            <label className={labelClass}>Estado *</label>
+            <SearchableSelect
+              value={watch('state')}
+              onChange={(val) => {
+                setValue('state', val, { shouldValidate: true })
+                setValue('city', '', { shouldValidate: true })
+              }}
+              options={states.map((s) => ({ value: s.sigla, label: s.nome }))}
+              placeholder={loadingStates ? '...' : 'UF'}
+              searchPlaceholder="UF..."
+              disabled={loadingStates}
+              loading={loadingStates}
+              error={!!errors.state}
+            />
+            {errors.state && <p className="text-red-500 text-[10px] font-bold uppercase tracking-wider mt-2 ml-1">{errors.state.message}</p>}
+          </div>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Cidade *
-          </label>
+          <label className={labelClass}>Cidade *</label>
           <SearchableSelect
             value={watch('city')}
             onChange={(val) => setValue('city', val, { shouldValidate: true })}
             options={cities.map((c) => ({ value: c.nome, label: c.nome }))}
             placeholder={
-              loadingCities
-                ? 'Carregando cidades...'
-                : selectedState
-                  ? 'Selecione a cidade...'
-                  : 'Selecione o estado primeiro'
+              loadingCities ? 'Carregando...' : selectedState ? 'Selecione a cidade...' : 'Selecione o estado primeiro'
             }
             searchPlaceholder="Buscar cidade..."
             disabled={!selectedState || loadingCities}
             loading={loadingCities}
             error={!!errors.city}
           />
-          {errors.city && <p className="text-red-500 text-sm mt-1">{errors.city.message}</p>}
+          {errors.city && <p className="text-red-500 text-[10px] font-bold uppercase tracking-wider mt-2 ml-1">{errors.city.message}</p>}
         </div>
-      </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Estado *
-        </label>
-        <SearchableSelect
-          value={watch('state')}
-          onChange={(val) => {
-            setValue('state', val, { shouldValidate: true })
-            // Reset city when state changes
-            setValue('city', '', { shouldValidate: true })
-          }}
-          options={states.map((s) => ({ value: s.sigla, label: s.nome }))}
-          placeholder={loadingStates ? 'Carregando estados...' : 'Selecione o estado...'}
-          searchPlaceholder="Buscar estado..."
-          disabled={loadingStates}
-          loading={loadingStates}
-          error={!!errors.state}
-        />
-        {errors.state && <p className="text-red-500 text-sm mt-1">{errors.state.message}</p>}
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2 md:text-base">
-          Selecione a opção que melhor descreve você *
-        </label>
-        <select
-          {...register('participantType')}
-          className="w-full px-4 py-3 text-base border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900 md:py-2 md:text-sm appearance-none bg-white cursor-pointer min-h-[48px] touch-manipulation"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
-            backgroundPosition: 'right 0.75rem center',
-            backgroundRepeat: 'no-repeat',
-            backgroundSize: '1.5em 1.5em',
-            paddingRight: '2.5rem'
-          }}
-        >
-          <option value="">Selecione...</option>
-          <option value="PRODUTOR">Produtor</option>
-          <option value="OUTROS">Outros</option>
-        </select>
-        {errors.participantType && <p className="text-red-500 text-sm mt-1">{errors.participantType.message}</p>}
-      </div>
-
-      {participantType === 'PRODUTOR' && (
-        <>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Quantidade de Viveiros *
-            </label>
-            <input
-              type="number"
-              {...register('pondCount', { valueAsNumber: true })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
-            />
-            {errors.pondCount && <p className="text-red-500 text-sm mt-1">{errors.pondCount.message}</p>}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Hectares de lâmina d&apos;água *
-            </label>
-            <input
-              type="number"
-              step="0.01"
-              {...register('waterArea', { valueAsNumber: true })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
-            />
-            {errors.waterArea && <p className="text-red-500 text-sm mt-1">{errors.waterArea.message}</p>}
-          </div>
-        </>
-      )}
-
-      {participantType === 'OUTROS' && (
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            O que você é? *
-          </label>
-          <input
-            {...register('otherType')}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
-          />
-          {errors.otherType && <p className="text-red-500 text-sm mt-1">{errors.otherType.message}</p>}
+          <label className={labelClass}>Perfil do Participante *</label>
+          <div className="relative group">
+            <select
+              {...register('participantType')}
+              className={`${inputClass} appearance-none cursor-pointer pr-12`}
+            >
+              <option value="">Selecione seu perfil...</option>
+              <option value="PRODUTOR">Sou Produtor</option>
+              <option value="OUTROS">Outros / Visitante</option>
+            </select>
+            <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 group-hover:text-[var(--primary)] transition-colors">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+          </div>
+          {errors.participantType && <p className="text-red-500 text-[10px] font-bold uppercase tracking-wider mt-2 ml-1">{errors.participantType.message}</p>}
         </div>
-      )}
+
+        {participantType === 'PRODUTOR' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-[var(--primary)]/5 rounded-[2rem] border border-[var(--primary)]/10 animate-in slide-in-from-top-4 duration-300">
+            <div>
+              <label className={labelClass}>Qtd. de Viveiros *</label>
+              <input
+                type="number"
+                {...register('pondCount', { valueAsNumber: true })}
+                placeholder="0"
+                className={inputClass}
+              />
+              {errors.pondCount && <p className="text-red-500 text-[10px] font-bold uppercase tracking-wider mt-2 ml-1">{errors.pondCount.message}</p>}
+            </div>
+
+            <div>
+              <label className={labelClass}>Hectares d'água *</label>
+              <input
+                type="number"
+                step="0.01"
+                {...register('waterArea', { valueAsNumber: true })}
+                placeholder="0.00"
+                className={inputClass}
+              />
+              {errors.waterArea && <p className="text-red-500 text-[10px] font-bold uppercase tracking-wider mt-2 ml-1">{errors.waterArea.message}</p>}
+            </div>
+          </div>
+        )}
+
+        {participantType === 'OUTROS' && (
+          <div className="animate-in slide-in-from-top-4 duration-300">
+            <label className={labelClass}>Especifique seu Perfil *</label>
+            <input
+              {...register('otherType')}
+              placeholder="Ex: Estudante, Palestrante, etc"
+              className={inputClass}
+            />
+            {errors.otherType && <p className="text-red-500 text-[10px] font-bold uppercase tracking-wider mt-2 ml-1">{errors.otherType.message}</p>}
+          </div>
+        )}
+      </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+        <div className="p-4 bg-red-500/10 border border-red-500/20 text-red-600 rounded-2xl text-xs font-bold uppercase tracking-wide flex items-center gap-3">
+          <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
           {error}
         </div>
       )}
@@ -366,9 +362,16 @@ export default function RegistrationForm({ eventId }: { eventId: string }) {
       <button
         type="submit"
         disabled={submitting}
-        className="w-full bg-[#FF6600] text-white py-3 px-6 rounded-md font-semibold hover:bg-[#e55a00] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full py-5 bg-gradient-to-r from-[var(--primary)] to-[var(--accent)] text-white font-black text-xs uppercase tracking-[0.2em] rounded-[1.5rem] shadow-2xl shadow-[var(--primary)]/30 hover:shadow-[var(--primary)]/40 hover:-translate-y-1 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-y-0"
       >
-        {submitting ? 'Enviando...' : 'Confirmar Cadastro'}
+        {submitting ? (
+          <div className="flex items-center justify-center gap-3">
+            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            PROCESSANDO...
+          </div>
+        ) : (
+          'FINALIZAR INSCRIÇÃO'
+        )}
       </button>
     </form>
   )

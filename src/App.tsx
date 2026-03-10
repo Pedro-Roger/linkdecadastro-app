@@ -6,7 +6,7 @@ import ProtectedUserRoute from './components/ProtectedUserRoute'
 
 const HomePage = lazy(() => import('./pages/HomePage'))
 const LoginPage = lazy(() => import('./pages/auth/LoginPage'))
-const RegisterPage = lazy(() => import('./pages/auth/RegisterPage'))
+
 const CompleteProfilePage = lazy(() => import('./pages/auth/CompleteProfilePage'))
 const AdminDashboardPage = lazy(() => import('./pages/admin/DashboardPage'))
 const AdminCoursesPage = lazy(() => import('./pages/admin/CoursesPage'))
@@ -19,7 +19,10 @@ const AdminEventsPage = lazy(() => import('./pages/admin/EventsPage'))
 const AdminNewEventPage = lazy(() => import('./pages/admin/NewEventPage'))
 const EventRegistrationsPage = lazy(() => import('./pages/admin/EventRegistrationsPage'))
 const EventClassesPage = lazy(() => import('./pages/admin/EventClassesPage'))
+const AdminCrmContactsPage = lazy(() => import('./pages/admin/CrmContactsPage'))
 const WhatsAppSendPage = lazy(() => import('./pages/admin/WhatsAppSendPage'))
+const AiSettingsPage = lazy(() => import('./pages/admin/AiSettingsPage'))
+const AdminUsersPage = lazy(() => import('./pages/admin/UsersPage'))
 const UserCoursesPage = lazy(() => import('./pages/user/CoursesPage'))
 const UserMyCoursesPage = lazy(() => import('./pages/user/MyCoursesPage'))
 const UserCoursePage = lazy(() => import('./pages/user/CoursePage'))
@@ -47,7 +50,7 @@ function App() {
           <Route path="/events" element={<EventsPage />} />
 
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
+
           <Route path="/complete-profile" element={<CompleteProfilePage />} />
           <Route path="/auth/google/callback" element={<GoogleCallbackPage />} />
 
@@ -67,8 +70,11 @@ function App() {
           <Route path="/admin/events/new" element={<AdminNewEventPage />} />
           <Route path="/admin/events/:eventId/registrations" element={<EventRegistrationsPage />} />
           <Route path="/admin/events/:eventId/classes" element={<EventClassesPage />} />
+          <Route path="/admin/crm/contacts" element={<AdminCrmContactsPage />} />
           <Route path="/admin/whatsapp/send" element={<WhatsAppSendPage />} />
+          <Route path="/admin/ai-settings" element={<AiSettingsPage />} />
           <Route path="/admin/chat" element={<AdminChatPage />} />
+          <Route path="/admin/users" element={<AdminUsersPage />} />
 
           {/* Rota 404 - deve ser a última */}
           <Route path="*" element={<NotFoundPage />} />

@@ -1,10 +1,16 @@
-import { useEffect, useState, useMemo } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import MobileNavbar from '@/components/ui/MobileNavbar'
-import Footer from '@/components/ui/Footer'
+import { useEffect, useState, useMemo, useCallback } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import {
+  MessageSquare, Send, Search, Filter, CheckCircle,
+  XCircle, Smartphone, User, MapPin, BadgeCheck,
+  Trash2, Upload, Video, Image as ImageIcon,
+  MoreVertical, CheckCheck, RefreshCw, Smartphone as PhoneIcon, LogOut,
+  ChevronDown, Check, PlusCircle, Info
+} from 'lucide-react'
 import LoadingScreen from '@/components/ui/LoadingScreen'
-import { apiFetch, normalizeImageUrl } from '@/lib/api'
+import { apiFetch, normalizeImageUrl, getApiUrl } from '@/lib/api'
 import { useAuth } from '@/lib/useAuth'
+import AdminLayout from '@/components/layouts/AdminLayout'
 
 interface Participant {
   id_contato: string
@@ -21,1176 +27,612 @@ interface Participant {
   eventos?: string[]
 }
 
-interface Course {
-  id: string
-  title: string
-  slug?: string | null
-  bannerUrl?: string | null
-}
-
-interface Event {
-  id: string
-  title: string
-  slug?: string | null
-  coverUrl?: string | null
-}
-
-interface StateOption {
-  sigla: string
-  nome: string
-}
-
 export default function WhatsAppSendPage() {
   const navigate = useNavigate()
-  const { user, loading: authLoading, isAuthenticated, signOut } = useAuth({
+  const { user, loading: authLoading, isAuthenticated } = useAuth({
     requireAuth: true,
     redirectTo: '/login',
   })
+
+  const [searchParams] = useSearchParams()
+  const initialEventId = searchParams.get('eventId')
+
+  // Sessions state
+  const [sessions, setSessions] = useState<any[]>([])
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(localStorage.getItem('active_whatsapp_session'))
+  const [showSessionSelector, setShowSessionSelector] = useState(false)
+
+  // States
   const [participants, setParticipants] = useState<Participant[]>([])
-  const [filteredParticipants, setFilteredParticipants] = useState<Participant[]>([])
   const [selectedParticipantIds, setSelectedParticipantIds] = useState<Set<string>>(new Set())
-  const [initialLoading, setInitialLoading] = useState(true)
   const [participantsLoading, setParticipantsLoading] = useState(false)
   const [sending, setSending] = useState(false)
   const [whatsappStatus, setWhatsappStatus] = useState<any>(null)
   const [message, setMessage] = useState('')
-  // NOVOS ESTADOS PARA UPLOAD
-  const [mediaFile, setMediaFile] = useState<File | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
+
+  // Filters
+  const [selectedType, setSelectedType] = useState<'course' | 'event' | 'all' | ''>(initialEventId ? 'event' : 'all')
+  const [courses, setCourses] = useState<any[]>([])
+  const [events, setEvents] = useState<any[]>([])
+  const [selectedCourse, setSelectedCourse] = useState<any>(null)
+  const [selectedEvent, setSelectedEvent] = useState<any>(null)
+  const [selectedState, setSelectedState] = useState('')
+  const [selectedCity, setSelectedCity] = useState('')
+  const [selectedRole, setSelectedRole] = useState('')
+  const [showCreateGroupModal, setShowCreateGroupModal] = useState(false)
+  const [newGroupName, setNewGroupName] = useState('')
+  const [isCreatingGroup, setIsCreatingGroup] = useState(false)
+
+  // Media
   const [mediaPreview, setMediaPreview] = useState<string | null>(null)
   const [uploadedMediaUrl, setUploadedMediaUrl] = useState<string | null>(null)
   const [uploadedMediaType, setUploadedMediaType] = useState<'image' | 'video' | null>(null)
   const [isUploading, setIsUploading] = useState(false)
-  // const [includeImage, setIncludeImage] = useState(true) // REMOVIDO
 
-  /* Função de Upload */
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    // Preview Local
-    const objectUrl = URL.createObjectURL(file)
-    setMediaPreview(objectUrl)
-    setMediaFile(file)
-    setUploadedMediaUrl(null) // Resetar URL anterior enquanto sobe a nova
-
-    // Detectar tipo
-    const type = file.type.startsWith('video/') ? 'video' : 'image'
-    setUploadedMediaType(type)
-
-    // Upload Imediato
-    const formData = new FormData()
-    formData.append('file', file)
-
-    setIsUploading(true)
-    try {
-      const res = await apiFetch<any>('/admin/upload', {
-        method: 'POST',
-        body: formData,
-        auth: true
-      });
-
-      // Backend retorna { url: '/uploads/...', type: 'image'|'video' }
-      setUploadedMediaUrl(normalizeImageUrl(res.url))
-      // Se backend retornar type use ele, senão use o que detectamos
-      if (res.type) setUploadedMediaType(res.type)
-
-    } catch (err) {
-      console.error('Erro no upload:', err)
-      setError('Falha ao fazer upload da mídia.')
-      setMediaPreview(null)
-      setMediaFile(null)
-    } finally {
-      setIsUploading(false)
-    }
-  }
-
-  // Handle Remove Media
-  const handleRemoveMedia = () => {
-    setMediaFile(null)
-    setMediaPreview(null)
-    setUploadedMediaUrl(null)
-    setUploadedMediaType(null)
-  }
-  const [selectedCity, setSelectedCity] = useState<string>('')
-  const [selectedParticipantType, setSelectedParticipantType] = useState<string>('')
-  const [selectedState, setSelectedState] = useState<string>('')
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
-  const [courses, setCourses] = useState<Course[]>([])
-  const [events, setEvents] = useState<Event[]>([])
-  const [selectedType, setSelectedType] = useState<'course' | 'event' | 'all' | ''>('course')
-  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null)
-  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
-  const [stateOptions, setStateOptions] = useState<StateOption[]>([])
-  const [citiesOptions, setCitiesOptions] = useState<string[]>([])
-  const [loadingStates, setLoadingStates] = useState(false)
-  const [loadingCities, setLoadingCities] = useState(false)
-
-  // Pairing Code State
-  const [showPairingInput, setShowPairingInput] = useState(false)
+  // Pairing State
+  const [showPairingUI, setShowPairingUI] = useState(false)
   const [pairingPhone, setPairingPhone] = useState('')
   const [pairingCode, setPairingCode] = useState<string | null>(null)
   const [pairingLoading, setPairingLoading] = useState(false)
 
-  const qrCodeImage = useMemo(() => {
-    if (!whatsappStatus) return null
-    if (whatsappStatus.qrCodeBase64) return whatsappStatus.qrCodeBase64
-    if (whatsappStatus.qrCode) {
-      return `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(
-        whatsappStatus.qrCode,
-      )}`
-    }
-    return null
-  }, [whatsappStatus])
-
-  useEffect(() => {
-    if (!authLoading) {
-      if (!isAuthenticated || user?.role !== 'ADMIN') {
-        navigate('/my-courses')
-      } else {
-        fetchCourses()
-        fetchEvents()
-        // Removido fetchParticipants(true) - só buscar quando houver filtro aplicado
-        checkWhatsAppStatus()
-        setInitialLoading(false) // Marca como carregado
-      }
-    }
-  }, [authLoading, isAuthenticated, user, navigate])
-
-  useEffect(() => {
-    loadStates()
-  }, [])
-
-  useEffect(() => {
-    if (!selectedState) {
-      setCitiesOptions([])
-      setSelectedCity('')
-      return
-    }
-    setSelectedCity('')
-    loadCities(selectedState)
-  }, [selectedState])
-
-  // Hook específico para integração com automação (Puppeteer/Backend)
-  // O backend pode injetar o código de pareamento através desta função global
-  useEffect(() => {
-    const w = window as any
-    w.onCodeReceivedEvent = (event: any) => {
-      console.log('Event received from automation:', event)
-      if (event && event.code) {
-        setPairingCode(event.code)
-        setPairingLoading(false)
-        setShowPairingInput(true) // Garante que a UI de pareamento esteja visível
-      }
-    }
-
-    return () => {
-      if (w.onCodeReceivedEvent) {
-        delete w.onCodeReceivedEvent
-      }
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!isAuthenticated || authLoading) return
-    if (initialLoading && !selectedState && !selectedCity && !selectedParticipantType && !selectedCourse && !selectedEvent) return
-    fetchParticipants()
-  }, [selectedState, selectedCity, selectedParticipantType, selectedCourse, selectedEvent, isAuthenticated, authLoading, initialLoading])
-
-  useEffect(() => {
-    if (!isAuthenticated) return
-    const interval = setInterval(() => {
-      checkWhatsAppStatus()
-    }, 10000)
-    return () => clearInterval(interval)
-  }, [isAuthenticated])
-
-  // Gerar mensagem automaticamente quando curso ou evento for selecionado
-  useEffect(() => {
-    if (selectedCourse || selectedEvent || selectedType === 'all') {
-      generateMessage()
-    } else {
-      setMessage('')
-    }
-    // Não precisamos chamar fetchParticipants aqui pois o outro useEffect já o fará quando selectedCourse/selectedEvent mudar
-  }, [selectedCourse, selectedEvent, selectedType])
-
-  useEffect(() => {
-    // Aplicar filtros
-    let filtered = participants
-
-    if (selectedCity) {
-      filtered = filtered.filter((p) =>
-        p.cidade?.toLowerCase().includes(selectedCity.toLowerCase())
-      )
-    }
-
-    if (selectedState) {
-      filtered = filtered.filter((p) =>
-        p.estado?.toLowerCase().includes(selectedState.toLowerCase())
-      )
-    }
-
-    if (selectedParticipantType) {
-      if (selectedParticipantType === 'PRODUTOR') {
-        filtered = filtered.filter((p) => p.produtor)
-      } else if (selectedParticipantType === 'PROFESSOR') {
-        filtered = filtered.filter((p) => p.professor)
-      } else if (selectedParticipantType === 'ESTUDANTE') {
-        filtered = filtered.filter((p) => p.estudante)
-      }
-    }
-
-    // Nota: A filtragem por curso/evento agora é feita no backend, 
-    // mas mantemos filtros locais adicionais se necessário para garantir consistência
-    // caso os dados retornados precisem de refinamento extra
-
-    setFilteredParticipants(filtered)
-    // Auto-select all filtered participants by default
-    setSelectedParticipantIds(new Set(filtered.map(p => p.id_contato)))
-  }, [participants, selectedCity, selectedState, selectedParticipantType, selectedCourse, selectedEvent])
-
-  const toggleSelectAll = () => {
-    if (filteredParticipants.every(p => selectedParticipantIds.has(p.id_contato))) {
-      // Unselect all
-      setSelectedParticipantIds(new Set())
-    } else {
-      // Select all visible
-      const newSelected = new Set(selectedParticipantIds)
-      filteredParticipants.forEach(p => newSelected.add(p.id_contato))
-      setSelectedParticipantIds(newSelected)
-    }
-  }
-
-  const toggleSelectOne = (id: string) => {
-    const newSelected = new Set(selectedParticipantIds)
-    if (newSelected.has(id)) {
-      newSelected.delete(id)
-    } else {
-      newSelected.add(id)
-    }
-    setSelectedParticipantIds(newSelected)
-  }
-
-  async function loadStates() {
+  const fetchSessions = useCallback(async () => {
     try {
-      setLoadingStates(true)
-      const response = await fetch('https://servicodados.ibge.gov.br/api/v1/localidades/estados?orderBy=nome')
-      if (!response.ok) {
-        throw new Error('Erro ao carregar estados')
+      const data = await apiFetch<any>('/api/whatsapp/sessions', { auth: true })
+      if (data.success && data.sessions.length > 0) {
+        setSessions(data.sessions)
+        if (!currentSessionId || !data.sessions.find((s: any) => s.id === currentSessionId)) {
+          setCurrentSessionId(data.sessions[0].id)
+          localStorage.setItem('active_whatsapp_session', data.sessions[0].id)
+        }
+      } else if (data.success && data.sessions.length === 0) {
+        const newSess = await apiFetch<any>('/api/whatsapp/sessions', {
+          method: 'POST', auth: true, body: JSON.stringify({ name: 'Meu WhatsApp' })
+        })
+        if (newSess.success) {
+          setSessions([newSess.session])
+          setCurrentSessionId(newSess.session.id)
+          localStorage.setItem('active_whatsapp_session', newSess.session.id)
+        }
       }
-      const data = await response.json()
-      const normalized = (data || [])
-        .map((state: any) => ({ sigla: state.sigla, nome: state.nome }))
-        .sort((a: StateOption, b: StateOption) => a.nome.localeCompare(b.nome))
-      setStateOptions(normalized)
+    } catch (err) {
+      console.error('Erro ao buscar sessões:', err)
+    }
+  }, [currentSessionId])
+
+  const checkWhatsAppStatus = useCallback(async () => {
+    if (!currentSessionId) return
+    try {
+      const status = await apiFetch<any>(`/api/whatsapp/status?sessionId=${currentSessionId}`, { auth: true })
+      setWhatsappStatus(status)
+      if (status.status === 'QR_CODE') setShowPairingUI(true)
     } catch (error) {
-      console.error('Erro ao carregar estados:', error)
-    } finally {
-      setLoadingStates(false)
     }
-  }
+  }, [currentSessionId])
 
-  async function loadCities(stateSigla: string) {
+  const fetchParticipants = useCallback(async () => {
     try {
-      setLoadingCities(true)
-      const response = await fetch(
-        `https://servicodados.ibge.gov.br/api/v1/localidades/estados/${stateSigla}/municipios`,
-      )
-      if (!response.ok) {
-        throw new Error('Erro ao carregar cidades')
-      }
-      const data = await response.json()
-      const normalized = (data || [])
-        .map((city: any) => city.nome as string)
-        .sort((a: string, b: string) => a.localeCompare(b))
-      setCitiesOptions(normalized)
-    } catch (error) {
-      console.error('Erro ao carregar cidades:', error)
-      setCitiesOptions([])
-    } finally {
-      setLoadingCities(false)
-    }
-  }
-
-  async function fetchCourses() {
-    try {
-      const data = await apiFetch<Course[]>('/admin/courses', { auth: true })
-      setCourses(data || [])
-    } catch (error) {
-      // Ignorar erro silenciosamente
-    }
-  }
-
-  async function fetchEvents() {
-    try {
-      const data = await apiFetch<Event[]>('/events', { auth: true })
-      setEvents(data || [])
-    } catch (error) {
-      // Ignorar erro silenciosamente
-    }
-  }
-
-  async function fetchParticipants(useInitialLoader = false) {
-    try {
-      if (useInitialLoader) {
-        setInitialLoading(true)
-      } else {
-        setParticipantsLoading(true)
-      }
+      setParticipantsLoading(true)
       const queryParams = new URLSearchParams()
       if (selectedCity) queryParams.append('city', selectedCity)
       if (selectedState) queryParams.append('state', selectedState)
-      if (selectedParticipantType) queryParams.append('participantType', selectedParticipantType)
-
-      // Adicionar filtros de curso/evento
       if (selectedCourse) queryParams.append('courseId', selectedCourse.id)
       if (selectedEvent) queryParams.append('eventId', selectedEvent.id)
+      if (selectedRole) queryParams.append('participantType', selectedRole)
 
-      const url = `/admin/courses/enrollments/whatsapp?${queryParams.toString()}`
-      console.log('[FRONTEND] Chamando API:', url)
-
-      const data = await apiFetch<any>(
-        url,
-        { auth: true }
-      )
-
-      console.log('[FRONTEND] Resposta recebida:', data)
-      console.log('[FRONTEND] Total de participantes:', data?.participantes?.length || 0)
-
+      const data = await apiFetch<any>(`/admin/courses/enrollments/whatsapp?${queryParams.toString()}`, { auth: true })
       setParticipants(data.participantes || [])
-    } catch (error) {
-      console.error('[FRONTEND] Erro ao carregar participantes:', error)
+      setSelectedParticipantIds(new Set((data.participantes || []).map((p: any) => p.id_contato)))
+    } catch (err) {
       setError('Erro ao carregar participantes')
     } finally {
-      if (useInitialLoader) {
-        setInitialLoading(false)
-      } else {
-        setParticipantsLoading(false)
-      }
+      setParticipantsLoading(false)
     }
-  }
+  }, [selectedCity, selectedState, selectedCourse, selectedEvent])
 
-  function generateMessage() {
-    if (!selectedCourse && !selectedEvent && selectedType !== 'all') {
-      setMessage('')
-      return
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchSessions()
+      apiFetch<any[]>('/admin/courses', { auth: true }).then(setCourses).catch(() => { })
+      apiFetch<any[]>('/admin/events/history', { auth: true }).then(setEvents).catch(() => { })
+      fetchParticipants()
     }
+  }, [isAuthenticated, fetchSessions, fetchParticipants])
 
-    const origin = typeof window !== 'undefined' ? window.location.origin : ''
-
-    if (selectedType === 'all') {
-      const messageTemplate = `Olá, {nome}!
-
-Espero que esteja bem. 😊
-
-Passando para te convidar a conhecer as novidades do *Link de Cadastro*. Temos novos cursos e eventos disponíveis em nossa plataforma que podem ser do seu interesse.
-
-Acesse nosso portal para conferir:
-${origin}
-
-Qualquer dúvida, estamos à disposição!`
-      setMessage(messageTemplate)
-      return
+  useEffect(() => {
+    if (currentSessionId) {
+      checkWhatsAppStatus()
+      const interval = setInterval(checkWhatsAppStatus, 10000)
+      return () => clearInterval(interval)
     }
-    let link = ''
-    let title = ''
-    const tipo = selectedCourse ? 'curso' : 'evento'
+  }, [currentSessionId, checkWhatsAppStatus])
 
-    if (selectedCourse) {
-      title = selectedCourse.title
-      if (selectedCourse.slug) {
-        link = `${origin}/c/${selectedCourse.slug}`
-      } else {
-        link = `${origin}/course/${selectedCourse.id}`
-      }
-    } else if (selectedEvent) {
-      title = selectedEvent.title
-      if (selectedEvent.slug) {
-        link = `${origin}/register-event.html?event=${selectedEvent.slug}`
-      } else {
-        link = `${origin}/register-event.html?event=${selectedEvent.id}`
-      }
-    }
-
-    // Mensagem template com placeholder {nome} que será substituído no backend
-    const messageTemplate = `Olá, {nome}!
-
-Participe já do nosso ${tipo}: *${title}*
-
-Acreditamos que você vai se interessar! Não perca essa chance de participar.
-
-Acesse o link abaixo para se inscrever:
-${link}
-
-Esperamos você! 😊`
-
-    setMessage(messageTemplate)
-  }
-
-  function handleTypeChange(type: 'course' | 'event' | 'all' | '') {
-    setSelectedType(type)
-    setSelectedCourse(null)
-    setSelectedEvent(null)
-    setMessage('')
-  }
-
-  function handleCourseSelect(courseId: string) {
-    const course = courses.find(c => c.id === courseId)
-    setSelectedCourse(course || null)
-    setSelectedEvent(null)
-  }
-
-  function handleEventSelect(eventId: string) {
-    const event = events.find(e => e.id === eventId)
-    setSelectedEvent(event || null)
-    setSelectedCourse(null)
-  }
-
-
-
-  async function handleRequestPairingCode() {
-    if (!pairingPhone) {
-      setError('Por favor, digite o número do telefone.')
-      return
-    }
-
-    let phoneToSend = pairingPhone.replace(/\D/g, '')
-    // Se o número tiver 10 ou 11 dígitos, assume que é BR e adiciona 55
-    if (phoneToSend.length >= 10 && phoneToSend.length <= 11 && !phoneToSend.startsWith('55')) {
-      phoneToSend = `55${phoneToSend}`
-    }
-
-    setPairingLoading(true)
+  const handleMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setIsUploading(true)
     setError(null)
-    setPairingCode(null)
-
+    const type = file.type.startsWith('image/') ? 'image' : (file.type.startsWith('video/') ? 'video' : null)
+    if (!type) {
+      setError('Formato inválido. Use apenas imagem ou vídeo.')
+      setIsUploading(false)
+      return
+    }
+    const formData = new FormData()
+    formData.append('file', file)
     try {
-      const result = await apiFetch<any>('/api/whatsapp/pair', {
-        method: 'POST',
-        auth: true,
-        body: JSON.stringify({ phoneNumber: phoneToSend }),
+      const response = await fetch(`${getApiUrl()}/admin/upload`, {
+        method: 'POST', body: formData, headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       })
-
-      if (result.success && result.code) {
-        setPairingCode(result.code)
-      } else {
-        throw new Error(result.message || 'Erro ao gerar código')
+      const data = await response.json()
+      if (data.url) {
+        setUploadedMediaUrl(data.url)
+        setUploadedMediaType(type)
+        setMediaPreview(URL.createObjectURL(file))
       }
-    } catch (error: any) {
-      console.error('Erro no pareamento:', error)
-      setError(error.message || 'Erro ao solicitar código de pareamento')
-    } finally {
-      setPairingLoading(false)
-    }
+    } catch (err) {
+      setError('Falha ao fazer upload da mídia.')
+    } finally { setIsUploading(false) }
   }
 
-  async function checkWhatsAppStatus() {
+  const handleRequestPairingCode = async () => {
+    if (!pairingPhone || !currentSessionId) return
+    setPairingLoading(true)
     try {
-      const status = await apiFetch<any>('/api/whatsapp/status', { auth: true })
-      setWhatsappStatus(status)
-    } catch (error) {
-      console.error('Erro ao verificar status do WhatsApp')
-    }
+      const ph = pairingPhone.replace(/\D/g, '')
+      const res = await apiFetch<any>('/api/whatsapp/pair', {
+        method: 'POST', auth: true, body: JSON.stringify({ sessionId: currentSessionId, phoneNumber: ph.startsWith('55') ? ph : `55${ph}` })
+      })
+      if (res.success) setPairingCode(res.code)
+    } catch (error) { setError('Erro ao gerar código de pareamento') } finally { setPairingLoading(false) }
   }
 
-  async function handleSendMessage() {
-    if (!message.trim()) {
-      setError('Por favor, selecione um curso ou evento para compartilhar')
-      return
-    }
-
-    if (!selectedCourse && !selectedEvent && selectedType !== 'all') {
-      setError('Por favor, selecione um curso, evento ou a opção "Todos" para compartilhar')
-      return
-    }
-
-    if (selectedParticipantIds.size === 0) {
-      setError('Por favor, selecione pelo menos um participante')
-      return
-    }
-
-    if (!whatsappStatus || whatsappStatus.status !== 'READY') {
-      setError('WhatsApp não está conectado. Verifique o status da conexão.')
-      return
-    }
-
+  const handleSendMessage = async () => {
+    if (!message.trim() || selectedParticipantIds.size === 0 || whatsappStatus?.status !== 'READY' || !currentSessionId) return
     setSending(true)
     setError(null)
     setSuccess(null)
-
     try {
-      // Gerar link
-      const origin = typeof window !== 'undefined' ? window.location.origin : ''
-      let link = ''
-      let title = ''
-
-      if (selectedCourse) {
-        title = selectedCourse.title
-        if (selectedCourse.slug) {
-          link = `${origin}/c/${selectedCourse.slug}`
-        } else {
-          link = `${origin}/course/${selectedCourse.id}`
-        }
-      } else if (selectedEvent) {
-        title = selectedEvent.title
-        if (selectedEvent.slug) {
-          link = `${origin}/register-event.html?event=${selectedEvent.slug}`
-        } else {
-          link = `${origin}/register-event.html?event=${selectedEvent.id}`
-        }
-      }
-
-      // Preparar filtros para a API
-      const filtros: any = {}
-      if (selectedCity) filtros.cidade = selectedCity
-      if (selectedState) filtros.estado = selectedState
-      if (selectedParticipantType === 'PRODUTOR') filtros.produtor = true
-      else if (selectedParticipantType === 'PROFESSOR') filtros.professor = true
-      else if (selectedParticipantType === 'ESTUDANTE') filtros.estudante = true
-
-      // Preparar participantes com nome para personalização
-      // Filtrar apenas os IDs selecionados
-      const participantesFinais = filteredParticipants.filter(p => selectedParticipantIds.has(p.id_contato))
-
-      console.log('[FRONTEND] Participantes selecionados:', participantesFinais.length)
-      console.log('[FRONTEND] Primeiro participante:', participantesFinais[0])
-
-      const participantesComNome = participantesFinais.map((p) => {
-        let phoneToSend = p.id_contato.replace(/\D/g, '')
-        // Se o número tiver 10 ou 11 dígitos, assume que é BR e adiciona 55
-        // A menos que já comece com 55 e tenha 12 ou 13 dígitos
-        if (phoneToSend.length >= 10 && phoneToSend.length <= 11) {
-          phoneToSend = `55${phoneToSend}`
-        }
-
-        return {
-          id_contato: phoneToSend,
-          nome: p.nome,
-          cidade: p.cidade,
-          estado: p.estado,
-          produtor: p.produtor,
-          professor: p.professor,
-          estudante: p.estudante,
-        }
-      })
-
-      console.log('[FRONTEND] Participantes formatados:', participantesComNome)
-      console.log('[FRONTEND] Mensagem a enviar:', message)
-
-      // Preparar Payload com Mídia Opcional - Forçando Recompilação
-      let mediaUrl: string | undefined = undefined
-      let mediaType: 'image' | 'video' | undefined = undefined
-
-      if (uploadedMediaUrl) {
-        mediaUrl = uploadedMediaUrl
-        mediaType = uploadedMediaType || 'image'
-      } else if (mediaFile) {
-        alert('Aguarde o término do upload da mídia.')
-        return
-      }
-
-      // O backend irá personalizar a mensagem substituindo {nome} pelo nome de cada participante
+      const selectedList = participants.filter(p => selectedParticipantIds.has(p.id_contato))
       const payload = {
-        mensagem: message, // Mensagem com {nome} que será substituído no backend
-        participantes: participantesComNome,
-        filtros: {}, // Sem filtros, pois já filtramos antes no frontend
-        mediaUrl,
-        mediaType
+        sessionId: currentSessionId,
+        mensagem: message,
+        participantes: selectedList.map(p => ({
+          ...p,
+          id_contato: p.id_contato,
+        })),
+        mediaUrl: uploadedMediaUrl,
+        mediaType: uploadedMediaType,
+        filtros: { tipo: selectedType, curso: selectedCourse?.title, evento: selectedEvent?.title, cidade: selectedCity, estado: selectedState }
       }
-
-      console.log('[FRONTEND] Payload completo:', payload)
-
       const result = await apiFetch<any>('/api/whatsapp/enviar-mensagem-segmentada', {
+        method: 'POST', auth: true, body: JSON.stringify(payload)
+      })
+      if (result.enviadas > 0) setSuccess(`${result.enviadas} mensagens enviadas com sucesso!${result.falhas > 0 ? ` (${result.falhas} falharam)` : ''}`)
+      else setError(`Nenhuma mensagem pôde ser enviada. ${result.falhas > 0 ? `(${result.falhas} falhas)` : ''} Confira possíveis bloqueios ou números inativos.`)
+    } catch (err: any) { setError(err?.message || 'Erro ao enviar mensagens') } finally { setSending(false) }
+  }
+
+  const handleCreateGroup = async () => {
+    if (!newGroupName.trim() || selectedParticipantIds.size === 0 || !currentSessionId) return
+    setIsCreatingGroup(true)
+    setError(null)
+    setSuccess(null)
+    try {
+      const selectedJids = participants
+        .filter(p => selectedParticipantIds.has(p.id_contato))
+        .map(p => {
+          let id = p.id_contato.replace(/\D/g, '')
+          // Remove non-digit chars and handle 9th digit
+          if (id.startsWith('0')) id = id.substring(1)
+          if (id.length === 11 && id[2] === '9') id = id.substring(0, 2) + id.substring(3)
+          if ((id.length === 10 || id.length === 11) && !id.startsWith('55')) id = '55' + id
+          return `${id}@s.whatsapp.net`
+        })
+
+      const res = await apiFetch<any>('/api/whatsapp/create-group', {
         method: 'POST',
         auth: true,
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          sessionId: currentSessionId,
+          name: newGroupName,
+          participants: selectedJids
+        })
       })
 
-      console.log('[FRONTEND] Resultado do envio:', result)
-
-      const enviadas = result.mensagens_enviadas || 0
-      const falhas = result.mensagens_falhadas || 0
-
-      if (enviadas === 0 && falhas === 0) {
-        setError('Nenhuma mensagem foi enviada. O backend não processou nenhum envio. Verifique os logs do servidor.')
-        setSuccess(null)
-      } else if (enviadas === 0) {
-        setError(`Falha ao enviar mensagens. ${falhas} falhas registradas. Verifique a conexão com o WhatsApp.`)
-        setSuccess(null)
-      } else {
-        setSuccess(
-          `Mensagem enviada com sucesso! ${enviadas} mensagens enviadas, ${falhas} falhas.`
-        )
+      if (res.success) {
+        setSuccess(`Grupo "${newGroupName}" criado com sucesso!`)
+        setShowCreateGroupModal(false)
+        setNewGroupName('')
       }
-    } catch (error: any) {
-      setError(error?.message || 'Erro ao enviar mensagem')
+    } catch (err: any) {
+      setError(err?.message || 'Erro ao criar grupo')
     } finally {
-      setSending(false)
+      setIsCreatingGroup(false)
     }
   }
 
-  if (authLoading || initialLoading) {
-    return <LoadingScreen />
+  const handleCreateNewSession = async () => {
+    const name = prompt('Nome para esta conexão:')
+    if (!name) return
+    try {
+      const data = await apiFetch<any>('/api/whatsapp/sessions', {
+        method: 'POST', auth: true, body: JSON.stringify({ name })
+      })
+      if (data.success) {
+        setSessions(prev => [...prev, data.session])
+        setCurrentSessionId(data.session.id)
+        localStorage.setItem('active_whatsapp_session', data.session.id)
+        setShowSessionSelector(false)
+      }
+    } catch (err) { console.error(err) }
   }
 
-
-
-  const formatPhone = (phone: string) => {
-    if (!phone) return '-'
-    const clean = phone.replace(/\D/g, '')
-    // Format: +55 85 98658-3270
-    if (clean.length === 13 && clean.startsWith('55')) {
-      return `+${clean.substring(0, 2)} ${clean.substring(2, 4)} ${clean.substring(4, 9)}-${clean.substring(9)}`
-    }
-    // Format: 85 98658-3270 (assuming BR local)
-    if (clean.length === 11) {
-      return `+55 ${clean.substring(0, 2)} ${clean.substring(2, 7)}-${clean.substring(7)}`
-    }
-    // Fallback
-    return phone
+  const handleSessionSwitch = (id: string) => {
+    setCurrentSessionId(id)
+    localStorage.setItem('active_whatsapp_session', id)
+    setShowSessionSelector(false)
+    setWhatsappStatus(null)
+    setPairingCode(null)
   }
 
-  const participantTypeLabels: Record<string, string> = {
-    PRODUTOR: 'Produtor',
-    PROFESSOR: 'Professor',
-    ESTUDANTE: 'Estudante',
+  const handleLogout = async () => {
+    if (!currentSessionId) return
+    if (!confirm('Deseja desconectar este WhatsApp?')) return
+    try {
+      await apiFetch(`/api/whatsapp/logout?sessionId=${currentSessionId}`, { method: 'POST', auth: true })
+      checkWhatsAppStatus()
+    } catch (err) { }
   }
+
+  if (authLoading) return <LoadingScreen />
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <MobileNavbar />
-
-      <main className="flex-1">
-        <div className="container mx-auto px-4 py-8 pb-24 md:pb-8">
-          <div className="mb-6">
-            <Link
-              to="/admin/dashboard"
-              className="text-[#FF6600] hover:underline mb-4 inline-block"
+    <AdminLayout>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 mt-4">
+        <div>
+          <h1 className="text-3xl font-black text-[var(--secondary)] tracking-tight">
+            Transmissão <span className="text-emerald-500">WhatsApp</span>
+          </h1>
+          <p className="text-slate-400 font-medium mt-1">Segmentação inteligente e disparos em massa.</p>
+        </div>
+        <div className="flex gap-3 items-center">
+          {/* Account Selector Section */}
+          <div className="relative group">
+            <button
+              onClick={() => setShowSessionSelector(!showSessionSelector)}
+              className="flex items-center gap-3 px-6 py-3.5 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-sm"
             >
-              ← Voltar para Dashboard
-            </Link>
-            <h1 className="text-3xl font-bold text-[#003366] mb-2">
-              Enviar Mensagens WhatsApp
-            </h1>
-            <p className="text-gray-600">
-              Selecione e filtre participantes para enviar mensagens segmentadas
-            </p>
-          </div>
-
-          {/* Status do WhatsApp */}
-          {whatsappStatus && (
-            <div className={`mb-6 p-4 rounded-lg ${whatsappStatus.status === 'READY'
-              ? 'bg-green-50 border border-green-200'
-              : whatsappStatus.status === 'QR_CODE'
-                ? 'bg-yellow-50 border border-yellow-200'
-                : 'bg-red-50 border border-red-200'
-              }`}>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-semibold text-gray-900">
-                    Status WhatsApp: {whatsappStatus.status}
-                  </p>
-                  {whatsappStatus.status === 'QR_CODE' && (
-                    <div className="mt-3 space-y-4">
-                      <p className="text-sm text-gray-600">
-                        Escaneie o QR Code abaixo para conectar o WhatsApp Web.
-                      </p>
-
-                      {!showPairingInput ? (
-                        <div className="flex flex-col md:flex-row items-center gap-4">
-                          {qrCodeImage && (
-                            <img
-                              src={qrCodeImage}
-                              alt="QR Code WhatsApp"
-                              className="w-48 h-48 bg-white p-3 rounded-lg shadow-md border"
-                            />
-                          )}
-                          <div className="flex flex-col gap-2">
-                            <p className="text-xs text-gray-500">
-                              Caso o QR Code expire, clique em &quot;Atualizar Status&quot;.
-                            </p>
-                            <button
-                              onClick={() => setShowPairingInput(true)}
-                              className="text-[#FF6600] text-sm hover:underline font-medium text-left"
-                            >
-                              Ou conectar com número de telefone &rarr;
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="bg-white p-4 rounded-lg border border-gray-200 max-w-md">
-                          <div className="flex justify-between items-center mb-4">
-                            <h3 className="font-semibold text-gray-800">Conectar com Número</h3>
-                            <button
-                              onClick={() => {
-                                setShowPairingInput(false)
-                                setPairingCode(null)
-                                setError(null)
-                              }}
-                              className="text-gray-400 hover:text-gray-600"
-                            >
-                              ✕
-                            </button>
-                          </div>
-
-                          {!pairingCode ? (
-                            <div className="space-y-3">
-                              <p className="text-sm text-gray-600">
-                                Digite seu número com DDD (ex: 85999999999) para gerar um código de pareamento.
-                              </p>
-                              <div className="flex gap-2">
-                                <input
-                                  type="text"
-                                  value={pairingPhone}
-                                  onChange={(e) => setPairingPhone(e.target.value.replace(/\D/g, ''))}
-                                  placeholder="DDD + Número (apenas números)"
-                                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-1 focus:ring-[#FF6600] outline-none text-gray-900 bg-white"
-                                />
-                                <button
-                                  onClick={handleRequestPairingCode}
-                                  disabled={pairingLoading || pairingPhone.length < 10}
-                                  className="px-4 py-2 bg-[#FF6600] text-white rounded-md hover:bg-[#e55a00] disabled:opacity-50 text-sm whitespace-nowrap"
-                                >
-                                  {pairingLoading ? 'Gerando...' : 'Gerar Código'}
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="text-center space-y-4">
-                              <div className="bg-gray-100 p-4 rounded-lg">
-                                <p className="text-sm text-gray-600 mb-2">Seu código de pareamento:</p>
-                                <p className="text-3xl font-mono font-bold tracking-widest text-[#003366] select-all">
-                                  {pairingCode}
-                                </p>
-                              </div>
-                              <div className="text-sm text-gray-600 text-left">
-                                <p className="font-medium mb-1">Como usar:</p>
-                                <ol className="list-decimal list-inside space-y-1 ml-1">
-                                  <li>Abra o WhatsApp no seu celular</li>
-                                  <li>Vá em <strong>Aparelhos conectados &gt; Conectar aparelho</strong></li>
-                                  <li>Toque em <strong>"Conectar com número de telefone"</strong></li>
-                                  <li>Digite o código acima</li>
-                                </ol>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  {whatsappStatus.status === 'READY' && (
-                    <p className="text-sm text-green-700 mt-1">
-                      ✓ Conectado e pronto para enviar mensagens
-                    </p>
-                  )}
-                  {whatsappStatus.status !== 'READY' && whatsappStatus.status !== 'QR_CODE' && (
-                    <p className="text-sm text-red-700 mt-1">
-                      ✗ WhatsApp não está conectado
-                    </p>
-                  )}
+              <Smartphone size={18} className="text-emerald-500" />
+              {sessions.find(s => s.id === currentSessionId)?.instance_name || 'Minhas Contas'}
+              <ChevronDown size={18} className="text-slate-300" />
+            </button>
+            {showSessionSelector && (
+              <div className="absolute top-14 right-0 w-72 bg-white rounded-3xl shadow-2xl border border-slate-100 z-50 p-3 animate-in fade-in slide-in-from-top-4 duration-200">
+                <div className="p-3 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50 mb-2">Contas Conectadas</div>
+                <div className="space-y-1 max-h-60 overflow-y-auto custom-scrollbar">
+                  {sessions.map(s => (
+                    <button
+                      key={s.id}
+                      onClick={() => handleSessionSwitch(s.id)}
+                      className={`w-full flex items-center justify-between p-4 rounded-2xl text-sm font-bold transition-all ${currentSessionId === s.id ? 'bg-emerald-50 text-emerald-700' : 'hover:bg-slate-50 text-slate-600'}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`w-2.5 h-2.5 rounded-full ${s.status === 'READY' ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                        {s.instance_name}
+                      </div>
+                      {currentSessionId === s.id && <Check size={18} />}
+                    </button>
+                  ))}
                 </div>
                 <button
-                  onClick={checkWhatsAppStatus}
-                  className="px-4 py-2 bg-[#FF6600] text-white rounded-md hover:bg-[#e55a00] transition-colors text-sm"
+                  onClick={handleCreateNewSession}
+                  className="w-full flex items-center gap-3 p-4 mt-2 rounded-2xl text-xs font-black text-slate-900 border-2 border-dashed border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/30 hover:text-emerald-700 transition-all"
                 >
-                  Atualizar Status
+                  <PlusCircle size={18} /> CONECTAR OUTRO NÚMERO
                 </button>
-              </div>
-            </div>
-          )}
-
-          {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
-              {error}
-            </div>
-          )}
-
-          {success && (
-            <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700">
-              {success}
-            </div>
-          )}
-
-          {/* Seleção de Curso ou Evento */}
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h2 className="text-xl font-semibold text-[#003366] mb-4">
-              Selecionar Curso ou Evento para Compartilhar
-            </h2>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tipo
-                </label>
-                <div className="flex gap-4">
-                  <button
-                    type="button"
-                    onClick={() => handleTypeChange('course')}
-                    className={`px-4 py-2 rounded-md font-medium transition-colors ${selectedType === 'course'
-                      ? 'bg-[#FF6600] text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
-                  >
-                    Curso
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleTypeChange('event')}
-                    className={`px-4 py-2 rounded-md font-medium transition-colors ${selectedType === 'event'
-                      ? 'bg-[#FF6600] text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
-                  >
-                    Evento
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleTypeChange('all')}
-                    className={`px-4 py-2 rounded-md font-medium transition-colors ${selectedType === 'all'
-                      ? 'bg-[#FF6600] text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
-                  >
-                    Todos
-                  </button>
-                </div>
-              </div>
-
-              {selectedType === 'course' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Selecionar Curso
-                  </label>
-                  <select
-                    value={selectedCourse?.id || ''}
-                    onChange={(e) => handleCourseSelect(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
-                  >
-                    <option value="">Selecione um curso...</option>
-                    {courses.map((course) => (
-                      <option key={course.id} value={course.id}>
-                        {course.title}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {selectedType === 'event' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Selecionar Evento
-                  </label>
-                  <select
-                    value={selectedEvent?.id || ''}
-                    onChange={(e) => handleEventSelect(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
-                  >
-                    <option value="">Selecione um evento...</option>
-                    {events.map((event) => (
-                      <option key={event.id} value={event.id}>
-                        {event.title}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {(selectedCourse || selectedEvent || selectedType === 'all') && (
-                <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
-                  <p className="text-sm text-blue-800">
-                    <strong>Selecionado:</strong> {selectedType === 'all' ? 'Todos os Contatos' : (selectedCourse || selectedEvent)?.title}
-                  </p>
-                  <p className="text-xs text-blue-600 mt-1">
-                    A mensagem será gerada automaticamente com saudação personalizada {selectedType !== 'all' && 'e o link direto'}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Filtros */}
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h2 className="text-xl font-semibold text-[#003366] mb-4">Filtros</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Estado
-                </label>
-                <select
-                  value={selectedState}
-                  onChange={(e) => setSelectedState(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
-                  disabled={loadingStates}
-                >
-                  <option value="">
-                    {loadingStates ? 'Carregando estados...' : 'Todos os estados'}
-                  </option>
-                  {stateOptions.map((state) => (
-                    <option key={state.sigla} value={state.sigla}>
-                      {state.nome}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Cidade
-                </label>
-                <select
-                  value={selectedCity}
-                  onChange={(e) => setSelectedCity(e.target.value)}
-                  disabled={!selectedState || loadingCities || citiesOptions.length === 0}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
-                >
-                  <option value="">
-                    {!selectedState
-                      ? 'Selecione um estado'
-                      : loadingCities
-                        ? 'Carregando cidades...'
-                        : 'Todas as cidades'}
-                  </option>
-                  {citiesOptions.map((city) => (
-                    <option key={city} value={city}>
-                      {city}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Tipo de Participante
-                </label>
-                <select
-                  value={selectedParticipantType}
-                  onChange={(e) => setSelectedParticipantType(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
-                >
-                  <option value="">Todos os tipos</option>
-                  <option value="PRODUTOR">Produtor</option>
-                  <option value="PROFESSOR">Professor</option>
-                  <option value="ESTUDANTE">Estudante</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="mt-4 pt-4 border-t">
-              <p className="text-sm text-gray-600">
-                <strong>{filteredParticipants.length}</strong> participantes encontrados após aplicar os filtros
-              </p>
-              {participantsLoading && (
-                <p className="text-xs text-gray-500 mt-1">Atualizando lista de participantes...</p>
-              )}
-            </div>
-          </div>
-
-          {/* Mensagem */}
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h2 className="text-xl font-semibold text-[#003366] mb-4">Mensagem Automática</h2>
-            <div className="mb-4 p-4 bg-gray-50 border border-gray-200 rounded-md">
-              <p className="text-sm text-gray-700 mb-2">
-                <strong>Como funciona:</strong> A mensagem será gerada automaticamente para cada participante com:
-              </p>
-              <ul className="text-sm text-gray-600 list-disc list-inside space-y-1">
-                <li>Saudação personalizada com o nome do participante</li>
-                <li>Texto convidativo sobre o curso/evento selecionado</li>
-                <li>Link direto para inscrição</li>
-              </ul>
-            </div>
-            <textarea
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder={selectedCourse || selectedEvent || selectedType === 'all' ? "A mensagem será gerada automaticamente..." : "Selecione um curso ou evento acima para gerar a mensagem"}
-              rows={8}
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
-              readOnly={!selectedCourse && !selectedEvent && selectedType !== 'all'}
-            />
-            {message && (
-              <div className="mt-2">
-                <p className="text-sm text-gray-500">
-                  {message.length} caracteres (mensagem será personalizada para cada participante)
-                </p>
-                <p className="text-xs text-gray-400 mt-1">
-                  * O nome "{'{nome}'}" será substituído automaticamente pelo nome de cada participante
-                </p>
               </div>
             )}
           </div>
 
-          {/* Lista de participantes filtrados */}
-          {filteredParticipants.length === 0 && !participantsLoading && (
-            <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-              <p className="text-gray-500 text-sm">
-                Nenhum participante encontrado com os filtros atuais. Ajuste os filtros e tente novamente.
-              </p>
-            </div>
-          )}
-          {filteredParticipants.length > 0 && (
-            <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-              <h2 className="text-xl font-semibold text-[#003366] mb-4">
-                Participantes que receberão a mensagem ({filteredParticipants.length})
-              </h2>
-              <div className="max-h-96 overflow-y-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50 sticky top-0">
-                    <tr>
-                      <th className="px-4 py-3 text-left">
-                        <input
-                          type="checkbox"
-                          checked={filteredParticipants.length > 0 && filteredParticipants.every(p => selectedParticipantIds.has(p.id_contato))}
-                          onChange={toggleSelectAll}
-                          className="rounded border-gray-300 text-[#FF6600] focus:ring-[#FF6600]"
-                        />
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Nome
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Telefone
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Cidade
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Tipo
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {filteredParticipants.slice(0, 50).map((participant, index) => (
-                      <tr key={participant.id_contato} className="hover:bg-gray-50">
-                        <td className="px-4 py-3">
-                          <input
-                            type="checkbox"
-                            checked={selectedParticipantIds.has(participant.id_contato)}
-                            onChange={() => toggleSelectOne(participant.id_contato)}
-                            className="rounded border-gray-300 text-[#FF6600] focus:ring-[#FF6600]"
-                          />
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-900">
-                          {participant.nome}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-600">
-                          {formatPhone(participant.telefone)}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-600">
-                          {participant.cidade || '-'}
-                        </td>
-                        <td className="px-4 py-3 text-sm">
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${participant.produtor
-                            ? 'bg-green-100 text-green-800'
-                            : participant.professor
-                              ? 'bg-blue-100 text-blue-800'
-                              : 'bg-purple-100 text-purple-800'
-                            }`}>
-                            {participantTypeLabels[participant.participante_tipo] || participant.participante_tipo}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {filteredParticipants.length > 50 && (
-                  <p className="text-sm text-gray-500 mt-4 text-center">
-                    Mostrando 50 de {filteredParticipants.length} participantes
-                  </p>
-                )}
-              </div>
-            </div>
+          <button
+            onClick={checkWhatsAppStatus}
+            className="p-3.5 bg-white border border-slate-200 text-slate-400 rounded-2xl hover:text-emerald-500 hover:bg-slate-50 transition-all shadow-sm"
+          >
+            <RefreshCw size={22} className={whatsappStatus?.status === 'CHECKING' ? 'animate-spin' : ''} />
+          </button>
+
+          {whatsappStatus?.status === 'READY' && (
+            <button
+              onClick={handleLogout}
+              className="p-3.5 bg-red-50 text-red-500 border border-red-100 rounded-2xl hover:bg-red-100 transition-all shadow-sm group"
+              title="Desconectar"
+            >
+              <LogOut size={22} className="group-hover:translate-x-1 transition-transform" />
+            </button>
           )}
 
+          <div className={`flex items-center gap-3 px-6 py-3.5 rounded-2xl border-2 transition-all font-black text-[10px] uppercase tracking-widest ${whatsappStatus?.status === 'READY'
+            ? 'bg-emerald-50 border-emerald-200 text-emerald-700 shadow-xl shadow-emerald-500/10'
+            : 'bg-red-50 border-red-200 text-red-600'
+            }`}>
+            <div className={`w-2 h-2 rounded-full ${whatsappStatus?.status === 'READY' ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
+            {whatsappStatus?.status === 'READY' ? 'Conectado' : 'Desconectado'}
+          </div>
+        </div>
+      </div>
 
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        {/* Left Column - Message & Media */}
+        <div className="lg:col-span-12 space-y-8">
+          {/* Connection Banner inside Content */}
+          {whatsappStatus?.status !== 'READY' && (
+            <div className="bg-slate-900 rounded-[2.5rem] p-10 flex flex-col md:flex-row items-center gap-10 shadow-2xl relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl -mr-32 -mt-32"></div>
 
-  // ... (código existente) ...
-
-          {/* Área de Upload de Mídia */}
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h2 className="text-xl font-semibold text-[#003366] mb-4">Anexar Mídia (Opcional)</h2>
-
-            {!mediaPreview ? (
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 flex flex-col items-center justify-center text-center hover:bg-gray-50 transition-colors cursor-pointer relative">
-                <input
-                  type="file"
-                  accept="image/*,video/*"
-                  onChange={handleFileChange}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                />
-                <div className="text-gray-400 mb-2">
-                  <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+              {whatsappStatus?.qrCodeBase64 ? (
+                <div className="flex flex-col items-center gap-6 animate-in zoom-in-95 duration-500">
+                  <div className="bg-white p-4 rounded-[2.5rem] shadow-2xl border-4 border-emerald-500 mx-auto w-fit">
+                    <img src={whatsappStatus.qrCodeBase64} alt="QR" className="w-56 h-56 rounded-2xl" />
+                  </div>
+                  <div className="px-6 py-2 bg-emerald-500 rounded-full text-white text-[10px] font-black uppercase tracking-widest animate-pulse">Escaneie o QR Code</div>
                 </div>
-                <p className="text-gray-600 font-medium">Clique para selecionar uma imagem ou vídeo</p>
-                <p className="text-gray-400 text-sm mt-1">MP4, JPG, PNG (Max 30MB)</p>
-              </div>
-            ) : (
-              <div className="relative rounded-lg border overflow-hidden bg-gray-100 flex items-center justify-center">
-                {/* Botão Remover */}
-                <button
-                  onClick={handleRemoveMedia}
-                  className="absolute top-2 right-2 bg-red-600 text-white p-1 rounded-full hover:bg-red-700 z-10"
-                  title="Remover mídia"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                </button>
+              ) : (
+                <div className="w-48 h-48 bg-slate-800 rounded-[2.5rem] flex items-center justify-center text-slate-600 border-2 border-dashed border-slate-700">
+                  <RefreshCw size={48} className="animate-spin" />
+                </div>
+              )}
 
-                {/* Preview Imagem ou Vídeo */}
-                {uploadedMediaType === 'video' ? (
-                  <video src={mediaPreview} controls className="max-h-64 max-w-full rounded" />
-                ) : (
-                  <img src={mediaPreview} alt="Preview" className="max-h-64 object-contain rounded" />
-                )}
+              <div className="flex-1 text-center md:text-left space-y-4">
+                <h2 className="text-3xl font-black text-white leading-tight">Conecte seu WhatsApp para enviar transmissões.</h2>
+                <p className="text-slate-400 font-medium max-w-xl">Abra o WhatsApp em seu celular, acesse Aparelhos Conectados e escaneie o código ao lado. O sistema permite manter múltiplos números conectados individualmente.</p>
 
-                {/* Loading Overlay */}
-                {isUploading && (
-                  <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-                    <div className="text-white font-medium flex items-center gap-2">
-                      <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                      Enviando...
+                <div className="flex flex-col sm:flex-row gap-4 pt-4">
+                  <div className="flex-1 flex gap-2">
+                    <input
+                      type="text"
+                      value={pairingPhone}
+                      onChange={(e) => setPairingPhone(e.target.value)}
+                      placeholder="Número (Ex: 1199999999)"
+                      className="flex-1 bg-slate-800 border-none rounded-2xl px-5 text-white text-sm font-bold focus:ring-2 focus:ring-emerald-500 transition-all placeholder:text-slate-600"
+                    />
+                    <button
+                      onClick={handleRequestPairingCode}
+                      disabled={pairingLoading || !pairingPhone}
+                      className="px-6 py-4 bg-emerald-500 text-white rounded-2xl font-black hover:bg-emerald-400 transition-all active:scale-95 disabled:opacity-50 text-[10px] uppercase tracking-widest"
+                    >
+                      {pairingLoading ? 'GERANDO...' : 'USAR CÓDIGO'}
+                    </button>
+                  </div>
+                  {pairingCode && (
+                    <div className="bg-white px-8 py-4 rounded-2xl flex flex-col items-center justify-center shadow-lg animate-in fade-in duration-300">
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Código</span>
+                      <span className="text-xl font-black text-slate-900 tracking-[0.4em]">{pairingCode}</span>
                     </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="lg:col-span-7 space-y-8">
+          <div className="bg-white rounded-[2.5rem] p-10 border border-slate-100 shadow-sm relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-slate-50 rounded-full blur-2xl -mr-8 -mt-8"></div>
+            <div className="flex items-center gap-3 mb-8">
+              <div className="w-12 h-12 bg-slate-900 rounded-2xl flex items-center justify-center text-emerald-400">
+                <MessageSquare size={24} />
+              </div>
+              <h3 className="text-xl font-black text-slate-800 tracking-tight">Compor Mensagem</h3>
+            </div>
+
+            <div className="space-y-6">
+              <div>
+                <textarea
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  placeholder="Olá {nome}, como vai? Gostaria de te convidar para..."
+                  className="w-full h-80 bg-slate-50 border-none rounded-3xl p-6 text-base font-medium focus:ring-2 focus:ring-emerald-500/20 transition-all placeholder:text-slate-300 resize-none shadow-inner"
+                />
+                <div className="mt-4 flex items-center gap-4 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  <span className="px-2 py-1 bg-slate-100 rounded-lg text-slate-600">Dica: Use {`{nome}`} para personalizar</span>
+                  <span>{message.length} caracteres</span>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-center gap-4 pt-4 border-t border-slate-50">
+                <div className="relative flex-1 w-full">
+                  <input type="file" onChange={handleMediaUpload} className="hidden" id="media-upload" accept="image/*,video/*" />
+                  <label htmlFor="media-upload" className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-slate-50 border border-dashed border-slate-200 rounded-2xl cursor-pointer hover:border-emerald-500 hover:bg-emerald-50 transition-all font-bold text-slate-500">
+                    <Upload size={20} className={isUploading ? 'animate-bounce' : ''} />
+                    {uploadedMediaUrl ? 'Arquivo Carregado' : 'Carregar Imagem ou Vídeo'}
+                  </label>
+                </div>
+                {mediaPreview && (
+                  <div className="relative group">
+                    <img src={mediaPreview} className="w-16 h-16 rounded-xl object-cover border-2 border-emerald-500 shadow-lg" alt="Preview" />
+                    <button onClick={() => { setMediaPreview(null); setUploadedMediaUrl(null); }} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"><XCircle size={14} /></button>
                   </div>
                 )}
               </div>
-            )}
-          </div>
-
-          {/* Botão de enviar */}
-          <div className="flex justify-end gap-4">
-            <Link
-              to="/admin/dashboard"
-              className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
-            >
-              Cancelar
-            </Link>
-            <button
-              onClick={handleSendMessage}
-              disabled={sending || (!selectedCourse && !selectedEvent && selectedType !== 'all') || !message.trim() || selectedParticipantIds.size === 0 || whatsappStatus?.status !== 'READY'}
-              className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-            >
-              {sending ? (
-                <>
-                  <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Enviando...
-                </>
-              ) : (
-                <>
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M20.52 3.48A11.77 11.77 0 0 0 12.02 0 11.84 11.84 0 0 0 .15 11.85a11.6 11.6 0 0 0 1.58 5.84L0 24l6.42-1.68a11.85 11.85 0 0 0 5.6 1.42h.01A11.84 11.84 0 0 0 24 11.86a11.7 11.7 0 0 0-3.48-8.38ZM12 21.15h-.01a9.9 9.9 0 0 1-5.04-1.38l-.36-.21-3.81.99 1.02-3.7-.23-.38a9.84 9.84 0 0 1 8.43-15.1h.01a9.8 9.8 0 0 1 9.82 9.84A9.86 9.86 0 0 1 12 21.15Zm5.41-7.36c-.3-.15-1.77-.87-2.04-.97s-.47-.15-.66.15-.76.97-.93 1.17-.34.22-.63.07a8.07 8.07 0 0 1-2.37-1.46 8.84 8.84 0 0 1-1.62-2 1.77 1.77 0 0 1 .11-1.86c.18-.23.4-.48.6-.73s.25-.38.37-.62.06-.45 0-.62-.66-1.59-.91-2.18-.5-.5-.68-.51h-.58a1.12 1.12 0 0 0-.81.38 3.36 3.36 0 0 0-1.06 2.5 5.86 5.86 0 0 0 1.24 3.13 13.35 13.35 0 0 0 5.15 4.52 5.9 5.9 0 0 0 2.4.73 2 2 0 0 0 1.31-.86 1.6 1.6 0 0 0 .11-.86c-.05-.09-.27-.17-.57-.31Z" />
-                  </svg>
-                  Enviar para {selectedParticipantIds.size} participante(s)
-                </>
-              )}
-            </button>
+            </div>
           </div>
         </div>
-      </main>
 
-      <Footer />
-    </div>
+        <div className="lg:col-span-5 space-y-8">
+          <div className="bg-white rounded-[2.5rem] p-10 border border-slate-100 shadow-sm">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400">
+                <Filter size={24} />
+              </div>
+              <h3 className="text-xl font-black text-slate-800 tracking-tight">Segmentação de Leads</h3>
+            </div>
+
+            <div className="space-y-6">
+              <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block">Tipo de Fonte</label>
+                <div className="grid grid-cols-2 gap-3">
+                  {['all', 'event'].map(type => (
+                    <button key={type} onClick={() => setSelectedType(type as any)} className={`py-4 rounded-2xl font-bold text-xs uppercase transition-all border-2 ${selectedType === type ? 'bg-slate-900 border-slate-900 text-white shadow-xl shadow-slate-900/10' : 'bg-slate-50 border-slate-50 text-slate-400 hover:border-slate-200'}`}>
+                      {type === 'all' ? 'Todos Leads' : 'Inscritos Eventos'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block">Estado</label>
+                  <select value={selectedState} onChange={(e) => setSelectedState(e.target.value)} className="w-full bg-slate-50 border-none rounded-2xl px-5 py-4 text-sm font-bold focus:ring-2 focus:ring-emerald-500/20 text-slate-700">
+                    <option value="">Brasil (Todos)</option>
+                    {['SP', 'RJ', 'MG', 'RS', 'SC', 'PR', 'BA', 'PE', 'CE', 'DF'].map(uf => <option key={uf} value={uf}>{uf}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block">Cidade</label>
+                  <input type="text" value={selectedCity} onChange={(e) => setSelectedCity(e.target.value)} placeholder="Ex: São Paulo" className="w-full bg-slate-50 border-none rounded-2xl px-5 py-4 text-sm font-bold focus:ring-2 focus:ring-emerald-500/20 text-slate-700 placeholder:text-slate-300" />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block">Papel / Função</label>
+                <select value={selectedRole} onChange={(e) => setSelectedRole(e.target.value)} className="w-full bg-slate-50 border-none rounded-2xl px-5 py-4 text-sm font-bold focus:ring-2 focus:ring-emerald-500/20 text-slate-700">
+                  <option value="">Todos os Papéis</option>
+                  <option value="ESTUDANTE">Estudante</option>
+                  <option value="PROFESSOR">Professor</option>
+                  <option value="PRODUTOR">Produtor</option>
+                </select>
+              </div>
+
+              {selectedType === 'event' && (
+                <div className="animate-in slide-in-from-top-4 duration-300">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block">Selecionar Evento</label>
+                  <select value={selectedEvent?.id || ''} onChange={(e) => setSelectedEvent(events.find(ev => ev.id === e.target.value))} className="w-full bg-slate-50 border-none rounded-2xl px-5 py-4 text-sm font-bold focus:ring-2 focus:ring-emerald-500/20 text-slate-700">
+                    <option value="">Selecione um evento...</option>
+                    {events.map(ev => <option key={ev.id} value={ev.id}>{ev.title}</option>)}
+                  </select>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-10 pt-10 border-t border-slate-50">
+              {participants.length === 0 && !participantsLoading && (
+                <div className="mb-6 p-4 bg-amber-50 border border-amber-100 rounded-2xl text-amber-700 text-xs font-bold flex items-center gap-3 animate-pulse">
+                  <Info size={18} /> Nenhum participante atende aos filtros
+                </div>
+              )}
+              <div className="flex items-center justify-between mb-8">
+                <div className="flex flex-col">
+                  <span className="text-3xl font-black text-slate-900 tracking-tighter">{selectedParticipantIds.size}</span>
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Leads Selecionados <span className="text-emerald-500">/ {participants.length}</span></span>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => setSelectedParticipantIds(new Set())} className="px-5 py-2.5 bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest rounded-xl hover:bg-red-50 hover:text-red-500 transition-all underline">Limpar Seleção</button>
+                  <button onClick={() => setSelectedParticipantIds(new Set(participants.map(p => p.id_contato)))} className="px-5 py-2.5 bg-emerald-50 text-[10px] font-black text-emerald-600 uppercase tracking-widest rounded-xl hover:bg-emerald-100 transition-all">Selecionar Todos</button>
+                </div>
+              </div>
+
+              {/* Lista Selecionável */}
+              {participants.length > 0 && (
+                <div className="mb-8 max-h-[300px] overflow-y-auto custom-scrollbar border border-slate-100 rounded-2xl bg-slate-50 p-2">
+                  {participants.map(p => (
+                    <label key={p.id_contato} className="flex items-center gap-4 p-3 hover:bg-white rounded-xl cursor-pointer transition-all border border-transparent hover:border-slate-200 hover:shadow-sm">
+                      <input
+                        type="checkbox"
+                        checked={selectedParticipantIds.has(p.id_contato)}
+                        onChange={(e) => {
+                          const newSet = new Set(selectedParticipantIds);
+                          if (e.target.checked) newSet.add(p.id_contato);
+                          else newSet.delete(p.id_contato);
+                          setSelectedParticipantIds(newSet);
+                        }}
+                        className="w-5 h-5 rounded-md border-slate-300 text-emerald-500 focus:ring-emerald-500"
+                      />
+                      <div className="flex-1">
+                        <p className="text-sm font-bold text-slate-800">{p.nome || 'Sem Nome'}</p>
+                        <p className="text-xs text-slate-500 font-medium">{p.telefone}</p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex flex-col sm:flex-row gap-4">
+                <button
+                  onClick={handleSendMessage}
+                  disabled={sending || selectedParticipantIds.size === 0 || whatsappStatus?.status !== 'READY'}
+                  className="flex-1 bg-slate-900 hover:bg-slate-800 text-white py-6 rounded-3xl font-black text-[12px] uppercase tracking-[0.2em] flex items-center justify-center gap-4 transition-all shadow-2xl shadow-slate-900/20 active:scale-95 disabled:opacity-50 disabled:scale-100"
+                >
+                  {sending ? (
+                    <><RefreshCw size={24} className="animate-spin text-emerald-400" /> PROCESSANDO DISPARO...</>
+                  ) : (
+                    <><Send size={24} className="text-emerald-400" /> ENVIAR TRANSMISSÃO</>
+                  )}
+                </button>
+
+                <button
+                  onClick={() => {
+                    if (selectedCity && !newGroupName) setNewGroupName(`Grupo ${selectedCity}`)
+                    setShowCreateGroupModal(true)
+                  }}
+                  disabled={selectedParticipantIds.size === 0 || whatsappStatus?.status !== 'READY'}
+                  className="bg-emerald-50 text-emerald-600 px-8 py-6 rounded-3xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-100 transition-all active:scale-95 disabled:opacity-50"
+                >
+                  CRIAR GRUPO
+                </button>
+              </div>
+
+              {error && <div className="mt-6 p-5 bg-red-50 text-red-600 rounded-2xl text-xs font-bold border border-red-100 animate-in slide-in-from-bottom-2 duration-300 flex items-center gap-3"><XCircle size={18} /> {error}</div>}
+              {success && <div className="mt-6 p-5 bg-emerald-50 text-emerald-700 rounded-2xl text-xs font-bold border border-emerald-100 animate-in slide-in-from-bottom-2 duration-300 flex items-center gap-3"><CheckCircle size={18} /> {success}</div>}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Create Group Modal */}
+      {showCreateGroupModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[3rem] w-full max-w-lg shadow-2xl border border-slate-100 overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-10 border-b border-slate-50 flex items-center justify-between">
+              <div>
+                <h3 className="text-2xl font-black text-slate-800 tracking-tight italic">Novo Grupo</h3>
+                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Criar grupo com {selectedParticipantIds.size} participantes</p>
+              </div>
+              <button onClick={() => setShowCreateGroupModal(false)} className="p-3 hover:bg-slate-50 rounded-2xl text-slate-400 transition-all font-bold">X</button>
+            </div>
+            <div className="p-10 space-y-8">
+              <div className="space-y-4">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nome do Grupo</label>
+                <input
+                  type="text"
+                  placeholder="Ex: Alunos de São Paulo"
+                  value={newGroupName}
+                  onChange={(e) => setNewGroupName(e.target.value)}
+                  className="w-full bg-slate-50 border-none rounded-2xl py-5 px-8 text-lg font-black text-slate-800 focus:ring-2 focus:ring-emerald-500/20 transition-all shadow-inner"
+                />
+              </div>
+
+              <button
+                onClick={handleCreateGroup}
+                disabled={isCreatingGroup || !newGroupName.trim()}
+                className="w-full py-6 bg-slate-900 text-white font-black text-xs uppercase tracking-[0.2em] rounded-3xl transition-all shadow-xl shadow-slate-900/10 active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50"
+              >
+                {isCreatingGroup ? (
+                  <RefreshCw size={20} className="animate-spin text-emerald-400" />
+                ) : (
+                  <PlusCircle size={20} className="text-emerald-400" />
+                )}
+                CRIAR GRUPO AGORA
+              </button>
+
+              <p className="text-[10px] text-slate-400 text-center font-bold uppercase leading-relaxed">
+                Nota: Todos os participantes selecionados serão adicionados ao grupo de uma vez.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+    </AdminLayout>
   )
-
-
 }

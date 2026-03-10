@@ -6,6 +6,8 @@ interface User {
   name: string
   email: string
   role?: string
+  avatar?: string
+  companyId?: string
 }
 
 interface UseAuthOptions {

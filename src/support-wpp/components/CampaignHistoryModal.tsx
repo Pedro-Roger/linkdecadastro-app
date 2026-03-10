@@ -134,11 +134,11 @@ export const CampaignHistoryModal: React.FC<CampaignHistoryModalProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[900px] max-h-[90vh] flex flex-col p-0 overflow-hidden border-none shadow-2xl rounded-3xl">
+      <DialogContent className="sm:max-w-[900px] max-h-[90vh] flex flex-col p-0 overflow-hidden border-none shadow-2xl rounded-2xl">
         <DialogHeader className="p-8 bg-white border-b border-slate-100 shrink-0">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
             <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-2xl bg-orange-50 flex items-center justify-center text-orange-600 shadow-sm border border-orange-100">
+              <div className="h-12 w-12 rounded-xl bg-orange-50 flex items-center justify-center text-orange-600 shadow-sm border border-orange-100">
                 <History className="w-6 h-6" />
               </div>
               <div>
@@ -188,7 +188,7 @@ export const CampaignHistoryModal: React.FC<CampaignHistoryModalProps> = ({
                   <MessageCircle className="w-3 h-3" /> Mensagem Inicial
                   Configurada
                 </label>
-                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm relative overflow-hidden">
+                <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm relative overflow-hidden">
                   <div className="absolute top-0 right-0 p-2 opacity-5">
                     <MessageCircle className="w-20 h-20 rotate-12" />
                   </div>
@@ -221,7 +221,7 @@ export const CampaignHistoryModal: React.FC<CampaignHistoryModalProps> = ({
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <div className="bg-white rounded-3xl border border-slate-100 overflow-hidden shadow-sm">
+                  <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm">
                     <Table>
                       <TableHeader className="bg-slate-50/50">
                         <TableRow className="border-b-orange-50">

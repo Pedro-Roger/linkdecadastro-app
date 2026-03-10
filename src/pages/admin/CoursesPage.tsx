@@ -1,256 +1,74 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { format } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
-import MobileNavbar from '@/components/ui/MobileNavbar'
-import Footer from '@/components/ui/Footer'
+import { Plus, Search, Filter, BookOpen, Users, MoreHorizontal, ArrowRight, TrendingUp, Calendar, Download, Share2 } from 'lucide-react'
 import LoadingScreen from '@/components/ui/LoadingScreen'
-import { apiFetch, getApiUrl, normalizeImageUrl } from '@/lib/api'
+import { apiFetch, normalizeImageUrl } from '@/lib/api'
 import { useAuth } from '@/lib/useAuth'
+import AdminLayout from '@/components/layouts/AdminLayout'
 
 export default function AdminCoursesPage() {
   const navigate = useNavigate()
-  const { user, loading: authLoading, isAuthenticated } = useAuth({ requireAuth: true, redirectTo: '/login' })
+  const { user, loading: authLoading, isAuthenticated } = useAuth({
+    requireAuth: true,
+    redirectTo: '/login'
+  })
+
   const [courses, setCourses] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [activeFilter, setActiveFilter] = useState<string>('all')
-  const [shareModalOpen, setShareModalOpen] = useState(false)
-  const [shareCopyStatus, setShareCopyStatus] = useState<'idle' | 'success'>('idle')
-  const [selectedCourse, setSelectedCourse] = useState<any>(null)
-  const [newClassModalOpen, setNewClassModalOpen] = useState(false)
-  const [creatingClass, setCreatingClass] = useState(false)
-  const [classLimit, setClassLimit] = useState<string>('')
-  const [courseForNewClass, setCourseForNewClass] = useState<any>(null)
+
+  const fetchCourses = useCallback(async () => {
+    try {
+      const data = await apiFetch<any[]>('/admin/courses', { auth: true })
+      setCourses(data)
+    } catch (error) {
+      console.error('Erro ao buscar cursos:', error)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
   useEffect(() => {
     if (!authLoading) {
-      if (!isAuthenticated || user?.role !== 'ADMIN') {
+      if (!isAuthenticated || (user?.role !== 'ADMIN' && user?.role !== 'SUPER_ADMIN')) {
         navigate('/my-courses')
       } else {
         fetchCourses()
       }
     }
-  }, [authLoading, isAuthenticated, user, navigate])
+  }, [authLoading, isAuthenticated, user, navigate, fetchCourses])
 
-  async function fetchCourses() {
-    try {
-      const data = await apiFetch<any[]>('/admin/courses', { auth: true })
-      setCourses(data)
-    } catch (error) {
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleDelete = async (courseId: string, courseTitle: string) => {
-    if (!confirm(`Tem certeza que deseja excluir o curso "${courseTitle}"? Esta ação não pode ser desfeita.`)) {
-      return
-    }
-
-    try {
-      await apiFetch(`/admin/courses/${courseId}`, {
-        method: 'DELETE',
-        auth: true,
-      })
-      fetchCourses()
-      alert('Curso excluído com sucesso!')
-    } catch (error) {
-      alert('Erro ao excluir curso')
-    }
-  }
-
-  const openNewClassModal = (course: any) => {
-    setCourseForNewClass(course)
-    setClassLimit(course.maxEnrollments ? String(course.maxEnrollments) : '50')
-    setNewClassModalOpen(true)
-  }
-
-  const closeNewClassModal = () => {
-    setNewClassModalOpen(false)
-    setCourseForNewClass(null)
-    setClassLimit('')
-  }
-
-  const handleCreateNewClass = async () => {
-    if (!courseForNewClass) return
-
-    const limitValue = parseInt(classLimit, 10)
-    if (isNaN(limitValue) || limitValue <= 0) {
-      alert('Informe um limite de vagas válido (maior que zero)')
-      return
-    }
-
-    setCreatingClass(true)
-    try {
-      await apiFetch(`/admin/courses/${courseForNewClass.id}/classes`, {
-        method: 'POST',
-        auth: true,
-        body: JSON.stringify({ limit: limitValue }),
-      })
-      alert('Nova turma criada com sucesso! Pessoas da lista de espera foram alocadas automaticamente.')
-      closeNewClassModal()
-      fetchCourses()
-    } catch (error: any) {
-      alert(error?.message || 'Erro ao criar nova turma')
-    } finally {
-      setCreatingClass(false)
-    }
-  }
-
-  const handleExport = async (courseId: string, courseTitle: string) => {
-    try {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
-      if (!token) {
-        alert('Você precisa estar logado para exportar dados')
-        return
+  // Definitiva contra preenchimento automático (auto-fill)
+  useEffect(() => {
+    const inputId = 'search_courses_no_fill';
+    const clearInput = () => {
+      const input = document.getElementById(inputId) as HTMLInputElement;
+      if (input && searchTerm === '' && input.value !== '') {
+        input.value = '';
       }
+    };
 
-      const url = `${getApiUrl()}/admin/courses/${courseId}/export?format=xlsx`
+    // Tentar limpar imediatamente e em intervalos nos primeiros 2 segundos
+    clearInput();
+    const interval = setInterval(clearInput, 200);
+    const timeout = setTimeout(() => clearInterval(interval), 2000);
 
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      })
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
+  }, [searchTerm]);
 
-      if (response.ok) {
-        const blob = await response.blob()
-        const url = window.URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `inscritos-${courseTitle.replace(/[^a-z0-9]/gi, '-').toLowerCase()}.xlsx`
-        document.body.appendChild(a)
-        a.click()
-        window.URL.revokeObjectURL(url)
-        document.body.removeChild(a)
-      } else {
-        const errorText = await response.text()
-        alert(`Erro ao exportar dados: ${response.status} ${response.statusText}`)
-      }
-    } catch (error) {
-      alert(`Erro ao exportar dados: ${error instanceof Error ? error.message : 'Erro desconhecido'}`)
-    }
-  }
-
-  const buildShareData = (course: any) => {
-    const origin = typeof window !== 'undefined' ? window.location.origin : ''
-    const apiUrl = getApiUrl()
-
-    // URL completa para o formulário de inscrição
-    // Usa slug se disponível, senão usa ID
-    const courseParam = course.slug ? encodeURIComponent(course.slug) : course.id
-    const path = `/enroll.html?course=${courseParam}`
-    const url = origin ? `${origin}${path}` : path
-
-    // URL do backend para Open Graph (com meta tags já preenchidas)
-    // Isso garante que o WhatsApp veja a imagem
-    // Usa slug se disponível (preferível para URLs amigáveis)
-    const ogUrl = course.slug
-      ? `${apiUrl}/share/enroll/${encodeURIComponent(course.slug)}`
-      : `${apiUrl}/share/enroll/${course.id}`
-
-    // Normaliza a URL da imagem para garantir que seja acessível
-    let bannerUrl: string | undefined = course.bannerUrl
-    if (bannerUrl) {
-      bannerUrl = normalizeImageUrl(bannerUrl)
-    }
-
-    return {
-      url, // URL completa do frontend
-      ogUrl, // URL do backend com meta tags para crawlers (WhatsApp, Facebook, etc)
-      bannerUrl, // URL completa da imagem
-      message: `Confira o curso "${course.title}" no Link de Cadastro: ${url}`
-    }
-  }
-
-  const selectedShareData = useMemo(() => {
-    if (!selectedCourse) return null
-    return buildShareData(selectedCourse)
-  }, [selectedCourse])
-
-  const openShareModal = (course: any) => {
-    setSelectedCourse(course)
-    setShareCopyStatus('idle')
-    setShareModalOpen(true)
-  }
-
-  const closeShareModal = () => {
-    setShareModalOpen(false)
-  }
-
-  const copyShareLink = async () => {
-    if (!selectedShareData) return
-
-    try {
-      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(selectedShareData.url)
-        setShareCopyStatus('success')
-        setTimeout(() => setShareCopyStatus('idle'), 2000)
-      }
-    } catch (error) {
-    }
-  }
-
-  const shareNow = async () => {
-    if (!selectedCourse || !selectedShareData) return
-
-    const shareData = {
-      title: selectedCourse.title,
-      text: `Confira o curso "${selectedCourse.title}" no Link de Cadastro.`,
-      url: selectedShareData.ogUrl || selectedShareData.url // Usa ogUrl para garantir meta tags
-    }
-
-    try {
-      if (typeof navigator !== 'undefined' && navigator.share) {
-        await navigator.share(shareData)
-      } else if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(selectedShareData.message)
-        setShareCopyStatus('success')
-        setTimeout(() => setShareCopyStatus('idle'), 2000)
-      }
-    } catch (error) {
-    }
-  }
-
-  const shareWhatsApp = () => {
-    if (!selectedShareData || !selectedCourse) return
-
-    // Usa a URL do backend com meta tags para garantir que a imagem apareça no WhatsApp
-    // const shareUrl = selectedShareData.ogUrl || selectedShareData.url
-    // Alterado para usar a URL direta do frontend conforme solicitado
-    const shareUrl = selectedShareData.url
-    const message = `${selectedCourse.title}${selectedCourse.description ? `\n\n${selectedCourse.description.substring(0, 150)}${selectedCourse.description.length > 150 ? '...' : ''}` : ''}\n\n${shareUrl}`
-    const waUrl = `https://wa.me/?text=${encodeURIComponent(message)}`
-
-    if (typeof window !== 'undefined') {
-      window.open(waUrl, '_blank', 'noopener,noreferrer')
-    }
-  }
-
-  const filterCourses = () => {
+  const filteredCourses = useMemo(() => {
     let filtered = [...courses]
 
     if (activeFilter !== 'all') {
-      const now = new Date()
       filtered = filtered.filter((course) => {
-        const startDate = course.startDate ? new Date(course.startDate) : null
-        const endDate = course.endDate ? new Date(course.endDate) : null
-
         switch (activeFilter) {
-          case 'active':
-            return course.status === 'ACTIVE'
-          case 'inactive':
-            return course.status === 'INACTIVE'
-          case 'available':
-            return !startDate || startDate >= now || (startDate <= now && (!endDate || endDate >= now))
-          case 'ongoing':
-            return startDate && startDate <= now && (!endDate || endDate >= now)
-          case 'closed':
-            return endDate && endDate < now
-          default:
-            return true
+          case 'active': return course.status === 'ACTIVE'
+          case 'inactive': return course.status === 'INACTIVE'
+          default: return true
         }
       })
     }
@@ -265,459 +83,204 @@ export default function AdminCoursesPage() {
     }
 
     return filtered
-  }
+  }, [courses, activeFilter, searchTerm])
 
-  const filteredCourses = filterCourses()
-
-  const getFilterCount = (filterType: string) => {
-    const now = new Date()
-    return courses.filter((course) => {
-      const startDate = course.startDate ? new Date(course.startDate) : null
-      const endDate = course.endDate ? new Date(course.endDate) : null
-
-      switch (filterType) {
-        case 'active':
-          return course.status === 'ACTIVE'
-        case 'inactive':
-          return course.status === 'INACTIVE'
-        case 'available':
-          return !startDate || startDate >= now || (startDate <= now && (!endDate || endDate >= now))
-        case 'ongoing':
-          return startDate && startDate <= now && (!endDate || endDate >= now)
-        case 'closed':
-          return endDate && endDate < now
-        default:
-          return true
-      }
-    }).length
-  }
-
-  if (authLoading || loading) {
-    return <LoadingScreen />
-  }
+  if (authLoading || loading) return <LoadingScreen />
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <AdminLayout>
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 mt-4">
+        <div>
+          <h1 className="text-3xl font-black text-[var(--secondary)] tracking-tight">
+            Gestão de <span className="text-[var(--primary)]">Cursos</span>
+          </h1>
+          <p className="text-[var(--text-muted)] font-medium mt-1">
+            Crie, edite e acompanhe o desempenho de seus conteúdos.
+          </p>
+        </div>
+        <Link
+          to="/admin/courses/new"
+          className="flex items-center justify-center gap-2 px-6 py-3.5 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white font-bold rounded-2xl shadow-xl shadow-[var(--primary)]/20 transition-all active:scale-95 whitespace-nowrap"
+        >
+          <Plus size={20} />
+          NOVO CURSO
+        </Link>
+      </div>
 
-      <MobileNavbar />
-
-
-      <div className="bg-white border-b">
-        <div className="container mx-auto px-4 py-6">
-          <div className="relative max-w-2xl mx-auto">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <svg
-                className="h-5 w-5 text-gray-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
-              </svg>
+      {/* Stats Quick View */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="bg-white rounded-3xl p-6 border border-[var(--border-light)] shadow-sm flex items-center gap-4">
+          <div className="w-12 h-12 bg-violet-100 text-violet-600 rounded-2xl flex items-center justify-center">
+            <BookOpen size={24} />
+          </div>
+          <div>
+            <div className="text-2xl font-black text-[var(--secondary)]">{courses.length}</div>
+            <div className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Total de Cursos</div>
+          </div>
+        </div>
+        <div className="bg-white rounded-3xl p-6 border border-[var(--border-light)] shadow-sm flex items-center gap-4">
+          <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center">
+            <Users size={24} />
+          </div>
+          <div>
+            <div className="text-2xl font-black text-[var(--secondary)]">
+              {courses.reduce((sum, c) => sum + (c._count?.enrollments || 0), 0)}
             </div>
+            <div className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Alunos Ativos</div>
+          </div>
+        </div>
+        <div className="bg-white rounded-3xl p-6 border border-[var(--border-light)] shadow-sm flex items-center gap-4">
+          <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center">
+            <TrendingUp size={24} />
+          </div>
+          <div>
+            <div className="text-2xl font-black text-[var(--secondary)]">
+              {courses.filter(c => c.status === 'ACTIVE').length}
+            </div>
+            <div className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Publicados</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Filters & Search */}
+      <div className="bg-white rounded-3xl border border-[var(--border-light)] p-6 mb-8 shadow-sm">
+        <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+          <div className="flex gap-2 p-1 bg-[var(--bg-main)] rounded-2xl w-full md:w-auto">
+            {['all', 'active', 'inactive'].map((filter) => (
+              <button
+                key={filter}
+                onClick={() => setActiveFilter(filter)}
+                className={`flex-1 md:flex-none px-6 py-2 rounded-xl text-xs font-bold transition-all ${activeFilter === filter
+                  ? 'bg-white text-[var(--primary)] shadow-sm'
+                  : 'text-[var(--text-muted)] hover:text-[var(--primary)]'
+                  }`}
+              >
+                {filter === 'all' ? 'Todos' : filter === 'active' ? 'Ativos' : 'Inativos'}
+              </button>
+            ))}
+          </div>
+
+          <div className="relative w-full md:w-96">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" size={18} />
             <input
               type="text"
-              placeholder="Pesquisar cursos por nome, descrição..."
+              placeholder="Pesquisar por nome ou descrição..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
+              autoComplete="off"
+              className="w-full pl-12 pr-4 py-3 bg-[var(--bg-main)] border-none rounded-2xl text-sm focus:ring-2 focus:ring-[var(--primary)]/20 transition-all font-medium"
             />
           </div>
         </div>
       </div>
 
-
-      <div className="bg-white border-b">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex flex-wrap gap-3 justify-center">
-            <button
-              onClick={() => setActiveFilter('all')}
-              className={`px-4 py-2 rounded-full font-medium transition-colors ${activeFilter === 'all'
-                  ? 'bg-[#FF6600] text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-            >
-              Todos ({courses.length})
-            </button>
-            <button
-              onClick={() => setActiveFilter('active')}
-              className={`px-4 py-2 rounded-full font-medium transition-colors ${activeFilter === 'active'
-                  ? 'bg-[#FF6600] text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-            >
-              Ativos ({getFilterCount('active')})
-            </button>
-            <button
-              onClick={() => setActiveFilter('inactive')}
-              className={`px-4 py-2 rounded-full font-medium transition-colors ${activeFilter === 'inactive'
-                  ? 'bg-[#FF6600] text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-            >
-              Inativos ({getFilterCount('inactive')})
-            </button>
-            <button
-              onClick={() => setActiveFilter('available')}
-              className={`px-4 py-2 rounded-full font-medium transition-colors ${activeFilter === 'available'
-                  ? 'bg-[#FF6600] text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-            >
-              Disponíveis ({getFilterCount('available')})
-            </button>
-            <button
-              onClick={() => setActiveFilter('ongoing')}
-              className={`px-4 py-2 rounded-full font-medium transition-colors ${activeFilter === 'ongoing'
-                  ? 'bg-[#FF6600] text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-            >
-              Em Andamento ({getFilterCount('ongoing')})
-            </button>
-            <button
-              onClick={() => setActiveFilter('closed')}
-              className={`px-4 py-2 rounded-full font-medium transition-colors ${activeFilter === 'closed'
-                  ? 'bg-[#FF6600] text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-            >
-              Encerrados ({getFilterCount('closed')})
-            </button>
-          </div>
-        </div>
-      </div>
-
-
-      <div className="container mx-auto px-4 py-8 pb-24 md:pb-8 flex-1">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-[#003366] mb-2">Cursos Disponíveis</h1>
-            <p className="text-gray-600">Gerenciamento e moderação de cursos</p>
-          </div>
-          <Link
-            to="/admin/courses/new"
-            className="bg-[#FF6600] text-white px-6 py-3 rounded-md font-semibold hover:bg-[#e55a00] transition-colors"
+      {/* Courses Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+        {filteredCourses.map((course) => (
+          <div
+            key={course.id}
+            className="bg-white rounded-[2.5rem] border border-[var(--border-light)] overflow-hidden shadow-sm hover:shadow-xl hover:shadow-[var(--primary)]/5 transition-all group flex flex-col"
           >
-            + Novo Curso
-          </Link>
-        </div>
+            {/* Course Card Header/Image */}
+            <div className="relative h-48 sm:h-56 bg-slate-100 overflow-hidden">
+              {course.bannerUrl ? (
+                <img
+                  src={normalizeImageUrl(course.bannerUrl)}
+                  alt={course.title}
+                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[var(--primary)]/20 to-[var(--accent)]/20 text-[var(--primary)]">
+                  <BookOpen size={48} />
+                </div>
+              )}
+              {/* Badge Overlay */}
+              <div className="absolute top-4 left-4">
+                <span className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-white/20 backdrop-blur-md shadow-lg ${course.status === 'ACTIVE' ? 'bg-emerald-500/90 text-white' : 'bg-slate-500/90 text-white'
+                  }`}>
+                  {course.status === 'ACTIVE' ? 'Ativo' : 'Rascunho'}
+                </span>
+              </div>
+            </div>
 
-        {filteredCourses.length === 0 ? (
-          <div className="text-center py-24">
-            <p className="text-gray-500 text-lg mb-4">Nenhum curso encontrado.</p>
-            <p className="text-gray-400 text-sm mb-4">Tente ajustar os filtros ou a busca.</p>
-            <Link
-              to="/admin/courses/new"
-              className="inline-block bg-[#FF6600] text-white px-6 py-3 rounded-md font-semibold hover:bg-[#e55a00] transition-colors"
-            >
-              Criar Primeiro Curso
-            </Link>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredCourses.map((course) => (
-              <div
-                key={course.id}
-                className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
-              >
-                {course.bannerUrl && course.bannerUrl.trim() ? (
-                  <div className="relative w-full h-[386px] overflow-hidden bg-gray-200">
-                    <img
-                      src={normalizeImageUrl(course.bannerUrl)} alt={`Banner do curso ${course.title}`}
-                      className="w-full h-full min-w-full min-h-full object-cover"
-                      style={{ objectFit: 'cover', objectPosition: 'center' }}
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none'
-                      }}
-                    />
+            {/* Course Card Body */}
+            <div className="p-8 flex flex-1 flex-col">
+              <div className="flex justify-between items-start mb-4">
+                <h3 className="text-xl font-bold text-[var(--secondary)] line-clamp-1 group-hover:text-[var(--primary)] transition-colors">
+                  {course.title}
+                </h3>
+                <button className="p-2 text-[var(--text-muted)] hover:bg-[var(--bg-main)] rounded-xl transition-colors">
+                  <MoreHorizontal size={20} />
+                </button>
+              </div>
+
+              <p className="text-sm text-[var(--text-muted)] line-clamp-2 leading-relaxed mb-6 flex-1">
+                {course.description || 'Nenhuma descrição fornecida para este curso.'}
+              </p>
+
+              {/* Stats within card */}
+              <div className="grid grid-cols-2 gap-4 py-4 border-y border-[var(--border-light)] mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-violet-50 text-[var(--primary)] rounded-xl flex items-center justify-center">
+                    <Users size={18} />
                   </div>
-                ) : (
-                  <div className="w-full h-[336px] bg-gradient-to-br from-[#003366] to-[#FF6600] flex items-center justify-center">
-                    <span className="text-white text-sm font-medium">Sem banner</span>
+                  <div>
+                    <div className="text-sm font-bold text-[var(--secondary)]">{course._count?.enrollments || 0}</div>
+                    <div className="text-[10px] text-[var(--text-muted)] font-bold uppercase tracking-tighter">Alunos</div>
                   </div>
-                )}
-                <div className="p-6">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${course.status === 'ACTIVE'
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-gray-100 text-gray-800'
-                      }`}>
-                      {course.status === 'ACTIVE' ? 'Ativo' : 'Inativo'}
-                    </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-blue-50 text-blue-500 rounded-xl flex items-center justify-center">
+                    <Calendar size={18} />
                   </div>
-                  <h2 className="text-xl font-semibold mb-2 text-[#003366]">{course.title}</h2>
-                  <p className="text-gray-600 text-sm mb-4 line-clamp-2">{course.description}</p>
-                  <div className="flex items-center justify-between mb-4 text-sm text-gray-500">
-                    <span>{course.lessons?.length || 0} aulas</span>
-                    <span>{course._count?.enrollments || 0} alunos</span>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="grid grid-cols-2 gap-2 mb-2">
-                       <Link
-                        to={`/admin/courses/${course.id}/lessons`}
-                        className="block w-full bg-[#FF6600] text-white py-2 px-4 rounded-md font-semibold hover:bg-[#e55a00] transition-colors text-center text-sm"
-                      >
-                        Gerenciar Aulas
-                      </Link>
-                      <Link
-                        to={`/admin/courses/${course.id}/classes`}
-                        className="block w-full bg-[#003366] text-white py-2 px-4 rounded-md font-semibold hover:bg-[#00264d] transition-colors text-center text-sm"
-                      >
-                        Ver Turmas
-                      </Link>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
-                      <Link
-                        to={`/admin/courses/${course.id}/enrollments`}
-                        className="bg-blue-600 text-white py-2 px-3 rounded-md font-semibold hover:bg-blue-700 transition-colors text-center text-xs"
-                      >
-                        Inscritos ({course._count?.enrollments || 0})
-                      </Link>
-                      <button
-                        onClick={() => handleExport(course.id, course.title)}
-                        className="bg-green-600 text-white py-2 px-3 rounded-md font-semibold hover:bg-green-700 transition-colors text-xs flex items-center justify-center gap-1"
-                        disabled={!course._count?.enrollments || course._count.enrollments === 0}
-                      >
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        Excel
-                      </button>
-                      <button
-                        onClick={() => openShareModal(course)}
-                        className="bg-[#003366] text-white py-2 px-3 rounded-md font-semibold hover:bg-[#00264d] transition-colors text-xs flex items-center justify-center gap-1"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M4 12v.01M12 12v.01M20 12v.01M7 12a5 5 0 0110 0"
-                          />
-                        </svg>
-                        Compartilhar
-                      </button>
-                      <button
-                        onClick={() => openShareModal(course)}
-                        className="bg-green-600 text-white py-2 px-3 rounded-md font-semibold hover:bg-green-700 transition-colors text-xs flex items-center justify-center gap-1"
-                      >
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M20.52 3.48A11.77 11.77 0 0 0 12.02 0 11.84 11.84 0 0 0 .15 11.85a11.6 11.6 0 0 0 1.58 5.84L0 24l6.42-1.68a11.85 11.85 0 0 0 5.6 1.42h.01A11.84 11.84 0 0 0 24 11.86a11.7 11.7 0 0 0-3.48-8.38ZM12 21.15h-.01a9.9 9.9 0 0 1-5.04-1.38l-.36-.21-3.81.99 1.02-3.7-.23-.38a9.84 9.84 0 0 1 8.43-15.1h.01a9.8 9.8 0 0 1 9.82 9.84A9.86 9.86 0 0 1 12 21.15Zm5.41-7.36c-.3-.15-1.77-.87-2.04-.97s-.47-.15-.66.15-.76.97-.93 1.17-.34.22-.63.07a8.07 8.07 0 0 1-2.37-1.46 8.84 8.84 0 0 1-1.62-2 1.77 1.77 0 0 1 .11-1.86c.18-.23.4-.48.6-.73s.25-.38.37-.62.06-.45 0-.62-.66-1.59-.91-2.18-.5-.5-.68-.51h-.58a1.12 1.12 0 0 0-.81.38 3.36 3.36 0 0 0-1.06 2.5 5.86 5.86 0 0 0 1.24 3.13 13.35 13.35 0 0 0 5.15 4.52 5.9 5.9 0 0 0 2.4.73 2 2 0 0 0 1.31-.86 1.6 1.6 0 0 0 .11-.86c-.05-.09-.27-.17-.57-.31Z" />
-                        </svg>
-                        WhatsApp
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        onClick={() => openNewClassModal(course)}
-                        className="bg-purple-600 text-white py-2 px-4 rounded-md font-semibold hover:bg-purple-700 transition-colors text-sm flex items-center justify-center gap-2"
-                        title="Criar nova turma para alocar pessoas da lista de espera"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                        </svg>
-                        Nova Turma
-                      </button>
-                      <button
-                        onClick={() => handleDelete(course.id, course.title)}
-                        className="bg-red-600 text-white py-2 px-4 rounded-md font-semibold hover:bg-red-700 transition-colors text-sm flex items-center justify-center gap-2"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                        Excluir
-                      </button>
-                    </div>
+                  <div>
+                    <div className="text-sm font-bold text-[var(--secondary)]">{course.lessons?.length || 0}</div>
+                    <div className="text-[10px] text-[var(--text-muted)] font-bold uppercase tracking-tighter">Aulas</div>
                   </div>
                 </div>
               </div>
-            ))}
+
+              {/* Action Buttons */}
+              <div className="grid grid-cols-2 gap-4">
+                <button
+                  onClick={() => navigate(`/admin/courses/${course.id}/lessons`)}
+                  className="py-3 px-4 bg-[var(--bg-main)] hover:bg-[var(--sidebar-active)] text-[var(--secondary)] text-xs font-bold rounded-2xl border border-[var(--border-light)] transition-all flex items-center justify-center gap-2 group/btn"
+                >
+                  CONTEÚDO <ArrowRight size={14} className="group-hover/btn:translate-x-1 transition-transform" />
+                </button>
+                <button
+                  onClick={() => navigate(`/admin/courses/${course.id}/enrollments`)}
+                  className="py-3 px-4 bg-white hover:bg-[var(--primary)] text-[var(--primary)] hover:text-white text-xs font-bold rounded-2xl border-2 border-[var(--primary)]/20 hover:border-[var(--primary)] transition-all shadow-sm"
+                >
+                  VER ALUNOS
+                </button>
+              </div>
+
+              <div className="flex gap-2 mt-4">
+                <button className="flex-1 py-1.5 flex items-center justify-center gap-1.5 text-[9px] font-black uppercase text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors">
+                  <Download size={12} /> Excel
+                </button>
+                <div className="w-px h-3 bg-[var(--border-light)] self-center"></div>
+                <button className="flex-1 py-1.5 flex items-center justify-center gap-1.5 text-[9px] font-black uppercase text-[var(--text-muted)] hover:text-indigo-500 transition-colors">
+                  <Share2 size={12} /> Compartilhar
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+        {filteredCourses.length === 0 && (
+          <div className="col-span-full py-32 text-center bg-white rounded-[3rem] border-2 border-dashed border-[var(--border-light)]">
+            <div className="w-20 h-20 bg-[var(--bg-main)] rounded-full flex items-center justify-center mx-auto mb-6">
+              <BookOpen size={40} className="text-[var(--text-muted)]" />
+            </div>
+            <h3 className="text-xl font-bold text-[var(--secondary)] mb-2">Nenhum curso encontrado</h3>
+            <p className="text-[var(--text-muted)] max-w-sm mx-auto">
+              Não encontramos resultados para sua busca ou filtros atuais.
+            </p>
           </div>
         )}
       </div>
-
-      {shareModalOpen && selectedCourse && selectedShareData && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6">
-          <div className="w-full max-w-xl rounded-2xl bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b px-6 py-4">
-              <div>
-                <h3 className="text-lg font-semibold text-[#003366]">Compartilhar curso</h3>
-                <p className="text-sm text-gray-500">Revise as informações antes de enviar</p>
-              </div>
-              <button
-                onClick={closeShareModal}
-                className="text-gray-400 transition-colors hover:text-gray-600"
-              >
-                <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="px-6 py-4">
-              <div className="mb-4">
-                <p className="text-sm font-semibold text-[#003366] mb-1">{selectedCourse.title}</p>
-                {selectedCourse.description && (
-                  <p className="text-sm text-gray-600 line-clamp-2">{selectedCourse.description}</p>
-                )}
-              </div>
-
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">Link do curso</label>
-                  <div className="flex gap-2">
-                    <input
-                      readOnly
-                      value={selectedShareData.url}
-                      className="flex-1 truncate rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 outline-none"
-                    />
-                    <button
-                      onClick={copyShareLink}
-                      className="flex items-center justify-center rounded-lg border border-gray-300 bg-white px-4 text-xs font-semibold text-[#003366] transition-colors hover:bg-gray-50 whitespace-nowrap"
-                    >
-                      {shareCopyStatus === 'success' ? '✓ Copiado' : 'Copiar link'}
-                    </button>
-                  </div>
-                </div>
-
-                {selectedShareData.bannerUrl && (
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">URL da imagem</label>
-                    <div className="flex gap-2">
-                      <input
-                        readOnly
-                        value={normalizeImageUrl(selectedShareData.bannerUrl)}
-                        className="flex-1 truncate rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 outline-none"
-                      />
-                      <button
-                        onClick={async () => {
-                          try {
-                            if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-                              await navigator.clipboard.writeText(normalizeImageUrl(selectedShareData.bannerUrl))
-                              alert('URL da imagem copiada!')
-                            }
-                          } catch (error) {
-                            console.error('Erro ao copiar URL da imagem:', error)
-                          }
-                        }}
-                        className="flex items-center justify-center rounded-lg border border-gray-300 bg-white px-4 text-xs font-semibold text-[#003366] transition-colors hover:bg-gray-50 whitespace-nowrap"
-                      >
-                        Copiar
-                      </button>
-                    </div>
-                    <div className="mt-2 flex items-center justify-center">
-                      <img
-                        src={normalizeImageUrl(selectedShareData.bannerUrl)}
-                        alt={`Banner do curso ${selectedCourse.title}`}
-                        className="max-h-32 max-w-full rounded-lg object-contain shadow-sm"
-                        referrerPolicy="no-referrer"
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none'
-                        }}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-3 border-t bg-gray-50 px-6 py-4 md:flex-row md:justify-end">
-              <button
-                onClick={shareNow}
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#003366] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#00264d]"
-              >
-                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 12v.01M12 12v.01M20 12v.01M7 12a5 5 0 0110 0" />
-                </svg>
-                Compartilhar agora
-              </button>
-              <button
-                onClick={shareWhatsApp}
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-green-700"
-              >
-                <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M20.52 3.48A11.77 11.77 0 0 0 12.02 0 11.84 11.84 0 0 0 .15 11.85a11.6 11.6 0 0 0 1.58 5.84L0 24l6.42-1.68a11.85 11.85 0 0 0 5.6 1.42h.01A11.84 11.84 0 0 0 24 11.86a11.7 11.7 0 0 0-3.48-8.38ZM12 21.15h-.01a9.9 9.9 0 0 1-5.04-1.38l-.36-.21-3.81.99 1.02-3.7-.23-.38a9.84 9.84 0 0 1 8.43-15.1h.01a9.8 9.8 0 0 1 9.82 9.84A9.86 9.86 0 0 1 12 21.15Zm5.41-7.36c-.3-.15-1.77-.87-2.04-.97s-.47-.15-.66.15-.76.97-.93 1.17-.34.22-.63.07a8.07 8.07 0 0 1-2.37-1.46 8.84 8.84 0 0 1-1.62-2 1.77 1.77 0 0 1 .11-1.86c.18-.23.4-.48.6-.73s.25-.38.37-.62.06-.45 0-.62-.66-1.59-.91-2.18-.5-.5-.68-.51h-.58a1.12 1.12 0 0 0-.81.38 3.36 3.36 0 0 0-1.06 2.5 5.86 5.86 0 0 0 1.24 3.13 13.35 13.35 0 0 0 5.15 4.52 5.9 5.9 0 0 0 2.4.73 2 2 0 0 0 1.31-.86 1.6 1.6 0 0 0 .11-.86c-.05-.09-.27-.17-.57-.31Z" />
-                </svg>
-                WhatsApp
-              </button>
-              <button
-                onClick={closeShareModal}
-                className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-600 transition-colors hover:bg-gray-100"
-              >
-                Fechar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal para criar nova turma */}
-      {newClassModalOpen && courseForNewClass && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6">
-          <div className="w-full max-w-md rounded-2xl bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b px-6 py-4">
-              <h2 className="text-lg font-semibold text-[#003366]">Criar Nova Turma</h2>
-              <button
-                onClick={closeNewClassModal}
-                className="text-gray-400 transition-colors hover:text-gray-600"
-              >
-                <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className="px-6 py-4">
-              <p className="text-sm text-gray-600 mb-4">
-                Uma nova turma será criada para o curso <strong>{courseForNewClass.title}</strong>.
-                Pessoas na lista de espera serão automaticamente alocadas nesta nova turma.
-              </p>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Limite de vagas *
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  value={classLimit}
-                  onChange={(e) => setClassLimit(e.target.value)}
-                  placeholder="Ex: 50"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Limite padrão do curso: {courseForNewClass.maxEnrollments || 'Sem limite'}
-                </p>
-              </div>
-            </div>
-            <div className="flex justify-end gap-3 border-t bg-gray-50 px-6 py-4">
-              <button
-                onClick={closeNewClassModal}
-                disabled={creatingClass}
-                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 transition-colors disabled:opacity-50"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleCreateNewClass}
-                disabled={creatingClass}
-                className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {creatingClass ? 'Criando...' : 'Criar Turma'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <Footer />
-
-
-      {isAuthenticated && <div className="md:hidden h-20" />}
-    </div>
+    </AdminLayout>
   )
 }

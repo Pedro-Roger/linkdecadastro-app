@@ -1,684 +1,244 @@
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { useEffect, useState, useCallback, useMemo } from 'react'
-import { format } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
-import Footer from '@/components/ui/Footer'
-import MobileNavbar from '@/components/ui/MobileNavbar'
-import CourseEnrollmentModal from '@/components/modals/CourseEnrollmentModal'
-import { apiFetch, normalizeImageUrl } from '@/lib/api'
-import { useAuth } from '@/lib/useAuth'
-import EventEnrollmentModal from '@/components/modals/EventEnrollmentModal'
-
-interface Course {
-  id: string
-  title: string
-  description: string | null
-  bannerUrl: string | null
-  startDate: string | null
-  endDate: string | null
-  createdAt: string
-  slug?: string | null
-  maxEnrollments?: number | null
-  creator: {
-    name: string
-  }
-  _count: {
-    enrollments: number
-    lessons: number
-  }
-}
-
-interface EventItem {
-  id: string
-  title: string
-  description: string
-  bannerUrl?: string | null
-  slug?: string | null
-  status: 'ACTIVE' | 'INACTIVE' | 'CLOSED'
-  maxRegistrations?: number | null
-  _count?: {
-    registrations: number
-  }
-}
+import { useEffect, useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
+import { useAuth } from '@/lib/useAuth';
+import {
+  ArrowUpRight,
+  Monitor,
+  Calendar,
+  Users,
+  Clock,
+  ChevronRight,
+  Globe,
+  Rocket
+} from 'lucide-react';
+import Footer from '@/components/ui/Footer';
+import { apiFetch, normalizeImageUrl } from '@/lib/api';
 
 export default function HomePage() {
-  const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
-  const { user, isAuthenticated } = useAuth()
-  const [courses, setCourses] = useState<Course[]>([])
-  const [allCourses, setAllCourses] = useState<Course[]>([])
-  const [events, setEvents] = useState<EventItem[]>([])
-  const [loading, setLoading] = useState(true)
-  const [eventsLoading, setEventsLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [activeTab, setActiveTab] = useState<'courses' | 'events'>('courses')
-  const [activeFilter, setActiveFilter] = useState<string>('all')
-  const [eventStatusFilter, setEventStatusFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE' | 'CLOSED'>('ALL')
-  const [enrollmentModal, setEnrollmentModal] = useState<{ isOpen: boolean; courseId: string; courseTitle: string }>({
-    isOpen: false,
-    courseId: '',
-    courseTitle: ''
-  })
-  const [eventEnrollmentModal, setEventEnrollmentModal] = useState<{ isOpen: boolean; eventId: string; eventTitle: string }>({
-    isOpen: false,
-    eventId: '',
-    eventTitle: ''
-  })
-  const [enrollmentFeedback, setEnrollmentFeedback] = useState<{
-    message: string
-    tone: 'success' | 'info' | 'warning'
-  } | null>(null)
+  const { isAuthenticated } = useAuth();
+  const [events, setEvents] = useState<any[]>([]);
+  const [courses, setCourses] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchAllCourses()
-    fetchEvents()
-  }, [])
-
-  // Verifica se há parâmetro enroll na URL e abre o modal automaticamente
-  useEffect(() => {
-    const enrollSlug = searchParams.get('enroll')
-    const enrollEventSlug = searchParams.get('enroll_event')
-
-    if (enrollSlug && allCourses.length > 0 && !loading) {
-      // Busca o curso pelo slug ou pelo ID
-      const course = allCourses.find(c => c.slug === enrollSlug || c.id === enrollSlug)
-      if (course) {
-        setTimeout(() => {
-          setEnrollmentModal({
-            isOpen: true,
-            courseId: course.id,
-            courseTitle: course.title
-          })
-          window.history.replaceState({}, '', '/')
-        }, 800)
+    async function fetchData() {
+      try {
+        const [eventsData, coursesData] = await Promise.all([
+          apiFetch('/events/active').catch(() => []),
+          apiFetch('/courses').catch(() => [])
+        ]);
+        setEvents(eventsData || []);
+        setCourses(coursesData || []);
+      } catch (error) {
+        console.error('Failed to fetch data', error);
+      } finally {
+        setLoading(false);
       }
     }
+    fetchData();
+  }, []);
 
-    if (enrollEventSlug && events.length > 0 && !eventsLoading) {
-      const event = events.find(e => e.slug === enrollEventSlug || e.id === enrollEventSlug)
-      if (event) {
-        setTimeout(() => {
-          setEventEnrollmentModal({
-            isOpen: true,
-            eventId: event.id,
-            eventTitle: event.title
-          })
-          window.history.replaceState({}, '', '/')
-        }, 800)
-      }
-    }
-  }, [searchParams, allCourses, loading, events, eventsLoading])
-
-  const filterCourses = useCallback(() => {
-    let filtered = [...allCourses]
-
-    if (activeFilter !== 'all') {
-      const now = new Date()
-      filtered = filtered.filter((course) => {
-        const startDate = course.startDate ? new Date(course.startDate) : null
-        const endDate = course.endDate ? new Date(course.endDate) : null
-
-        switch (activeFilter) {
-          case 'featured':
-            return !startDate || startDate > now
-          case 'available':
-            return !startDate || startDate >= now || (startDate <= now && (!endDate || endDate >= now))
-          case 'ongoing':
-            return startDate && startDate <= now && (!endDate || endDate >= now)
-          case 'closed':
-            return endDate && endDate < now
-          default:
-            return true
-        }
-      })
-    }
-
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase()
-      filtered = filtered.filter(
-        (course) =>
-          course.title.toLowerCase().includes(term) ||
-          course.description?.toLowerCase().includes(term) ||
-          course.creator.name.toLowerCase().includes(term)
-      )
-    }
-
-    setCourses(filtered)
-  }, [activeFilter, searchTerm, allCourses])
-
-  useEffect(() => {
-    filterCourses()
-  }, [filterCourses])
-
-  const filteredEvents = useMemo(() => {
-    let filtered = [...events]
-
-    if (eventStatusFilter !== 'ALL') {
-      filtered = filtered.filter((event) => event.status === eventStatusFilter)
-    }
-
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase()
-      filtered = filtered.filter(
-        (event) =>
-          event.title.toLowerCase().includes(term) ||
-          event.description?.toLowerCase().includes(term),
-      )
-    }
-
-    return filtered
-  }, [events, eventStatusFilter, searchTerm])
-
-  const fetchAllCourses = async () => {
-    try {
-      setLoading(true)
-      const data = await apiFetch<Course[]>('/courses')
-      setAllCourses(data)
-    } catch (error) {
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const fetchEvents = async () => {
-    try {
-      setEventsLoading(true)
-      const data = await apiFetch<EventItem[]>('/events')
-      setEvents(data)
-    } catch (error) {
-    } finally {
-      setEventsLoading(false)
-    }
-  }
-
-  const handleEnrollmentSuccess = (payload?: {
-    enrollment: any
-    metadata?: { waitlistPosition?: number | null }
-  }) => {
-    fetchAllCourses()
-
-    if (payload?.enrollment) {
-      const status = payload.enrollment.status as string | undefined
-      if (status === 'WAITLIST') {
-        const waitlistPosition = payload.metadata?.waitlistPosition
-        setEnrollmentFeedback({
-          message:
-            waitlistPosition && waitlistPosition > 0
-              ? `Você entrou na lista de espera. Posição atual: ${waitlistPosition}.`
-              : 'Você entrou na lista de espera deste curso. Aguarde a aprovação do administrador.',
-          tone: 'info'
-        })
-      } else if (status === 'PENDING_REGION') {
-        setEnrollmentFeedback({
-          message:
-            payload.enrollment.eligibilityReason ||
-            'Cadastro registrado, aguardando confirmação da equipe.',
-          tone: 'warning'
-        })
-      } else if (status === 'REJECTED') {
-        setEnrollmentFeedback({
-          message:
-            payload.enrollment.eligibilityReason ||
-            'Sua inscrição foi registrada, mas não pôde ser aprovada automaticamente.',
-          tone: 'warning'
-        })
-      } else {
-        setEnrollmentFeedback({
-          message: 'Inscrição confirmada! Você já pode acessar o conteúdo em "Meus Cursos".',
-          tone: 'success'
-        })
-      }
-    } else {
-      setEnrollmentFeedback({
-        message: 'Solicitação enviada. Verifique seus cursos em alguns instantes.',
-        tone: 'info'
-      })
-    }
-
-    setTimeout(() => setEnrollmentFeedback(null), 8000)
-  }
-
-  const getCourseStatus = (course: Course) => {
-    const now = new Date()
-    const startDate = course.startDate ? new Date(course.startDate) : null
-    const endDate = course.endDate ? new Date(course.endDate) : null
-
-    if (endDate && endDate < now) {
-      return { label: 'Encerrado', color: 'bg-gray-500', badge: 'Encerrado' }
-    }
-
-    if (!startDate) {
-      return { label: 'Inscrições Abertas', color: 'bg-green-500', badge: 'Inscrições Abertas' }
-    }
-
-    if (startDate > now) {
-      return { label: 'Inscrições Abertas', color: 'bg-green-500', badge: 'Inscrições Abertas' }
-    }
-
-    if (startDate <= now && (!endDate || endDate >= now)) {
-      return { label: 'Em Andamento', color: 'bg-blue-500', badge: 'Em Andamento' }
-    }
-
-    return { label: 'Disponível', color: 'bg-green-500', badge: 'Inscrições Abertas' }
-  }
-
-  const getFilterCount = (filterType: string) => {
-    const now = new Date()
-    return allCourses.filter((course) => {
-      const startDate = course.startDate ? new Date(course.startDate) : null
-      const endDate = course.endDate ? new Date(course.endDate) : null
-
-      switch (filterType) {
-        case 'featured':
-          return !startDate || startDate > now
-        case 'available':
-          return !startDate || startDate >= now || (startDate <= now && (!endDate || endDate >= now))
-        case 'ongoing':
-          return startDate && startDate <= now && (!endDate || endDate >= now)
-        case 'closed':
-          return endDate && endDate < now
-        default:
-          return true
-      }
-    }).length
-  }
-
-  const getEventStatus = (event: EventItem) => {
-    switch (event.status) {
-      case 'ACTIVE':
-        return { label: 'Inscrições Abertas', color: 'bg-green-500' }
-      case 'INACTIVE':
-        return { label: 'Em Preparação', color: 'bg-yellow-500' }
-      case 'CLOSED':
-        return { label: 'Encerrado', color: 'bg-gray-500' }
-      default:
-        return { label: 'Indisponível', color: 'bg-gray-500' }
-    }
-  }
-
-  const getEventFilterCount = (filterType: 'ALL' | 'ACTIVE' | 'INACTIVE' | 'CLOSED') => {
-    if (filterType === 'ALL') {
-      return events.length
-    }
-    return events.filter((event) => event.status === filterType).length
-  }
+  const allItems = useMemo(() => {
+    const combined = [
+      ...events.map(e => ({ ...e, itemType: 'event' })),
+      ...courses.map(c => ({ ...c, itemType: 'course' }))
+    ];
+    return combined.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [events, courses]);
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col pb-20 md:pb-0">
-      <MobileNavbar />
+    <div className="min-h-screen bg-[var(--bg-main)] selection:bg-[var(--primary)] selection:text-white flex flex-col relative overflow-hidden">
+      {/* Background Decorative Elements */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
+        <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] bg-[var(--primary)]/5 blur-[120px] rounded-full"></div>
+        <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-[var(--accent)]/5 blur-[120px] rounded-full"></div>
+      </div>
 
-      <div className="bg-white border-b">
-        <div className="container mx-auto px-4 py-6 space-y-4">
-          {enrollmentFeedback && (
-            <div
-              className={`rounded-lg border px-4 py-3 text-sm ${enrollmentFeedback.tone === 'success'
-                  ? 'border-green-200 bg-green-50 text-green-800'
-                  : enrollmentFeedback.tone === 'warning'
-                    ? 'border-yellow-200 bg-yellow-50 text-yellow-800'
-                    : 'border-blue-200 bg-blue-50 text-blue-800'
-                }`}
+      {/* Modern Navbar */}
+      <nav className="relative w-full z-50 pt-8">
+        <div className="container mx-auto px-6 flex items-center justify-between glass rounded-3xl py-4 border border-[var(--glass-border)] shadow-xl">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-[var(--primary)] to-[var(--accent)] rounded-xl flex items-center justify-center text-white shadow-lg shadow-[var(--primary)]/30">
+              <Rocket className="w-5 h-5 fill-white/20" />
+            </div>
+            <span className="font-black text-2xl tracking-tighter text-[var(--secondary)] italic">
+              LinkDe<span className="text-[var(--primary)]">Cadastro</span>
+            </span>
+          </div>
+
+          <div className="hidden md:flex items-center gap-8 font-bold text-[var(--text-muted)] text-sm uppercase tracking-widest">
+            <a href="#" className="text-[var(--primary)] border-b-2 border-[var(--primary)] pb-1">Início</a>
+            <a href="#" className="hover:text-[var(--primary)] transition-all">Soluções</a>
+            <a href="#" className="hover:text-[var(--primary)] transition-all">Suporte</a>
+            <div className="relative group cursor-help">
+              <span className="text-slate-300 transition-all">Contatos</span>
+              <span className="absolute -top-4 -right-8 px-1.5 py-0.5 bg-[var(--accent)] text-white text-[8px] font-black rounded-md tracking-tighter">EM BREVE</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <Link
+              to={isAuthenticated ? '/admin/dashboard' : '/login'}
+              className="px-8 py-3 bg-[var(--secondary)] hover:bg-slate-800 text-white font-black text-xs uppercase tracking-[0.2em] rounded-2xl transition-all shadow-xl shadow-slate-900/10 active:scale-95 flex items-center gap-2"
             >
-              {enrollmentFeedback.message}
+              {isAuthenticated ? 'Meu Painel' : 'Acesse Agora'}
+              <ArrowUpRight className="w-4 h-4" />
+            </Link>
+          </div>
+        </div>
+      </nav>
+
+      <main className="flex-1 relative z-10 flex flex-col pt-24 pb-32">
+        {/* Massive Hero Section */}
+        <div className="container mx-auto px-6 mb-32">
+          <div className="max-w-5xl">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[var(--primary)]/10 text-[var(--primary)] text-xs font-black uppercase tracking-widest border border-[var(--primary)]/10 mb-8 animate-in fade-in slide-in-from-left duration-700">
+              <span className="w-2 h-2 bg-[var(--primary)] rounded-full animate-pulse"></span>
+              Plataforma para Profissionais
+            </div>
+
+            <h1 className="text-6xl md:text-8xl font-black text-[var(--secondary)] tracking-tighter leading-[0.9] mb-10 italic animate-in fade-in slide-in-from-top-10 duration-700 delay-150">
+              Transforme Cliques em <br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--primary)] to-[var(--accent)]">Sucesso Absoluto.</span>
+            </h1>
+
+            <p className="text-xl md:text-2xl text-[var(--text-muted)] max-w-3xl mb-12 leading-relaxed font-medium animate-in fade-in slide-in-from-top-10 duration-700 delay-300">
+              A LinkCadastro automatiza sua captação de leads, gerencia seus eventos e conecta você diretamente ao seu público via WhatsApp com inteligência artificial.
+            </p>
+
+            <div className="flex flex-wrap gap-6 animate-in fade-in slide-in-from-top-10 duration-700 delay-500">
+              <Link
+                to={isAuthenticated ? '/admin/dashboard' : '/login'}
+                className="inline-flex px-10 py-5 bg-gradient-to-r from-[var(--primary)] to-[var(--accent)] text-white font-black text-sm uppercase tracking-[0.2em] rounded-[1.5rem] transition-all shadow-2xl shadow-[var(--primary)]/30 hover:shadow-[var(--primary)]/50 hover:-translate-y-1 active:scale-95"
+              >
+                Começar Gratuitamente
+              </Link>
+              <button className="inline-flex px-10 py-5 bg-white border border-[var(--border-light)] text-[var(--secondary)] font-black text-sm uppercase tracking-[0.2em] rounded-[1.5rem] transition-all hover:bg-slate-50 shadow-xl shadow-slate-200/50">
+                Ver Demonstração
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Live Slider Section */}
+        <div className="container mx-auto px-6">
+          <div className="flex items-end justify-between mb-12">
+            <div>
+              <h2 className="text-xs font-black text-[var(--primary)] uppercase tracking-[0.3em] mb-3">Live & On-demand</h2>
+              <h3 className="text-4xl font-black text-[var(--secondary)] tracking-tighter italic">Eventos & Cursos Disponíveis</h3>
+            </div>
+            <div className="hidden md:flex gap-3">
+              <button className="w-12 h-12 rounded-2xl bg-white border border-[var(--border-light)] flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--primary)] transition-all shadow-sm">
+                <ChevronRight className="w-5 h-5 rotate-180" />
+              </button>
+              <button className="w-12 h-12 rounded-2xl bg-white border border-[var(--border-light)] flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--primary)] transition-all shadow-sm">
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} className="h-[450px] bg-slate-200 rounded-[2.5rem] animate-pulse"></div>
+              ))}
+            </div>
+          ) : allItems.length === 0 ? (
+            <div className="bg-white/50 border-2 border-dashed border-[var(--border-light)] rounded-[3rem] p-24 text-center">
+              <div className="w-20 h-20 bg-[var(--bg-main)] rounded-3xl flex items-center justify-center mx-auto mb-6 text-[var(--text-muted)]">
+                <Globe className="w-10 h-10 opacity-20" />
+              </div>
+              <p className="text-xl font-bold text-[var(--text-muted)] italic">Nenhum evento ou curso disponível no momento.</p>
+            </div>
+          ) : (
+            <div className="flex gap-8 overflow-x-auto pb-12 pt-4 snap-x snap-mandatory no-scrollbar custom-scrollbar-hide">
+              {allItems.map((item) => (
+                <div
+                  key={item.id}
+                  className="flex-shrink-0 w-[340px] md:w-[400px] snap-center"
+                >
+                  <div className="group relative bg-white rounded-[2.5rem] overflow-hidden shadow-2xl shadow-slate-200/50 h-[500px] border border-[var(--border-light)] transition-all hover:-translate-y-2 hover:shadow-[var(--primary)]/10">
+                    {/* Banner */}
+                    <div className="h-2/3 bg-slate-100 overflow-hidden relative">
+                      {item.bannerUrl ? (
+                        <img
+                          src={normalizeImageUrl(item.bannerUrl)}
+                          alt={item.title}
+                          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-[var(--secondary)] to-[var(--primary)] flex flex-col items-center justify-center text-white/20 p-12">
+                          {item.itemType === 'course' ? (
+                            <Monitor className="w-32 h-32 opacity-10 mb-4" />
+                          ) : (
+                            <Calendar className="w-32 h-32 opacity-10 mb-4" />
+                          )}
+                          <Rocket className="w-20 h-20 absolute bottom-[-20px] right-[-20px] opacity-5 -rotate-12" />
+                        </div>
+                      )}
+
+                      <div className="absolute top-6 left-6">
+                        <span className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg ${item.itemType === 'course'
+                          ? 'bg-[var(--primary)] text-white'
+                          : 'bg-emerald-500 text-white'
+                          }`}>
+                          {item.itemType === 'course' ? 'Curso Online' : 'Evento Ao Vivo'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Content */}
+                    <div className="p-8 pb-10 flex flex-col h-1/3 justify-between">
+                      <div>
+                        <h4 className="text-2xl font-black text-[var(--secondary)] tracking-tight line-clamp-1 italic mb-2">
+                          {item.title}
+                        </h4>
+                        <p className="text-sm text-[var(--text-muted)] line-clamp-2 font-medium">
+                          {item.description}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4 text-[var(--text-muted)]">
+                          <div className="flex items-center gap-1.5">
+                            <Users className="w-4 h-4" />
+                            <span className="text-[10px] font-bold uppercase tracking-widest">
+                              {item._count?.enrollments || item._count?.registrations || 0}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <Clock className="w-4 h-4" />
+                            <span className="text-[10px] font-bold uppercase tracking-widest">Aberto</span>
+                          </div>
+                        </div>
+
+                        <Link
+                          to={item.itemType === 'course' ? `/course/${item.slug || item.id}` : `/register/${item.slug || item.linkId}`}
+                          className="w-12 h-12 bg-[var(--bg-main)] border border-[var(--border-light)] rounded-2xl flex items-center justify-center text-[var(--secondary)] hover:bg-[var(--primary)] hover:text-white hover:border-transparent transition-all group-hover:bg-[var(--primary)] group-hover:text-white group-hover:border-transparent"
+                        >
+                          <ArrowUpRight className="w-6 h-6" />
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
-          <div className="relative max-w-2xl mx-auto">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <svg
-                className="h-5 w-5 text-gray-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
-              </svg>
-            </div>
-            <input
-              type="text"
-              placeholder="Pesquisar cursos por nome, descrição ou local..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
-            />
-          </div>
         </div>
-      </div>
-
-      <div className="bg-white border-b">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex flex-wrap gap-3 justify-center items-center">
-            <div className="bg-gray-100 p-1 rounded-full flex mr-4">
-              <button
-                onClick={() => setActiveTab('courses')}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${activeTab === 'courses'
-                    ? 'bg-white text-[#FF6600] shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                  }`}
-              >
-                Cursos
-              </button>
-              <button
-                onClick={() => setActiveTab('events')}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${activeTab === 'events'
-                    ? 'bg-white text-[#FF6600] shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                  }`}
-              >
-                Eventos
-              </button>
-            </div>
-
-            {activeTab === 'courses' && (
-              <>
-                <button
-                  onClick={() => setActiveFilter('all')}
-                  className={`px-4 py-2 rounded-full font-medium transition-colors ${activeFilter === 'all'
-                      ? 'bg-[#FF6600] text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                >
-                  Todos ({allCourses.length})
-                </button>
-                <button
-                  onClick={() => setActiveFilter('featured')}
-                  className={`px-4 py-2 rounded-full font-medium transition-colors ${activeFilter === 'featured'
-                      ? 'bg-[#FF6600] text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                >
-                  Destaque ({getFilterCount('featured')})
-                </button>
-                <button
-                  onClick={() => setActiveFilter('available')}
-                  className={`px-4 py-2 rounded-full font-medium transition-colors ${activeFilter === 'available'
-                      ? 'bg-[#FF6600] text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                >
-                  Disponíveis ({getFilterCount('available')})
-                </button>
-                <button
-                  onClick={() => setActiveFilter('ongoing')}
-                  className={`px-4 py-2 rounded-full font-medium transition-colors ${activeFilter === 'ongoing'
-                      ? 'bg-[#FF6600] text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                >
-                  Em Andamento ({getFilterCount('ongoing')})
-                </button>
-                <button
-                  onClick={() => setActiveFilter('closed')}
-                  className={`px-4 py-2 rounded-full font-medium transition-colors ${activeFilter === 'closed'
-                      ? 'bg-[#FF6600] text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                >
-                  Encerrados ({getFilterCount('closed')})
-                </button>
-              </>
-            )}
-
-            {activeTab === 'events' && (
-              <>
-                <button
-                  onClick={() => setEventStatusFilter('ALL')}
-                  className={`px-4 py-2 rounded-full font-medium transition-colors ${eventStatusFilter === 'ALL'
-                      ? 'bg-[#FF6600] text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                >
-                  Todos ({getEventFilterCount('ALL')})
-                </button>
-                <button
-                  onClick={() => setEventStatusFilter('ACTIVE')}
-                  className={`px-4 py-2 rounded-full font-medium transition-colors ${eventStatusFilter === 'ACTIVE'
-                      ? 'bg-[#FF6600] text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                >
-                  Abertos ({getEventFilterCount('ACTIVE')})
-                </button>
-                <button
-                  onClick={() => setEventStatusFilter('CLOSED')}
-                  className={`px-4 py-2 rounded-full font-medium transition-colors ${eventStatusFilter === 'CLOSED'
-                      ? 'bg-[#FF6600] text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                >
-                  Encerrados ({getEventFilterCount('CLOSED')})
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div className="container mx-auto px-4 py-8 flex-1">
-        {activeTab === 'courses' ? (
-          loading ? (
-            <div className="text-center py-24">
-              <div className="text-xl text-gray-600">Carregando cursos...</div>
-            </div>
-          ) : courses.length === 0 ? (
-            <div className="text-center py-24">
-              <p className="text-gray-500 text-lg mb-4">Nenhum curso encontrado.</p>
-              <p className="text-gray-400">Tente ajustar os filtros ou a busca.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {courses.map((course) => {
-                const status = getCourseStatus(course)
-                const isFeatured = !course.startDate || new Date(course.startDate) > new Date()
-                const progress = course.maxEnrollments && course._count.enrollments > 0
-                  ? Math.min(100, (course._count.enrollments / course.maxEnrollments) * 100)
-                  : course._count.enrollments > 0 ? 0 : 0
-
-                return (
-                  <div
-                    key={course.id}
-                    className="relative bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow"
-                  >
-                    {course.bannerUrl && course.bannerUrl.trim() ? (
-                      <div className="relative w-full h-[386px] overflow-hidden bg-gray-200">
-                        <img
-                          src={normalizeImageUrl(course.bannerUrl)} alt={`Banner do curso ${course.title}`}
-                          className="w-full h-full min-w-full min-h-full object-cover"
-                          style={{ objectFit: 'cover', objectPosition: 'center' }}
-                          onError={(e) => {
-                            e.currentTarget.style.display = 'none'
-                          }}
-                        />
-
-                        <div className={`absolute top-0 left-0 right-0 h-2 ${isFeatured ? 'bg-[#FF6600]' : 'bg-[#003366]'}`}></div>
-
-                        {isFeatured && (
-                          <div className="absolute top-3 right-3 bg-[#FF6600] text-white text-xs px-2 py-1 rounded-full font-semibold shadow-lg">
-                            Destaque
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <>
-                        <div className={`h-2 ${isFeatured ? 'bg-[#FF6600]' : 'bg-[#003366]'}`}></div>
-                        {isFeatured && (
-                          <div className="absolute top-2 right-2 bg-[#FF6600] text-white text-xs px-2 py-1 rounded-full font-semibold">
-                            Destaque
-                          </div>
-                        )}
-                      </>
-                    )}
-
-                    <div className="p-6">
-                      <div className="mb-3">
-                        <span className={`${status.color} text-white text-xs px-2 py-1 rounded-full font-medium`}>
-                          {status.badge}
-                        </span>
-                      </div>
-
-                      <h3 className="text-xl font-bold text-gray-800 mb-2 line-clamp-2">
-                        {course.title}
-                      </h3>
-
-                      {course.description && (
-                        <p className="text-gray-600 text-sm mb-4 line-clamp-3">
-                          {course.description}
-                        </p>
-                      )}
-
-                      <div className="space-y-2 mb-4 text-sm text-gray-600">
-                        {course.startDate && (
-                          <div className="flex items-center gap-2">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                            <span>{format(new Date(course.startDate), 'dd/MM/yyyy', { locale: ptBR })}</span>
-                          </div>
-                        )}
-                        <div className="flex items-center gap-2">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                          </svg>
-                          <span>Online</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-gray-500">
-                            {course._count.enrollments}{course.maxEnrollments ? `/${course.maxEnrollments}` : ''} vagas {course.maxEnrollments ? 'ocupadas' : 'inscritos'}
-                          </span>
-                        </div>
-
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div
-                            className="bg-[#FF6600] h-2 rounded-full transition-all"
-                            style={{ width: `${progress}%` }}
-                          />
-                        </div>
-                      </div>
-
-                      <button
-                        onClick={() => {
-                          if (!isAuthenticated) {
-                            navigate('/login')
-                          } else {
-                            setEnrollmentModal({
-                              isOpen: true,
-                              courseId: course.id,
-                              courseTitle: course.title
-                            })
-                          }
-                        }}
-                        className="block w-full bg-[#FF6600] text-white text-center py-3 rounded-md font-semibold hover:bg-[#e55a00] transition-colors"
-                      >
-                        Cadastrar-se no Curso
-                      </button>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )
-        ) : (
-          // Renderização de Eventos
-          eventsLoading ? (
-            <div className="text-center py-24">
-              <div className="text-xl text-gray-600">Carregando eventos...</div>
-            </div>
-          ) : filteredEvents.length === 0 ? (
-            <div className="text-center py-24">
-              <p className="text-gray-500 text-lg mb-4">Nenhum evento encontrado.</p>
-              <p className="text-gray-400">Tente ajustar os filtros ou a busca.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredEvents.map((event) => {
-                const status = getEventStatus(event)
-
-                return (
-                  <div
-                    key={event.id}
-                    className="relative bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow flex flex-col"
-                  >
-                    {event.bannerUrl && event.bannerUrl.trim() ? (
-                      <div className="relative w-full h-48 overflow-hidden bg-gray-200">
-                        <img
-                          src={normalizeImageUrl(event.bannerUrl)} alt={`Banner do evento ${event.title}`}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            e.currentTarget.style.display = 'none'
-                          }}
-                        />
-                        <div className="absolute top-0 left-0 right-0 h-2 bg-[#003366]"></div>
-                      </div>
-                    ) : (
-                      <div className="h-2 bg-[#003366]"></div>
-                    )}
-
-                    <div className="p-6 flex-1 flex flex-col">
-                      <div className="mb-3">
-                        <span className={`${status.color} text-white text-xs px-2 py-1 rounded-full font-medium`}>
-                          {status.label}
-                        </span>
-                      </div>
-
-                      <h3 className="text-xl font-bold text-gray-800 mb-2 line-clamp-2">
-                        {event.title}
-                      </h3>
-
-                      {event.description && (
-                        <p className="text-gray-600 text-sm mb-4 line-clamp-3">
-                          {event.description}
-                        </p>
-                      )}
-
-                      <div className="mt-auto pt-4">
-                        <button
-                          onClick={() => {
-                            setEventEnrollmentModal({
-                              isOpen: true,
-                              eventId: event.id,
-                              eventTitle: event.title
-                            })
-                          }}
-                          className="block w-full bg-[#003366] text-white text-center py-3 rounded-md font-semibold hover:bg-[#002244] transition-colors"
-                        >
-                          Inscrever-se no Evento
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )
-        )}
-      </div>
+      </main>
 
       <Footer />
 
-      {/* Espaçamento para a barra de navegação mobile fixa */}
-      {isAuthenticated && <div className="md:hidden h-20" />}
-
-      <CourseEnrollmentModal
-        isOpen={enrollmentModal.isOpen}
-        onClose={() => setEnrollmentModal({ isOpen: false, courseId: '', courseTitle: '' })}
-        courseId={enrollmentModal.courseId}
-        courseTitle={enrollmentModal.courseTitle}
-        onSuccess={handleEnrollmentSuccess}
-      />
-
-      <EventEnrollmentModal
-        isOpen={eventEnrollmentModal.isOpen}
-        onClose={() => setEventEnrollmentModal({ isOpen: false, eventId: '', eventTitle: '' })}
-        eventId={eventEnrollmentModal.eventId}
-        eventTitle={eventEnrollmentModal.eventTitle}
-        onSuccess={() => {
-           // Optional: Show success feedback or refetch
-        }}
-      />
+      <style>{`
+        .no-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+        .no-scrollbar {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+      `}</style>
     </div>
-  )
+  );
 }

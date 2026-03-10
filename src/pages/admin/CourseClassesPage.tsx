@@ -36,7 +36,6 @@ interface MunicipalityClass {
   status: 'ACTIVE' | 'CLOSED'
   createdAt: string
   closedAt?: string | null
-  closedAt?: string | null
   registrations: number
   students?: Enrollment[]
 }
@@ -136,7 +135,7 @@ export default function CourseClassesPage() {
       // Agrupa de 30 em 30
       const classIndex = Math.floor((region.totalRegistrations - 1) / region.defaultLimit)
       const classNumber = classIndex + 1
-      
+
       let classItem = region.classes.find(c => c.classNumber === classNumber)
       if (!classItem) {
         classItem = {
@@ -151,11 +150,11 @@ export default function CourseClassesPage() {
         }
         region.classes.push(classItem)
       }
-      
+
       classItem.currentCount++
       classItem.registrations++
       classItem.students?.push(enrollment)
-      
+
       // Atualiza active class info
       region.activeClassNumber = classItem.classNumber
       region.activeClassCount = classItem.currentCount
@@ -179,14 +178,14 @@ export default function CourseClassesPage() {
     if (!courseId) return
     try {
       setLoading(true)
-      
+
       // Busca curso (tenta endpoints diferentes)
       const courseData = await apiFetch<Course>(`/admin/courses/${courseId}`, { auth: true }).catch(() =>
         apiFetch<any>('/admin/courses', { auth: true }).then((data) =>
           Array.isArray(data) ? data.find((c: Course) => c.id === courseId) : data.courses?.find((c: Course) => c.id === courseId)
         )
       )
-      
+
       if (courseData) setCourse(courseData)
 
       // Tenta endpoint oficial de regiões primeiro
@@ -197,12 +196,12 @@ export default function CourseClassesPage() {
         setRegionsData(regionsData)
       } catch (backendError) {
         console.warn('Endpoint de regiões falhou, usando fallback client-side:', backendError)
-        
+
         // Fallback: Busca enrollments e agrupa localmente
         const enrollments = await apiFetch<Enrollment[]>(`/admin/courses/${courseId}/enrollments`, {
           auth: true,
         })
-        
+
         const groupedData = groupEnrollmentsByRegion(enrollments || [])
         setRegionsData(groupedData)
       }
@@ -217,7 +216,7 @@ export default function CourseClassesPage() {
 
   useEffect(() => {
     if (!authLoading) {
-      if (!isAuthenticated || user?.role !== 'ADMIN') {
+      if (!isAuthenticated || (user?.role !== 'ADMIN' && user?.role !== 'SUPER_ADMIN')) {
         navigate('/my-courses')
       } else if (courseId) {
         fetchData()
@@ -277,7 +276,7 @@ export default function CourseClassesPage() {
             {course && (
               <p className="text-gray-600 text-lg">{course.title}</p>
             )}
-            
+
             <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mt-4">
               <div className="flex">
                 <div className="flex-shrink-0">
@@ -441,11 +440,10 @@ export default function CourseClassesPage() {
                               </td>
                               <td className="px-4 py-3 whitespace-nowrap">
                                 <span
-                                  className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
-                                    classItem.status === 'ACTIVE'
-                                      ? 'bg-green-100 text-green-700'
-                                      : 'bg-gray-100 text-gray-700'
-                                  }`}
+                                  className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${classItem.status === 'ACTIVE'
+                                    ? 'bg-green-100 text-green-700'
+                                    : 'bg-gray-100 text-gray-700'
+                                    }`}
                                 >
                                   {classItem.status === 'ACTIVE'
                                     ? 'Ativa'

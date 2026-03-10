@@ -1,15 +1,35 @@
-import { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import MobileNavbar from '@/components/ui/MobileNavbar'
 import Footer from '@/components/ui/Footer'
+import {
+  Users,
+  Search,
+  Download,
+  X,
+  MapPin,
+  Mail,
+  Phone,
+  User,
+  Calendar,
+  Filter,
+  MoreVertical,
+  ChevronRight,
+  UserCheck,
+  GraduationCap,
+  Briefcase,
+  AlertTriangle,
+  ChevronDown,
+  Layers,
+  FileText
+} from 'lucide-react'
 import LoadingScreen from '@/components/ui/LoadingScreen'
-import { apiFetch } from '@/lib/api'
+import { apiFetch, getApiUrl } from '@/lib/api'
 import { useAuth } from '@/lib/useAuth'
 import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
-import { X } from 'lucide-react'
 
 interface Registration {
   id: string
@@ -71,9 +91,10 @@ interface Event {
   title: string
 }
 
-export default function EventClassesPage() {
+export default function EventClassesPage({ eventIdProp, onClose }: { eventIdProp?: string, onClose?: () => void } = {}) {
   const navigate = useNavigate()
-  const { eventId } = useParams<{ eventId: string }>()
+  const { eventId: paramEventId } = useParams<{ eventId: string }>()
+  const eventId = eventIdProp || paramEventId
   const { user, loading: authLoading, isAuthenticated } = useAuth({
     requireAuth: true,
     redirectTo: '/login',
@@ -265,7 +286,7 @@ export default function EventClassesPage() {
 
   useEffect(() => {
     if (!authLoading) {
-      if (!isAuthenticated || user?.role !== 'ADMIN') {
+      if (!isAuthenticated || (user?.role !== 'ADMIN' && user?.role !== 'SUPER_ADMIN')) {
         navigate('/my-courses')
       } else if (eventId) {
         fetchData()
@@ -394,10 +415,15 @@ export default function EventClassesPage() {
 
     try {
       const fieldsParam = selectedFields.filter((f) => f !== 'number').join(',')
-      let url = `${import.meta.env.VITE_API_URL || 'http://localhost:3005'}/admin/events/${eventId}/export?format=${format}&fields=${fieldsParam}`
+      const apiUrl = getApiUrl()
+      let url = `${apiUrl}/admin/events/${eventId}/export?format=${format}&fields=${fieldsParam}`
 
       if (exportScope) {
-        if (exportScope.id) {
+        // Se o ID parece um ObjectId do MongoDB (24 caracteres hex), usa municipalityId
+        // Caso contrário (como city-state), usa city e state
+        const isObjectId = /^[0-9a-fA-F]{24}$/.test(exportScope.id || '');
+
+        if (exportScope.id && isObjectId) {
           url += `&municipalityId=${exportScope.id}`
         } else {
           url += `&city=${encodeURIComponent(exportScope.municipality)}&state=${encodeURIComponent(exportScope.state)}`
@@ -474,108 +500,100 @@ export default function EventClassesPage() {
   const filteredRegions = getFilteredRegions();
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className={eventIdProp ? "" : "min-h-screen bg-gray-50 flex flex-col"}>
       {/* ... resto do código ... */}
       {/* Vou injetar o botão no outro bloco replace abaixo, aqui só a função */}
 
-      <MobileNavbar />
+      {!eventIdProp && <MobileNavbar />}
 
       <main className="flex-1">
-        <div className="container mx-auto px-4 py-6">
-          <Link
-            to="/admin/events"
-            className="text-[#FF6600] hover:underline mb-4 inline-block"
-          >
-            ← Voltar para Eventos
-          </Link>
-          <div className="mb-6">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+        <div className={eventIdProp ? "py-2" : "container mx-auto px-4 py-8"}>
+          {!eventIdProp && (
+            <Link
+              to="/admin/events"
+              className="text-[var(--primary)] hover:text-[var(--primary-hover)] font-black text-[10px] uppercase tracking-widest mb-6 inline-flex items-center gap-2 group transition-all"
+            >
+              <span className="group-hover:-translate-x-1 transition-transform">←</span> Voltar para Eventos
+            </Link>
+          )}
+
+          {/* Header Section */}
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-8">
+            <div className="flex items-center gap-5">
+              <div className="w-14 h-14 bg-violet-600 rounded-[1.5rem] flex items-center justify-center text-white shadow-lg shadow-violet-200">
+                <Layers size={28} />
+              </div>
               <div>
-                <h1 className="text-3xl font-bold text-[#003366] mb-2">
+                <h1 className="text-2xl font-black text-[var(--secondary)] tracking-tight">
                   Gerenciamento de Turmas
                 </h1>
                 {event && (
-                  <p className="text-gray-600 text-lg">{event.title}</p>
+                  <p className="text-[var(--text-muted)] font-bold text-xs uppercase tracking-widest mt-1">
+                    {event.title}
+                  </p>
                 )}
               </div>
+            </div>
 
+            <div className="flex items-center gap-3 w-full lg:w-auto">
               <button
                 onClick={() => {
                   setExportScope(null);
                   setExportModalOpen(true);
                 }}
-                className="bg-green-600 text-white px-6 py-3 rounded-md font-semibold hover:bg-green-700 transition-colors flex items-center gap-2 shadow-sm"
+                className="bg-white text-emerald-600 border border-emerald-100 px-5 py-2.5 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-emerald-50 transition-all flex items-center gap-2 shadow-sm hover:shadow-md"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                Exportar Dados
+                <Download size={14} />
+                Exportar Tudo
               </button>
+              {onClose && (
+                <button
+                  onClick={onClose}
+                  className="p-2.5 bg-white text-[var(--text-muted)] hover:text-[var(--secondary)] border border-[var(--border-light)] rounded-2xl transition-all shadow-sm"
+                >
+                  <X size={18} />
+                </button>
+              )}
             </div>
+          </div>
 
-            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mt-4">
-              <div className="flex">
-                <div className="flex-shrink-0">
-                  <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm text-yellow-700">
-                    Modo de visualização client-side: Os alunos foram agrupados por cidade em seu navegador.
-                  </p>
-                </div>
-              </div>
+          <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl flex items-center gap-3 mb-8">
+            <div className="p-2 bg-white rounded-xl text-amber-500 shadow-sm">
+              <AlertTriangle size={18} />
             </div>
+            <p className="text-[11px] text-amber-800 font-bold uppercase tracking-wide">
+              Modo de visualização client-side: Os alunos foram agrupados por cidade para otimização.
+            </p>
+          </div>
 
-            <div className="mt-4 p-4 bg-white rounded-lg shadow-sm">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <p className="text-sm text-gray-500">Total de Cadastros</p>
-                  <p className="text-2xl font-bold text-[#003366]">
-                    {regionsData.overall.totalRegistrations}
-                  </p>
+          {/* Stats Summary Grid */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            {[
+              { label: 'Total Geral', value: regionsData.overall.totalRegistrations, icon: <Users size={16} />, color: 'bg-indigo-50 text-indigo-600' },
+              { label: 'Municípios', value: regionsData.regions.length, icon: <MapPin size={16} />, color: 'bg-emerald-50 text-emerald-600' },
+              { label: 'Turmas Ativas', value: regionsData.regions.reduce((acc, r) => acc + r.classes.filter(c => c.status === 'ACTIVE').length, 0), icon: <Layers size={16} />, color: 'bg-blue-50 text-blue-600' },
+              { label: 'Participantes', value: Object.values(regionsData.overall.byParticipantType).reduce((a, b) => a + b, 0), icon: <UserCheck size={16} />, color: 'bg-violet-50 text-violet-600' },
+            ].map((stat, i) => (
+              <div key={i} className="bg-white p-5 rounded-3xl border border-[var(--border-light)] shadow-sm hover:shadow-md transition-shadow">
+                <div className="flex items-center justify-between mb-3">
+                  <div className={`p-2 rounded-xl ${stat.color}`}>{stat.icon}</div>
                 </div>
-                <div>
-                  <p className="text-sm text-gray-500">Municípios</p>
-                  <p className="text-2xl font-bold text-[#003366]">
-                    {regionsData.regions.length}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Por Tipo</p>
-                  <div className="flex flex-wrap gap-2 mt-1">
-                    {Object.entries(regionsData.overall.byParticipantType).map(
-                      ([type, count]) => (
-                        <span
-                          key={type}
-                          className="text-xs bg-gray-100 px-2 py-1 rounded"
-                        >
-                          {getParticipantTypeLabel(type)}: {count}
-                        </span>
-                      )
-                    )}
-                  </div>
-                </div>
+                <div className="text-2xl font-black text-[var(--secondary)]">{stat.value}</div>
+                <div className="text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest mt-1">{stat.label}</div>
               </div>
-            </div>
+            ))}
+          </div>
 
-            <div className="mt-6">
-              <div className="relative max-w-xl">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                </div>
-                <input
-                  type="text"
-                  placeholder="Buscar por nome, CPF, cidade ou telefone..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900 shadow-sm"
-                />
-              </div>
-            </div>
+          {/* Search Bar */}
+          <div className="mb-8 relative max-w-xl">
+            <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+            <input
+              type="text"
+              placeholder="Pesquisar cidade, nome, CPF ou telefone..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full bg-white border border-[var(--border-light)] rounded-[1.25rem] py-3.5 pl-12 pr-6 text-xs font-bold focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all shadow-sm"
+            />
           </div>
 
           {filteredRegions.length === 0 ? (
@@ -589,70 +607,53 @@ export default function EventClassesPage() {
               {filteredRegions.map((region) => (
                 <div
                   key={region.id}
-                  className="bg-white rounded-lg shadow-md overflow-hidden"
+                  className="bg-white rounded-[2rem] border border-[var(--border-light)] shadow-sm overflow-hidden mb-6"
                 >
-                  <div className="bg-gradient-to-r from-[#003366] to-[#FF6600] px-6 py-4">
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                      <div>
-                        <h2 className="text-xl font-bold text-white">
-                          {region.municipality} - {region.state}
-                        </h2>
-                        <div className="mt-2 flex flex-wrap gap-4 text-sm text-white/90">
-                          <span>
-                            Total: <strong>{region.totalRegistrations}</strong>{' '}
-                            cadastros
-                          </span>
-                          {region.defaultLimit < 9999 && (
-                            <span>
-                              Limite padrão: <strong>{region.defaultLimit}</strong>{' '}
-                              vagas
-                            </span>
-                          )}
-                          {region.activeClassNumber && region.defaultLimit < 9999 && (
-                            <span>
-                              Turma Ativa: <strong>Turma {region.activeClassNumber}</strong>{' '}
-                              ({region.activeClassCount}/{region.activeClassLimit} vagas)
-                            </span>
-                          )}
+                  <div className="bg-slate-50 border-b border-[var(--border-light)] px-8 py-6">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-slate-400 shadow-sm border border-[var(--border-light)]">
+                          <MapPin size={24} />
                         </div>
-                        {Object.keys(region.byParticipantType).length > 0 && (
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            {Object.entries(region.byParticipantType).map(
-                              ([type, count]) => (
-                                <span
-                                  key={type}
-                                  className="text-xs bg-white/20 px-2 py-1 rounded"
-                                >
-                                  {getParticipantTypeLabel(type)}: {count}
-                                </span>
-                              )
-                            )}
+                        <div>
+                          <h2 className="text-lg font-black text-[var(--secondary)] tracking-tight">
+                            {region.municipality} — {region.state}
+                          </h2>
+                          <div className="flex flex-wrap gap-2 mt-1.5">
+                            <span className="text-[9px] font-black uppercase tracking-widest text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg">
+                              {region.totalRegistrations} Cadastros
+                            </span>
+                            {Object.entries(region.byParticipantType).map(([type, count]) => (
+                              <span key={type} className="text-[9px] font-black uppercase tracking-widest text-slate-500 bg-white border border-slate-100 px-2 py-1 rounded-lg">
+                                {getParticipantTypeLabel(type)}: {count}
+                              </span>
+                            ))}
                           </div>
-                        )}
+                        </div>
                       </div>
 
-                      <div className="flex flex-col gap-2">
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleExportRegion(region.municipality, region.state, region.id)}
-                            className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 border border-white/10 active:scale-95 shadow-lg"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                            EXPORTAR CIDADE
-                          </button>
-                        </div>
-                      </div>
+                      <button
+                        onClick={() => handleExportRegion(region.municipality, region.state, region.id)}
+                        className="bg-white text-[var(--secondary)] border border-[var(--border-light)] px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-100 transition-all flex items-center gap-2 shadow-sm"
+                      >
+                        <Download size={14} />
+                        Exportar Município
+                      </button>
                     </div>
                   </div>
 
-                  <div className="p-6">
-                    <h3 className="text-lg font-semibold text-[#003366] mb-4">
-                      Turmas ({region.classes.length})
-                    </h3>
+                  <div className="p-8">
+                    <div className="flex items-center justify-between mb-6">
+                      <h3 className="text-sm font-black text-[var(--secondary)] uppercase tracking-widest flex items-center gap-2">
+                        <Layers size={16} className="text-violet-500" /> Turmas Criadas ({region.classes.length})
+                      </h3>
+                    </div>
                     {region.classes.length === 0 ? (
-                      <p className="text-gray-500 text-sm">
-                        Nenhuma turma criada ainda.
-                      </p>
+                      <div className="py-10 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                          Nenhuma turma criada ainda.
+                        </p>
+                      </div>
                     ) : (
                       <div className="overflow-x-auto">
                         <table className="min-w-full divide-y divide-gray-200">
@@ -677,138 +678,135 @@ export default function EventClassesPage() {
                           </thead>
                           <tbody className="bg-white divide-y divide-gray-200">
                             {region.classes.map((classItem) => (
-                              <>
+                              <React.Fragment key={classItem.id}>
                                 <tr
-                                  key={classItem.id}
-                                  className={
-                                    classItem.status === 'ACTIVE'
-                                      ? 'bg-green-50'
-                                      : ''
-                                  }
+                                  className={`group transition-all ${classItem.status === 'ACTIVE'
+                                    ? 'bg-emerald-50/20'
+                                    : ''
+                                    }`}
                                 >
-                                  <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
-                                    <div className="flex items-center gap-2">
-                                      <button
-                                        onClick={() => setExpandedClass(expandedClass === classItem.id ? null : classItem.id)}
-                                        className="text-gray-500 hover:text-[#003366] transition-colors focus:outline-none"
-                                        title="Ver lista de alunos"
-                                      >
-                                        <svg
-                                          className={`w-4 h-4 transform transition-transform duration-200 ${expandedClass === classItem.id ? 'rotate-90' : ''}`}
-                                          fill="none"
-                                          stroke="currentColor"
-                                          viewBox="0 0 24 24"
-                                        >
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                        </svg>
-                                      </button>
+                                  <td className="px-6 py-4">
+                                    <button
+                                      onClick={() => setExpandedClass(expandedClass === classItem.id ? null : classItem.id)}
+                                      className="flex items-center gap-3 text-xs font-black text-[var(--secondary)] hover:text-indigo-600 transition-colors"
+                                    >
+                                      <div className={`p-1.5 rounded-lg transition-transform ${expandedClass === classItem.id ? 'rotate-180 bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-400'}`}>
+                                        <ChevronDown size={14} />
+                                      </div>
                                       Turma {classItem.classNumber}
+                                    </button>
+                                  </td>
+                                  <td className="px-6 py-4">
+                                    <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500">
+                                      <Users size={12} className="text-slate-400" />
+                                      {classItem.limit} Vagas
                                     </div>
                                   </td>
-                                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                                    {classItem.limit} vagas
+                                  <td className="px-6 py-4">
+                                    <div className="flex items-center gap-2">
+                                      <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden max-w-[80px]">
+                                        <div
+                                          className="h-full bg-emerald-500 rounded-full"
+                                          style={{ width: `${Math.min(100, (classItem.currentCount / classItem.limit) * 100)}%` }}
+                                        />
+                                      </div>
+                                      <span className="text-[10px] font-black text-[var(--secondary)]">
+                                        {classItem.currentCount}
+                                      </span>
+                                    </div>
                                   </td>
-                                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                                    <span className="font-semibold">
-                                      {classItem.currentCount}
-                                    </span>{' '}
-                                    cadastros
-                                  </td>
-                                  <td className="px-4 py-3 whitespace-nowrap">
+                                  <td className="px-6 py-4">
                                     <span
-                                      className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${classItem.status === 'ACTIVE'
-                                        ? 'bg-green-100 text-green-700'
-                                        : 'bg-gray-100 text-gray-700'
+                                      className={`inline-flex items-center px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${classItem.status === 'ACTIVE'
+                                        ? 'bg-emerald-100 text-emerald-700'
+                                        : 'bg-slate-100 text-slate-700'
                                         }`}
                                     >
                                       {classItem.status === 'ACTIVE'
-                                        ? 'Ativa'
-                                        : 'Encerrada'}
+                                        ? 'Aberta'
+                                        : 'Fechada'}
                                     </span>
                                   </td>
-                                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                                    {format(
-                                      new Date(classItem.createdAt),
-                                      'dd/MM/yyyy HH:mm',
-                                      { locale: ptBR }
-                                    )}
+                                  <td className="px-6 py-4">
+                                    <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500">
+                                      <Calendar size={12} className="text-slate-400" />
+                                      {format(new Date(classItem.createdAt), 'dd MMM yyyy', { locale: ptBR })}
+                                    </div>
                                   </td>
                                 </tr>
                                 {expandedClass === classItem.id && (
                                   <tr>
-                                    <td colSpan={5} className="px-4 py-3 bg-gray-50 border-t border-gray-100">
-                                      <div className="text-sm pl-6">
-                                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 gap-2">
-                                          <p className="font-semibold text-[#003366] flex items-center gap-2">
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                                            </svg>
-                                            Lista de Alunos ({classItem.students?.length || 0})
-                                          </p>
-
-                                          <div className="flex gap-2">
-                                            <button
-                                              onClick={() => handleExportClass(classItem.id, 'csv')}
-                                              className="inline-flex items-center px-3 py-1.5 bg-blue-100 text-blue-700 text-xs font-medium rounded hover:bg-blue-200 transition-colors"
-                                              title="Baixar CSV"
-                                            >
-                                              <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                                              CSV
-                                            </button>
-                                            <button
-                                              onClick={() => handleExportClass(classItem.id, 'pdf')}
-                                              className="inline-flex items-center px-3 py-1.5 bg-red-100 text-red-700 text-xs font-medium rounded hover:bg-red-200 transition-colors"
-                                              title="Baixar PDF"
-                                            >
-                                              <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
-                                              PDF
-                                            </button>
-                                            <button
-                                              onClick={() => handleExportClass(classItem.id, 'xlsx')}
-                                              className="inline-flex items-center px-3 py-1.5 bg-green-100 text-green-700 text-xs font-medium rounded hover:bg-green-200 transition-colors"
-                                              title="Baixar Excel"
-                                            >
-                                              <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                                              Excel
-                                            </button>
+                                    <td colSpan={5} className="px-8 py-6 bg-slate-50 border-y border-[var(--border-light)] shadow-inner">
+                                      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
+                                        <div className="flex items-center gap-3">
+                                          <div className="w-10 h-10 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-md">
+                                            <Users size={20} />
+                                          </div>
+                                          <div>
+                                            <h4 className="text-xs font-black text-[var(--secondary)] uppercase tracking-tight">Lista de Inscritos</h4>
+                                            <p className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest">{classItem.students?.length || 0} alunos nesta turma</p>
                                           </div>
                                         </div>
 
-                                        {classItem.students && classItem.students.length > 0 ? (
-                                          <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-md bg-white shadow-sm">
-                                            <table className="min-w-full divide-y divide-gray-200">
-                                              <thead className="bg-gray-50 sticky top-0">
-                                                <tr>
-                                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Nome</th>
-                                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">CPF</th>
-                                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Telefone</th>
-                                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Data Inscrição</th>
-                                                </tr>
-                                              </thead>
-                                              <tbody className="divide-y divide-gray-100">
-                                                {classItem.students.map((student) => (
-                                                  <tr key={student.id} className="hover:bg-gray-50">
-                                                    <td className="px-4 py-2 text-gray-900 border-b border-gray-50">{student.name}</td>
-                                                    <td className="px-4 py-2 text-gray-500 border-b border-gray-50">{student.cpf}</td>
-                                                    <td className="px-4 py-2 text-gray-500 border-b border-gray-50">{student.phone}</td>
-                                                    <td className="px-4 py-2 text-gray-500 border-b border-gray-50">
-                                                      {format(new Date(student.createdAt), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
-                                                    </td>
-                                                  </tr>
-                                                ))}
-                                              </tbody>
-                                            </table>
-                                          </div>
-                                        ) : (
-                                          <div className="p-4 text-gray-500 italic bg-white rounded border border-gray-200 text-center">
-                                            Nenhum aluno identificado nesta turma.
-                                          </div>
-                                        )}
+                                        <div className="flex gap-2">
+                                          <button
+                                            onClick={() => handleExportClass(classItem.id, 'xlsx')}
+                                            className="bg-white border border-emerald-100 text-emerald-600 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-emerald-50 transition-all flex items-center gap-2 shadow-sm"
+                                          >
+                                            <Download size={12} /> Excel
+                                          </button>
+                                          <button
+                                            onClick={() => handleExportClass(classItem.id, 'pdf')}
+                                            className="bg-white border border-rose-100 text-rose-600 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-rose-50 transition-all flex items-center gap-2 shadow-sm"
+                                          >
+                                            <FileText size={12} /> PDF
+                                          </button>
+                                        </div>
                                       </div>
+
+                                      {classItem.students && classItem.students.length > 0 ? (
+                                        <div className="bg-white rounded-2xl border border-[var(--border-light)] shadow-sm overflow-hidden">
+                                          <table className="min-w-full">
+                                            <thead className="bg-slate-50/50">
+                                              <tr>
+                                                <th className="px-4 py-3 text-left text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest">Aluno</th>
+                                                <th className="px-4 py-3 text-left text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest">CPF</th>
+                                                <th className="px-4 py-3 text-left text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest">Contato</th>
+                                                <th className="px-4 py-3 text-right text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest">Inscrição</th>
+                                              </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-100">
+                                              {classItem.students.map((student) => (
+                                                <tr key={student.id} className="hover:bg-slate-50/50 transition-colors">
+                                                  <td className="px-4 py-3">
+                                                    <div className="flex items-center gap-3">
+                                                      <img
+                                                        src={`https://ui-avatars.com/api/?name=${encodeURIComponent(student.name)}&background=random&size=32`}
+                                                        className="w-7 h-7 rounded-lg"
+                                                        alt=""
+                                                      />
+                                                      <div className="text-[10px] font-black text-[var(--secondary)]">{student.name}</div>
+                                                    </div>
+                                                  </td>
+                                                  <td className="px-4 py-3 text-[10px] font-bold text-slate-500">{student.cpf}</td>
+                                                  <td className="px-4 py-3 text-[10px] font-bold text-slate-500">{student.phone}</td>
+                                                  <td className="px-4 py-3 text-right text-[9px] font-medium text-slate-400">
+                                                    {format(new Date(student.createdAt), 'dd/MM HH:mm')}
+                                                  </td>
+                                                </tr>
+                                              ))}
+                                            </tbody>
+                                          </table>
+                                        </div>
+                                      ) : (
+                                        <div className="p-8 text-center bg-white rounded-2xl border border-dashed border-slate-200">
+                                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Nenhum aluno identificado.</p>
+                                        </div>
+                                      )}
                                     </td>
                                   </tr>
                                 )}
-                              </>
+                              </React.Fragment>
                             ))}
                           </tbody>
                         </table>
@@ -822,11 +820,11 @@ export default function EventClassesPage() {
         </div>
       </main>
 
-      <Footer />
+      {!eventIdProp && <Footer />}
 
       {exportModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6 backdrop-blur-sm">
-          <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl animate-in zoom-in-95 duration-200">
+          <div className="w-full max-w-2xl rounded-xl bg-white shadow-2xl animate-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between border-b px-6 py-4">
               <h2 className="text-lg font-semibold text-[#003366]">
                 {exportScope

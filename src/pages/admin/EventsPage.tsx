@@ -1,11 +1,15 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import MobileNavbar from '@/components/ui/MobileNavbar'
-import Footer from '@/components/ui/Footer'
-import { apiFetch, getApiUrl, normalizeImageUrl } from '@/lib/api'
+import {
+  Plus, Search, Filter, Calendar, Users, MoreHorizontal,
+  ArrowRight, Link as LinkIcon, Share2, Copy, Trash2, CheckCircle, XCircle, LayoutGrid, MessageCircle
+} from 'lucide-react'
+import LoadingScreen from '@/components/ui/LoadingScreen'
+import { apiFetch, normalizeImageUrl } from '@/lib/api'
 import { useAuth } from '@/lib/useAuth'
+import AdminLayout from '@/components/layouts/AdminLayout'
 
 interface EventItem {
   id: string
@@ -22,56 +26,64 @@ interface EventItem {
   }
 }
 
-interface ShareData {
-  url: string
-  bannerUrl?: string
-  message: string
-}
+import EventRegistrationsPage from './EventRegistrationsPage'
+import EventClassesPage from './EventClassesPage'
 
 export default function AdminEventsPage() {
   const navigate = useNavigate()
-  const { user, loading, isAuthenticated } = useAuth({ requireAuth: true, redirectTo: '/login' })
-  const [events, setEvents] = useState<EventItem[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE' | 'CLOSED'>('ALL')
-  const [createModalOpen, setCreateModalOpen] = useState(false)
-  const [shareModalOpen, setShareModalOpen] = useState(false)
-  const [copyStatus, setCopyStatus] = useState<'idle' | 'success'>('idle')
-  const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null)
-  const [creating, setCreating] = useState(false)
-  const [createError, setCreateError] = useState<string | null>(null)
-  const [newEvent, setNewEvent] = useState({
-    title: '',
-    description: '',
-    bannerUrl: '',
-    maxRegistrations: '',
-    slug: '',
+  const { user, loading: authLoading, isAuthenticated } = useAuth({
+    requireAuth: true,
+    redirectTo: '/login'
   })
 
+  const [events, setEvents] = useState<EventItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE' | 'CLOSED'>('ALL')
+  const [activeModal, setActiveModal] = useState<{ type: 'registrations' | 'classes' | null, eventId: string | null }>({ type: null, eventId: null })
+
+  const fetchEvents = useCallback(async () => {
+    try {
+      setLoading(true)
+      const data = await apiFetch<EventItem[]>('/events', { auth: true })
+      setEvents(data)
+    } catch (error) {
+      console.error('Erro ao carregar eventos:', error)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
-    if (!loading) {
-      if (!isAuthenticated || user?.role !== 'ADMIN') {
+    if (!authLoading) {
+      if (!isAuthenticated || (user?.role !== 'ADMIN' && user?.role !== 'SUPER_ADMIN')) {
         navigate('/my-courses')
       } else {
         fetchEvents()
       }
     }
-  }, [loading, isAuthenticated, user, navigate])
+  }, [authLoading, isAuthenticated, user, navigate, fetchEvents])
 
-  async function fetchEvents() {
-    try {
-      setIsLoading(true)
-      setError(null)
-      const data = await apiFetch<EventItem[]>('/events', { auth: true })
-      setEvents(data)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao carregar eventos')
-    } finally {
-      setIsLoading(false)
-    }
-  }
+  // Definitiva contra preenchimento automático (auto-fill)
+  useEffect(() => {
+    const inputId = 'search_events_final_no_autofill';
+    const clearInput = () => {
+      const input = document.getElementById(inputId) as HTMLInputElement;
+      if (input && searchTerm === '' && input.value !== '') {
+        input.value = '';
+      }
+    };
+
+    // Tentar limpar imediatamente e em intervalos nos primeiros 2 segundos
+    clearInput();
+    const interval = setInterval(clearInput, 200);
+    const timeout = setTimeout(() => clearInterval(interval), 2000);
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
+  }, [searchTerm]);
 
   const filteredEvents = useMemo(() => {
     return events
@@ -91,496 +103,257 @@ export default function AdminEventsPage() {
       })
   }, [events, statusFilter, searchTerm])
 
-  const buildShareData = (eventItem: EventItem): ShareData => {
-    const origin = typeof window !== 'undefined' ? window.location.origin : ''
-    const url = eventItem.slug
-      ? (origin ? `${origin}/register-event.html?event=${eventItem.slug}` : `/register-event.html?event=${eventItem.slug}`)
-      : (origin ? `${origin}/register-event.html?event=${eventItem.linkId}` : `/register-event.html?event=${eventItem.linkId}`)
-
-    let bannerUrl = eventItem.bannerUrl ?? undefined
-    if (bannerUrl && bannerUrl.startsWith('/')) {
-      bannerUrl = origin ? `${origin}${bannerUrl}` : bannerUrl
-    }
-
-    return {
-      url,
-      bannerUrl,
-      message: `🚀 *Inscrições Abertas!*\n\nParticipe do evento *${eventItem.title}*!\n\nGaranta sua vaga agora mesmo clicando no link abaixo:\n👇👇👇\n${url}`,
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'ACTIVE': return 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
+      case 'INACTIVE': return 'bg-slate-500/10 text-slate-600 border-slate-500/20'
+      case 'CLOSED': return 'bg-red-500/10 text-red-600 border-red-500/20'
+      default: return 'bg-slate-100 text-slate-600'
     }
   }
 
-  const selectedShareData = useMemo(() => {
-    if (!selectedEvent) return null
-    return buildShareData(selectedEvent)
-  }, [selectedEvent])
-
-  const openCreateModal = () => {
-    setCreateError(null)
-    setNewEvent({ title: '', description: '', bannerUrl: '', maxRegistrations: '', slug: '' })
-    setCreateModalOpen(true)
-  }
-
-  const closeCreateModal = () => {
-    setCreateModalOpen(false)
-  }
-
-  const openShareModal = (eventItem: EventItem) => {
-    setSelectedEvent(eventItem)
-    setCopyStatus('idle')
-    setShareModalOpen(true)
-  }
-
-  const closeShareModal = () => {
-    setShareModalOpen(false)
-  }
-
-  const handleCopyLink = async () => {
-    if (!selectedShareData) return
+  const handleUpdateStatus = async (eventId: string, newStatus: string) => {
     try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(selectedShareData.url)
-        setCopyStatus('success')
-        setTimeout(() => setCopyStatus('idle'), 2000)
-      }
-    } catch (err) {
-    }
-  }
-
-  const handleShareNow = async () => {
-    if (!selectedShareData || !selectedEvent) return
-    const sharePayload = {
-      title: selectedEvent.title,
-      text: selectedShareData.message,
-      url: selectedShareData.url,
-    }
-    try {
-      if (navigator.share) {
-        await navigator.share(sharePayload)
-      } else if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(selectedShareData.message)
-        setCopyStatus('success')
-        setTimeout(() => setCopyStatus('idle'), 2000)
-      }
-    } catch (err) {
-    }
-  }
-
-  const handleShareWhatsapp = (shareData: ShareData, event?: EventItem) => {
-    // Usa a URL do frontend que funciona corretamente
-    const message = shareData.message
-    const waUrl = `https://wa.me/?text=${encodeURIComponent(message)}`
-    window.open(waUrl, '_blank', 'noopener,noreferrer')
-  }
-
-  const handleCreateEvent = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setCreating(true)
-    setCreateError(null)
-    try {
-      const payload: Record<string, any> = {
-        title: newEvent.title,
-        description: newEvent.description,
-      }
-      if (newEvent.bannerUrl.trim()) {
-        payload.bannerUrl = newEvent.bannerUrl.trim()
-      }
-      if (newEvent.maxRegistrations.trim()) {
-        const value = Number(newEvent.maxRegistrations)
-        if (Number.isNaN(value) || value < 0) {
-          throw new Error('Informe um limite válido de vagas')
-        }
-        payload.maxRegistrations = value
-      }
-      if (newEvent.slug.trim()) {
-        const normalizedSlug = newEvent.slug.trim().toLowerCase()
-        if (!/^[a-z0-9-]+$/.test(normalizedSlug)) {
-          throw new Error('Slug inválido. Use apenas letras minúsculas, números e hífens.')
-        }
-        payload.slug = normalizedSlug
-      }
-
-      await apiFetch('/events', {
-        method: 'POST',
-        auth: true,
-        body: JSON.stringify(payload),
-      })
-
-      await fetchEvents()
-      setCreateModalOpen(false)
-    } catch (err) {
-      setCreateError(err instanceof Error ? err.message : 'Erro ao criar evento')
-    } finally {
-      setCreating(false)
-    }
-  }
-
-  const handleUpdateStatus = async (eventItem: EventItem, newStatus: 'ACTIVE' | 'INACTIVE' | 'CLOSED') => {
-    try {
-      await apiFetch(`/admin/events/${eventItem.id}`, {
+      await apiFetch(`/admin/events/${eventId}`, {
         method: 'PATCH',
         auth: true,
         body: JSON.stringify({ status: newStatus }),
       })
-
-      await fetchEvents()
+      fetchEvents()
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Erro ao atualizar status')
     }
   }
 
+  if (authLoading || loading) return <LoadingScreen />
+
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <MobileNavbar />
+    <AdminLayout>
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 mt-4">
+        <div>
+          <h1 className="text-3xl font-black text-[var(--secondary)] tracking-tight">
+            Gestão de <span className="text-indigo-600">Eventos</span>
+          </h1>
+          <p className="text-[var(--text-muted)] font-medium mt-1">
+            Links de cadastro e controle de presença para seus eventos.
+          </p>
+        </div>
+        <Link
+          to="/admin/events/new"
+          className="flex items-center justify-center gap-2 px-6 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-xl shadow-indigo-600/20 transition-all active:scale-95 whitespace-nowrap"
+        >
+          <Plus size={20} />
+          NOVO EVENTO
+        </Link>
+      </div>
 
-      <main className="flex-1">
-        <div className="container mx-auto px-4 py-6">
-          <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-[#003366]">Histórico de Links</h1>
-              <p className="text-gray-600 text-sm">Gerencie os links de cadastro criados para eventos e campanhas.</p>
-            </div>
-            <Link
-              to="/admin/events/new"
-              className="inline-flex items-center gap-2 rounded-lg bg-[#FF6600] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#e55a00]"
+      {/* Control Panel: Search & Filter */}
+      <div className="bg-white rounded-[2rem] border border-[var(--border-light)] p-2 shadow-sm mb-8 flex flex-col lg:flex-row gap-2 relative overflow-hidden">
+        {/* Bait input to catch Chrome's auto-fill */}
+        <input
+          type="text"
+          name="email"
+          autoComplete="email"
+          className="absolute -top-[5000px] left-0 opacity-0 pointer-events-none"
+          tabIndex={-1}
+        />
+
+        <div className="flex-1 relative">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none" size={18} />
+          <input
+            type="search"
+            placeholder="Pesquisar evento, descrição ou slug..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            autoComplete="off"
+            name="search_events_unique_no_fill"
+            id="search_events_final_no_autofill"
+            className="w-full pl-12 pr-4 py-3 bg-[var(--bg-main)] border-none rounded-2xl text-sm focus:ring-0 focus:outline-none focus:bg-white transition-all font-medium appearance-none"
+          />
+        </div>
+        <div className="flex gap-1 p-1 bg-[var(--bg-main)] rounded-2xl">
+          {['ALL', 'ACTIVE', 'INACTIVE', 'CLOSED'].map((f) => (
+            <button
+              key={f}
+              onClick={() => setStatusFilter(f as any)}
+              className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${statusFilter === f
+                ? 'bg-white text-indigo-600 shadow-sm'
+                : 'text-[var(--text-muted)] hover:text-indigo-600'
+                }`}
             >
-              <span className="text-lg">+</span>
-              Novo link
-            </Link>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-md p-4 md:p-6 space-y-4">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div className="flex flex-1 items-center gap-3">
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Buscar por título, descrição ou link"
-                  className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-[#FF6600]"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <label className="text-sm text-gray-500">Status:</label>
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
-                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-[#FF6600]"
-                >
-                  <option value="ALL">Todos</option>
-                  <option value="ACTIVE">Ativos</option>
-                  <option value="INACTIVE">Inativos</option>
-                  <option value="CLOSED">Encerrados</option>
-                </select>
-              </div>
-            </div>
-
-            {isLoading ? (
-              <div className="py-16 text-center text-gray-500">Carregando links...</div>
-            ) : error ? (
-              <div className="py-16 text-center text-red-500">{error}</div>
-            ) : filteredEvents.length === 0 ? (
-              <div className="py-16 text-center text-gray-500">Nenhum link encontrado.</div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 text-sm">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-3 text-left font-semibold text-gray-600">Título</th>
-                      <th className="px-4 py-3 text-left font-semibold text-gray-600">Link</th>
-                      <th className="px-4 py-3 text-left font-semibold text-gray-600">Criado em</th>
-                      <th className="px-4 py-3 text-left font-semibold text-gray-600">Inscritos</th>
-                      <th className="px-4 py-3 text-left font-semibold text-gray-600">Status</th>
-                      <th className="px-4 py-3 text-left font-semibold text-gray-600">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {filteredEvents.map((event) => {
-                      const shareData = buildShareData(event)
-                      return (
-                        <tr key={event.id} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-4 py-3 align-top">
-                            <div className="font-semibold text-[#003366]">{event.title}</div>
-                            <div className="text-xs text-gray-500 line-clamp-2">{event.description}</div>
-                          </td>
-                          <td className="px-4 py-3 align-top">
-                            <div className="flex items-center gap-2 text-xs text-gray-600">
-                              <span className="truncate max-w-[240px]">{shareData.url}</span>
-                              <button
-                                onClick={async () => {
-                                  try {
-                                    if (navigator.clipboard?.writeText) {
-                                      await navigator.clipboard.writeText(shareData.url)
-                                      alert('Link copiado!')
-                                    }
-                                  } catch (err) {
-                                  }
-                                }}
-                                className="rounded-md border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-100"
-                              >
-                                Copiar
-                              </button>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 align-top text-xs text-gray-600">
-                            {format(new Date(event.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}
-                          </td>
-                          <td className="px-4 py-3 align-top text-xs text-gray-600">
-                            {event._count?.registrations ?? 0}
-                          </td>
-                          <td className="px-4 py-3 align-top">
-                            <span
-                              className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${event.status === 'ACTIVE'
-                                  ? 'bg-green-100 text-green-700'
-                                  : event.status === 'INACTIVE'
-                                    ? 'bg-gray-100 text-gray-700'
-                                    : 'bg-red-100 text-red-700'
-                                }`}
-                            >
-                              {event.status === 'ACTIVE'
-                                ? 'Ativo'
-                                : event.status === 'INACTIVE'
-                                  ? 'Inativo'
-                                  : 'Encerrado'}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 align-top">
-                            <div className="flex flex-col gap-2">
-                              <Link
-                                to={`/admin/events/${event.id}/registrations`}
-                                className="rounded-md bg-[#FF6600] px-3 py-1 text-xs font-semibold text-white transition-colors hover:bg-[#e55a00] text-center"
-                              >
-                                Ver Registros
-                              </Link>
-                              <Link
-                                to={`/admin/events/${event.id}/classes`}
-                                className="rounded-md bg-[#003366] px-3 py-1 text-xs font-semibold text-white transition-colors hover:bg-[#00264d] text-center"
-                              >
-                                Ver Turmas
-                              </Link>
-                              <button
-                                onClick={() => openShareModal(event)}
-                                className="rounded-md bg-[#003366] px-3 py-1 text-xs font-semibold text-white transition-colors hover:bg-[#00264d]"
-                              >
-                                Compartilhar
-                              </button>
-                              <button
-                                onClick={() => handleShareWhatsapp(shareData, event)}
-                                className="rounded-md bg-green-600 px-3 py-1 text-xs font-semibold text-white transition-colors hover:bg-green-700"
-                              >
-                                WhatsApp
-                              </button>
-                              {event.status !== 'ACTIVE' && (
-                                <button
-                                  onClick={() => handleUpdateStatus(event, 'ACTIVE')}
-                                  className="rounded-md border border-[#FF6600] px-3 py-1 text-xs font-semibold text-[#FF6600] transition-colors hover:bg-orange-50"
-                                >
-                                  Ativar
-                                </button>
-                              )}
-                              {event.status === 'ACTIVE' && (
-                                <button
-                                  onClick={() => handleUpdateStatus(event, 'INACTIVE')}
-                                  className="rounded-md border border-gray-300 px-3 py-1 text-xs font-semibold text-gray-600 transition-colors hover:bg-gray-100"
-                                >
-                                  Inativar
-                                </button>
-                              )}
-                              {event.status !== 'CLOSED' && (
-                                <button
-                                  onClick={() => handleUpdateStatus(event, 'CLOSED')}
-                                  className="rounded-md border border-red-500 px-3 py-1 text-xs font-semibold text-red-500 transition-colors hover:bg-red-50"
-                                >
-                                  Encerrar
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
+              {f === 'ALL' ? 'Todos' : f === 'ACTIVE' ? 'Ativos' : f === 'INACTIVE' ? 'Inativos' : 'Finais'}
+            </button>
+          ))}
         </div>
-      </main>
+      </div>
 
-      <Footer />
+      {/* Events View: Responsive Table/Cards */}
+      <div className="bg-white rounded-[2.5rem] border border-[var(--border-light)] shadow-sm overflow-hidden">
+        <div className="overflow-x-auto custom-scrollbar">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-[var(--border-light)] bg-slate-50/50">
+                <th className="px-8 py-5 text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">Informações do Evento</th>
+                <th className="px-6 py-5 text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest text-center">Inscritos</th>
+                <th className="px-6 py-5 text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">Status</th>
+                <th className="px-6 py-5 text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">Data de Criação</th>
+                <th className="px-8 py-5 text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest text-right">Ações</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[var(--border-light)]">
+              {filteredEvents.map((event) => (
+                <tr key={event.id} className="hover:bg-[var(--bg-main)]/30 transition-colors group">
+                  <td className="px-8 py-6">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-xl border border-[var(--border-light)] bg-white overflow-hidden shrink-0 flex items-center justify-center text-indigo-600">
+                        {event.bannerUrl ? (
+                          <img src={normalizeImageUrl(event.bannerUrl)} className="w-full h-full object-cover" alt="" />
+                        ) : (
+                          <Calendar size={20} />
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="font-bold text-[var(--secondary)] truncate group-hover:text-indigo-600 transition-colors">{event.title}</div>
+                        <div className="text-[10px] text-[var(--text-muted)] font-medium flex items-center gap-1 mt-1 uppercase tracking-tight">
+                          <LinkIcon size={10} /> /{event.slug || event.linkId}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-6 text-center">
+                    <div className="inline-flex flex-col items-center px-4 py-1.5 bg-indigo-50 rounded-xl border border-indigo-100">
+                      <span className="text-sm font-black text-indigo-700">{event._count?.registrations || 0}</span>
+                      <span className="text-[8px] font-bold text-indigo-400 uppercase tracking-tighter">Check-ins</span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-6 font-medium">
+                    <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${getStatusColor(event.status)}`}>
+                      {event.status === 'ACTIVE' ? 'Ativo' : event.status === 'INACTIVE' ? 'Inativo' : 'Encerrado'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-6 text-xs text-[var(--text-muted)] font-medium">
+                    {format(new Date(event.createdAt), "dd/MM/yyyy", { locale: ptBR })}
+                  </td>
+                  <td className="px-8 py-6 text-right">
+                    <div className="grid grid-cols-2 gap-1.5 w-[240px] ml-auto">
+                      <button
+                        onClick={() => setActiveModal({ type: 'registrations', eventId: event.id })}
+                        className="flex items-center justify-center gap-2 h-9 bg-white border border-[var(--border-light)] text-[var(--secondary)] text-[10px] font-black uppercase tracking-widest rounded-xl shadow-sm hover:text-indigo-600 hover:border-indigo-100 hover:bg-indigo-50/30 transition-all active:scale-95"
+                      >
+                        <Users size={14} className="text-indigo-500" />
+                        Registros
+                      </button>
+                      <button
+                        onClick={() => setActiveModal({ type: 'classes', eventId: event.id })}
+                        className="flex items-center justify-center gap-2 h-9 bg-white border border-[var(--border-light)] text-[var(--secondary)] text-[10px] font-black uppercase tracking-widest rounded-xl shadow-sm hover:text-violet-600 hover:border-violet-100 hover:bg-violet-50/30 transition-all active:scale-95"
+                      >
+                        <LayoutGrid size={14} className="text-violet-500" />
+                        Turmas
+                      </button>
+                      <button
+                        onClick={() => {
+                          const url = `${window.location.origin}/register/${event.linkId}`
+                          navigator.clipboard.writeText(url)
+                          alert('Link copiado!')
+                        }}
+                        className="flex items-center justify-center gap-2 h-9 bg-white border border-[var(--border-light)] text-[var(--secondary)] text-[10px] font-black uppercase tracking-widest rounded-xl shadow-sm hover:text-blue-600 hover:border-blue-100 hover:bg-blue-50/30 transition-all active:scale-95"
+                      >
+                        <Share2 size={14} className="text-blue-500" />
+                        Link
+                      </button>
+                      <Link
+                        to={`/admin/whatsapp/send?eventId=${event.id}`}
+                        className="flex items-center justify-center gap-2 h-9 bg-emerald-50 border border-emerald-100 text-emerald-700 text-[10px] font-black uppercase tracking-widest rounded-xl shadow-sm hover:bg-emerald-100 transition-all active:scale-95"
+                      >
+                        <MessageCircle size={14} />
+                        WhatsApp
+                      </Link>
 
-      {createModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6">
-          <div className="w-full max-w-2xl rounded-2xl bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b px-6 py-4">
-              <h2 className="text-lg font-semibold text-[#003366]">Criar novo link</h2>
-              <button
-                onClick={closeCreateModal}
-                className="text-gray-400 transition-colors hover:text-gray-600"
-              >
-                <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+                      {event.status === 'ACTIVE' ? (
+                        <button
+                          onClick={() => handleUpdateStatus(event.id, 'INACTIVE')}
+                          className="flex items-center justify-center h-9 bg-white border border-[var(--border-light)] text-[var(--text-muted)] text-[10px] font-black uppercase tracking-widest rounded-xl shadow-sm hover:bg-slate-50 hover:text-slate-600 transition-all active:scale-95"
+                        >
+                          Inativar
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleUpdateStatus(event.id, 'ACTIVE')}
+                          className="flex items-center justify-center h-9 bg-indigo-50 border border-indigo-100 text-indigo-700 text-[10px] font-black uppercase tracking-widest rounded-xl shadow-sm hover:bg-indigo-100 transition-all active:scale-95"
+                        >
+                          Ativar
+                        </button>
+                      )}
+
+                      {event.status !== 'CLOSED' ? (
+                        <button
+                          onClick={() => {
+                            if (window.confirm('Tem certeza que deseja encerrar este evento? Não será possível reabri-lo.')) {
+                              handleUpdateStatus(event.id, 'CLOSED')
+                            }
+                          }}
+                          className="flex items-center justify-center h-9 bg-rose-50 border border-rose-100 text-rose-600 text-[10px] font-black uppercase tracking-widest rounded-xl shadow-sm hover:bg-rose-100 transition-all active:scale-95"
+                        >
+                          Encerrar
+                        </button>
+                      ) : (
+                        <div className="flex items-center justify-center h-9 bg-slate-100 border border-slate-200 text-slate-400 text-[10px] font-black uppercase tracking-widest rounded-xl cursor-not-allowed">
+                          Finalizado
+                        </div>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {filteredEvents.length === 0 && (
+          <div className="py-24 text-center">
+            <div className="w-16 h-16 bg-[var(--bg-main)] rounded-full flex items-center justify-center mx-auto mb-4 text-[var(--text-muted)]">
+              <Calendar size={32} />
             </div>
-            <form onSubmit={handleCreateEvent} className="space-y-4 px-6 py-6">
-              <div>
-                <label className="text-sm font-medium text-gray-700">Título *</label>
-                <input
-                  type="text"
-                  value={newEvent.title}
-                  onChange={(e) => setNewEvent((prev) => ({ ...prev, title: e.target.value }))}
-                  required
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-[#FF6600]"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-700">Descrição *</label>
-                <textarea
-                  value={newEvent.description}
-                  onChange={(e) => setNewEvent((prev) => ({ ...prev, description: e.target.value }))}
-                  required
-                  rows={3}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-[#FF6600]"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-700">URL Personalizada (opcional)</label>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-gray-500 text-sm">https://seudominio.com/register-event.html?event=</span>
-                  <input
-                    type="text"
-                    value={newEvent.slug}
-                    onChange={(e) => setNewEvent((prev) => ({ ...prev, slug: e.target.value }))}
-                    placeholder="meu-evento-especial"
-                    className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-[#FF6600]"
-                  />
-                </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  Use apenas letras minúsculas, números e hífens. Ex: meu-evento-especial
-                </p>
-              </div>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div>
-                  <label className="text-sm font-medium text-gray-700">Banner (URL)</label>
-                  <input
-                    type="url"
-                    value={newEvent.bannerUrl}
-                    onChange={(e) => setNewEvent((prev) => ({ ...prev, bannerUrl: e.target.value }))}
-                    placeholder="https://..."
-                    className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-[#FF6600]"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-700">Limite de vagas (opcional)</label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={newEvent.maxRegistrations}
-                    onChange={(e) => setNewEvent((prev) => ({ ...prev, maxRegistrations: e.target.value }))}
-                    placeholder="Ex: 100"
-                    className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-[#FF6600]"
-                  />
-                </div>
-              </div>
-              {createError && <p className="text-sm text-red-500">{createError}</p>}
-              <div className="flex justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={closeCreateModal}
-                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-600 transition-colors hover:bg-gray-100"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={creating}
-                  className="rounded-lg bg-[#FF6600] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#e55a00] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {creating ? 'Criando...' : 'Criar link'}
-                </button>
-              </div>
-            </form>
+            <p className="text-[var(--text-muted)] font-bold">Nenhum evento encontrado.</p>
+            <p className="text-xs text-[var(--text-muted)] mt-1">Ajuste os filtros ou crie um novo link.</p>
+          </div>
+        )}
+      </div>
+
+      {/* Quick Action Cards (Optional footer area) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+        <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-48 h-48 bg-indigo-500/10 rounded-full blur-3xl -mr-24 -mt-24 group-hover:scale-110 transition-transform"></div>
+          <h3 className="text-xl font-black mb-2 relative z-10">Novo Lançamento?</h3>
+          <p className="text-white/60 text-sm mb-6 relative z-10">Crie um link de captura rápida e comece a receber inscritos em segundos.</p>
+          <Link to="/admin/events/new" className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 px-6 py-3 rounded-2xl text-xs font-bold transition-all relative z-10">
+            CRIAR AGORA <Plus size={16} />
+          </Link>
+        </div>
+        <div className="bg-white rounded-[2.5rem] p-8 border border-[var(--border-light)] shadow-sm group">
+          <h3 className="text-xl font-black text-[var(--secondary)] mb-2 group-hover:text-indigo-600 transition-colors">Relatórios Avançados</h3>
+          <p className="text-[var(--text-muted)] text-sm mb-6">Exporte todos os dados consolidados de seus eventos em formato Excel ou PDF.</p>
+          <button className="flex items-center gap-2 text-indigo-600 font-black text-xs uppercase tracking-widest hover:translate-x-1 transition-transform">
+            Exportar Dados <ArrowRight size={16} />
+          </button>
+        </div>
+      </div>
+
+      {activeModal.eventId && activeModal.type === 'registrations' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+          <div className="w-full max-w-6xl max-h-[90vh] bg-gray-50 rounded-2xl flex flex-col overflow-y-auto border border-white/20 shadow-2xl animate-in zoom-in-95 duration-200">
+            <EventRegistrationsPage eventIdProp={activeModal.eventId} onClose={() => setActiveModal({ type: null, eventId: null })} />
           </div>
         </div>
       )}
 
-      {shareModalOpen && selectedEvent && selectedShareData && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6">
-          <div className="w-full max-w-xl rounded-2xl bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b px-6 py-4">
-              <div>
-                <h3 className="text-lg font-semibold text-[#003366]">Compartilhar link</h3>
-                <p className="text-sm text-gray-500">Revise as informações antes de enviar</p>
-              </div>
-              <button onClick={closeShareModal} className="text-gray-400 transition-colors hover:text-gray-600">
-                <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="grid gap-4 px-6 py-4 md:grid-cols-[160px,1fr]">
-              <div className="flex items-center justify-center">
-                {selectedShareData.bannerUrl ? (
-                  <img
-                    src={normalizeImageUrl(selectedShareData.bannerUrl)} alt={`Banner do evento ${selectedEvent.title}`}
-                    className="h-32 w-32 rounded-lg object-cover shadow-sm"
-                    referrerPolicy="no-referrer"
-                  />
-                ) : (
-                  <div className="flex h-32 w-32 items-center justify-center rounded-lg bg-gradient-to-br from-[#003366] to-[#FF6600] text-center text-xs font-semibold text-white">
-                    Sem banner
-                  </div>
-                )}
-              </div>
-
-              <div className="flex flex-col gap-3">
-                <div>
-                  <p className="text-sm font-semibold text-[#003366]">{selectedEvent.title}</p>
-                  <p className="mt-1 text-sm text-gray-600 line-clamp-3">{selectedEvent.description}</p>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-500">Link do evento</label>
-                  <div className="mt-1 grid grid-cols-[1fr,auto] gap-2 overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
-                    <input
-                      readOnly
-                      value={selectedShareData.url}
-                      className="truncate bg-transparent px-3 py-2 text-sm text-gray-700 outline-none"
-                    />
-                    <button
-                      onClick={handleCopyLink}
-                      className="m-1 flex items-center justify-center rounded-md bg-white px-3 text-xs font-semibold text-[#003366] transition-colors hover:bg-gray-100"
-                    >
-                      {copyStatus === 'success' ? 'Copiado!' : 'Copiar'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-3 border-t bg-gray-50 px-6 py-4 md:flex-row md:justify-end">
-              <button
-                onClick={handleShareNow}
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#003366] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#00264d]"
-              >
-                Compartilhar agora
-              </button>
-              <button
-                onClick={() => selectedShareData && selectedEvent && handleShareWhatsapp(selectedShareData, selectedEvent)}
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-green-700"
-              >
-                WhatsApp
-              </button>
-              <button
-                onClick={closeShareModal}
-                className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-600 transition-colors hover:bg-gray-100"
-              >
-                Fechar
-              </button>
-            </div>
+      {activeModal.eventId && activeModal.type === 'classes' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+          <div className="w-full max-w-6xl max-h-[90vh] bg-gray-50 rounded-2xl flex flex-col overflow-y-auto border border-white/20 shadow-2xl animate-in zoom-in-95 duration-200">
+            <EventClassesPage eventIdProp={activeModal.eventId} onClose={() => setActiveModal({ type: null, eventId: null })} />
           </div>
         </div>
       )}
-    </div>
+    </AdminLayout>
   )
 }

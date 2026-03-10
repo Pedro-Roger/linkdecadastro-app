@@ -1,12 +1,21 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import MobileNavbar from '@/components/ui/MobileNavbar'
-import Footer from '@/components/ui/Footer'
 import LoadingScreen from '@/components/ui/LoadingScreen'
 import { apiFetch } from '@/lib/api'
 import { useAuth } from '@/lib/useAuth'
+import AdminLayout from '@/components/layouts/AdminLayout'
+import UserStatsCarousel from '@/components/admin/UserStatsCarousel'
+import {
+  Users,
+  BookOpen,
+  Calendar,
+  ArrowRight,
+  Search,
+  Filter,
+  MoreHorizontal
+} from 'lucide-react'
 
 export default function AdminDashboardPage() {
   const navigate = useNavigate()
@@ -14,43 +23,55 @@ export default function AdminDashboardPage() {
     requireAuth: true,
     redirectTo: '/login',
   })
+
   const [stats, setStats] = useState<any>(null)
+  const [crmStats, setCrmStats] = useState<any>(null)
   const [courses, setCourses] = useState<any[]>([])
+  const [events, setEvents] = useState<any[]>([])
   const [recentEnrollments, setRecentEnrollments] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
-  const [activeFilter, setActiveFilter] = useState<string>('all')
+  const [realCarouselStats, setRealCarouselStats] = useState<any[]>([])
+  const [realCrmStats, setRealCrmStats] = useState({ total: 0, today: 0, activeEventsAndCourses: 0 })
+  const [whatsappStatus, setWhatsappStatus] = useState<string>('DISCONNECTED')
 
   const fetchStats = useCallback(async () => {
     try {
-      const [coursesData, events] = await Promise.all([
+      const [coursesData, eventsData] = await Promise.all([
         apiFetch<any[]>('/admin/courses', { auth: true }),
-        apiFetch<any[]>('/events', { auth: true }),
+        apiFetch<any[]>('/admin/events/history', { auth: true }),
       ])
 
       setCourses(coursesData)
+      setEvents(eventsData)
 
       const totalEnrollments = coursesData.reduce(
         (sum: number, course: any) => sum + (course._count?.enrollments || 0),
         0,
       )
 
+      const totalRegistrations = eventsData.reduce(
+        (sum: number, event: any) => sum + (event._count?.registrations || 0),
+        0,
+      )
+
       setStats({
         totalCourses: coursesData.length,
-        totalEvents: events.length,
+        totalEvents: eventsData.length,
         activeCourses: coursesData.filter((c: any) => c.status === 'ACTIVE').length,
-        inactiveCourses: coursesData.filter((c: any) => c.status === 'INACTIVE').length,
-        activeEvents: events.filter((e: any) => e.status === 'ACTIVE').length,
         totalEnrollments,
       })
 
-      await fetchRecentEnrollments(coursesData)
+      const activeItemsCount = coursesData.filter((c: any) => c.status === 'ACTIVE').length + eventsData.filter((e: any) => e.status === 'ACTIVE').length
+
+      await Promise.all([
+        fetchRecentData(coursesData, eventsData, totalEnrollments + totalRegistrations, activeItemsCount),
+        fetchWhatsAppStatus()
+      ])
     } catch (error) {
       console.error('Erro ao buscar estatísticas:', error)
-      const errorMessage = error instanceof Error ? error.message : 'Erro ao carregar dados do dashboard'
-      setError(errorMessage)
-      setLoading(false)
+      setError('Erro ao carregar dados do dashboard')
     } finally {
       setLoading(false)
     }
@@ -58,429 +79,265 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     if (!authLoading) {
-      if (!isAuthenticated || user?.role !== 'ADMIN') {
+      if (!isAuthenticated || (user?.role !== 'ADMIN' && user?.role !== 'SUPER_ADMIN')) {
         navigate('/my-courses')
         return
       }
       fetchStats()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, isAuthenticated, user, navigate])
+  }, [authLoading, isAuthenticated, user, navigate, fetchStats])
 
-  async function fetchRecentEnrollments(coursesData: any[]) {
+  async function fetchRecentData(coursesData: any[], eventsData: any[], totalContacts: number, activeItemsCount: number) {
     try {
-      const enrollmentsPromises = coursesData
-        .slice(0, 5)
-        .map((course) =>
-          apiFetch<any[]>(`/admin/courses/${course.id}/enrollments`, {
-            auth: true,
-          })
-            .then((data) =>
-              data.map((enrollment: any) => ({
-                ...enrollment,
-                courseTitle: course.title,
-              })),
-            )
-            .catch(() => []),
-        )
+      const today = new Date().toDateString()
+      let totalToday = 0
+      const combinedCarousel: any[] = []
 
-      const enrollmentsArrays = await Promise.all(enrollmentsPromises)
-      const allEnrollments = enrollmentsArrays.flat()
+      // Fetch top 3 active courses recent enrollments to get today's count
+      const activeCourses = coursesData.filter(c => c.status === 'ACTIVE').slice(0, 3)
+      const enrollmentsPromises = activeCourses.map(course =>
+        apiFetch<any[]>(`/admin/courses/${course.id}/enrollments`, { auth: true })
+          .then(data => {
+            const todayCount = data.filter((d: any) => new Date(d.createdAt).toDateString() === today).length
+            totalToday += todayCount
+            combinedCarousel.push({
+              id: course.id,
+              type: 'course',
+              title: course.title,
+              totalInscribed: course._count?.enrollments || 0,
+              todayInscribed: todayCount,
+            })
+            return data.map((d: any) => ({ ...d, courseTitle: course.title, isCourse: true }))
+          }).catch(() => [])
+      )
 
-      const recent = allEnrollments
+      // Fetch top 2 active events recent registrations to get today's count
+      const activeEvents = eventsData.filter(e => e.status === 'ACTIVE').slice(0, 2)
+      const registrationsPromises = activeEvents.map(event =>
+        apiFetch<any[]>(`/admin/events/${event.id}/registrations`, { auth: true })
+          .then(data => {
+            const todayCount = data.filter((d: any) => new Date(d.createdAt).toDateString() === today).length
+            totalToday += todayCount
+            combinedCarousel.push({
+              id: event.id,
+              type: 'event',
+              title: event.title,
+              totalInscribed: event._count?.registrations || 0,
+              todayInscribed: todayCount,
+            })
+            // Format registration as if it was enrollment for the recent list
+            return data.map((d: any) => ({ ...d, courseTitle: event.title, isCourse: false, user: { name: d.name } }))
+          }).catch(() => [])
+      )
+
+      const [enrollmentsArrays, registrationsArrays] = await Promise.all([
+        Promise.all(enrollmentsPromises),
+        Promise.all(registrationsPromises)
+      ])
+
+      setRealCarouselStats(combinedCarousel)
+      setRealCrmStats({ total: totalContacts, today: totalToday, activeEventsAndCourses: activeItemsCount })
+
+      const allRecent = [...enrollmentsArrays.flat(), ...registrationsArrays.flat()]
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
         .slice(0, 10)
 
-      setRecentEnrollments(recent)
+      setRecentEnrollments(allRecent)
     } catch (error) {
-      console.error('Erro ao buscar inscrições recentes:', error)
+      console.error('Erro ao buscar recentes:', error)
     }
   }
 
-  const filterCourses = () => {
-    let filtered = [...courses]
-
-    if (activeFilter !== 'all') {
-      const now = new Date()
-      filtered = filtered.filter((course) => {
-        const startDate = course.startDate ? new Date(course.startDate) : null
-        const endDate = course.endDate ? new Date(course.endDate) : null
-
-        switch (activeFilter) {
-          case 'active':
-            return course.status === 'ACTIVE'
-          case 'inactive':
-            return course.status === 'INACTIVE'
-          case 'available':
-            return !startDate || startDate >= now || (startDate <= now && (!endDate || endDate >= now))
-          case 'ongoing':
-            return startDate && startDate <= now && (!endDate || endDate >= now)
-          case 'closed':
-            return endDate && endDate < now
-          default:
-            return true
-        }
-      })
+  const fetchWhatsAppStatus = async () => {
+    try {
+      const data = await apiFetch<any>('/api/whatsapp/status', { auth: true })
+      setWhatsappStatus(data.status || 'DISCONNECTED')
+    } catch (err) {
+      console.error('Erro ao buscar status do WhatsApp:', err)
     }
-
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase()
-      filtered = filtered.filter(
-        (course) =>
-          course.title.toLowerCase().includes(term) ||
-          course.description?.toLowerCase().includes(term)
-      )
-    }
-
-    return filtered
   }
 
-  const filteredCourses = filterCourses()
+  const filteredCourses = useMemo(() => {
+    if (!searchTerm) return courses.slice(0, 5)
+    const term = searchTerm.toLowerCase()
+    return courses.filter(c =>
+      c.title.toLowerCase().includes(term) ||
+      c.description?.toLowerCase().includes(term)
+    ).slice(0, 5)
+  }, [courses, searchTerm])
 
-  if (authLoading || loading) {
-    return <LoadingScreen />
+  const getGreeting = () => {
+    const hour = new Date().getHours()
+    if (hour < 12) return 'Bom dia'
+    if (hour < 18) return 'Boa tarde'
+    return 'Boa noite'
   }
 
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center p-8">
-          <h1 className="text-2xl font-bold text-red-600 mb-4">Erro ao carregar dashboard</h1>
-          <p className="text-gray-600 mb-4">{error}</p>
-          <button
-            onClick={() => {
-              setError(null)
-              setLoading(true)
-              fetchStats()
-            }}
-            className="bg-[#FF6600] text-white px-6 py-3 rounded-md font-semibold hover:bg-[#e55a00] transition-colors"
-          >
-            Tentar novamente
-          </button>
-        </div>
-      </div>
-    )
-  }
+  if (authLoading || loading) return <LoadingScreen />
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-
-      <MobileNavbar />
-
-
-      <div className="bg-white border-b">
-        <div className="container mx-auto px-4 py-6">
-          <div className="relative max-w-2xl mx-auto">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <svg
-                className="h-5 w-5 text-gray-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
-              </svg>
-            </div>
-            <input
-              type="text"
-              placeholder="Pesquisar cursos por nome, descrição..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
-            />
+    <AdminLayout>
+      {/* Header Greeting */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+        <div>
+          <h1 className="text-3xl font-extrabold text-[var(--secondary)] tracking-tight">
+            {getGreeting()}, {user?.name?.split(' ')[0]}! <span className="animate-bounce inline-block">👋</span>
+          </h1>
+          <p className="text-[var(--text-muted)] font-medium mt-1">O que vamos gerenciar hoje em sua plataforma?</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex -space-x-2 overflow-hidden">
+            {recentEnrollments.slice(0, 4).map((enr, i) => (
+              <img
+                key={enr.id || i}
+                className="inline-block h-8 w-8 rounded-full ring-2 ring-white object-cover"
+                src={`https://ui-avatars.com/api/?name=${encodeURIComponent(enr.user?.name || 'User')}&background=random`}
+                alt=""
+              />
+            ))}
+          </div>
+          <div className="h-8 w-px bg-[var(--border-light)]"></div>
+          <div className="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-full border border-[var(--border-light)] shadow-sm">
+            <div className={`w-2 h-2 rounded-full animate-pulse ${whatsappStatus === 'READY' ? 'bg-emerald-500' : 'bg-amber-500'}`}></div>
+            <span className="text-[10px] font-bold text-[var(--secondary)] uppercase tracking-wider">
+              {whatsappStatus === 'READY' ? 'WhatsApp Online' : 'WhatsApp Offline'}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-full border border-[var(--border-light)] shadow-sm">
+            <div className="w-2 h-2 bg-[var(--primary)] rounded-full animate-pulse"></div>
+            <span className="text-[10px] font-bold text-[var(--secondary)] uppercase tracking-wider">{realCrmStats.total} Contatos</span>
           </div>
         </div>
       </div>
 
-
-      <div className="bg-white border-b">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex flex-wrap gap-3 justify-center">
-            <button
-              onClick={() => setActiveFilter('all')}
-              className={`px-4 py-2 rounded-full font-medium transition-colors ${activeFilter === 'all'
-                  ? 'bg-[#FF6600] text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-            >
-              Todos ({courses.length})
-            </button>
-            <button
-              onClick={() => setActiveFilter('active')}
-              className={`px-4 py-2 rounded-full font-medium transition-colors ${activeFilter === 'active'
-                  ? 'bg-[#FF6600] text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-            >
-              Ativos ({stats?.activeCourses || 0})
-            </button>
-            <button
-              onClick={() => setActiveFilter('inactive')}
-              className={`px-4 py-2 rounded-full font-medium transition-colors ${activeFilter === 'inactive'
-                  ? 'bg-[#FF6600] text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-            >
-              Inativos ({stats?.inactiveCourses || 0})
-            </button>
-            <button
-              onClick={() => setActiveFilter('available')}
-              className={`px-4 py-2 rounded-full font-medium transition-colors ${activeFilter === 'available'
-                  ? 'bg-[#FF6600] text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-            >
-              Disponíveis
-            </button>
-            <button
-              onClick={() => setActiveFilter('ongoing')}
-              className={`px-4 py-2 rounded-full font-medium transition-colors ${activeFilter === 'ongoing'
-                  ? 'bg-[#FF6600] text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-            >
-              Em Andamento
-            </button>
-            <button
-              onClick={() => setActiveFilter('closed')}
-              className={`px-4 py-2 rounded-full font-medium transition-colors ${activeFilter === 'closed'
-                  ? 'bg-[#FF6600] text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-            >
-              Encerrados
-            </button>
-          </div>
-        </div>
+      {/* Stats Carousel */}
+      <div className="mb-8">
+        <UserStatsCarousel stats={realCarouselStats} />
       </div>
 
-
-      <div className="container mx-auto px-4 py-8 pb-24 md:pb-8 flex-1">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-[#003366] mb-2">Painel de Controle</h1>
-          <p className="text-gray-600">Gerenciamento e moderação de conteúdos</p>
-        </div>
-
-
-        {stats && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <div className="bg-white rounded-lg shadow-md p-4 border-l-4 border-[#FF6600]">
-              <div className="text-2xl font-bold text-[#FF6600] mb-1">{stats.totalCourses}</div>
-              <div className="text-sm text-gray-600">Total de Cursos</div>
-              <div className="text-xs text-gray-500 mt-1">
-                {stats.activeCourses} ativos • {stats.inactiveCourses} inativos
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Main Content Column */}
+        <div className="lg:col-span-2 space-y-8">
+          {/* Quick Actions / Courses */}
+          <section className="bg-white rounded-3xl border border-[var(--border-light)] p-8 shadow-sm">
+            <div className="flex items-center justify-between mb-8">
+              <h2 className="text-xl font-bold text-[var(--secondary)] flex items-center gap-2">
+                Cursos Recentes <BookOpen size={20} className="text-violet-600" />
+              </h2>
+              <div className="flex items-center gap-4">
+                <div className="relative">
+                  <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+                  <input
+                    type="text"
+                    placeholder="Pesquisar..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 pr-4 py-2 bg-[var(--bg-main)] border-none rounded-xl text-xs w-48 focus:ring-2 focus:ring-violet-600/30 transition-all font-medium"
+                  />
+                </div>
+                <button className="p-2 bg-[var(--bg-main)] rounded-lg text-[var(--text-muted)] hover:text-violet-600 transition-colors">
+                  <Filter size={18} />
+                </button>
               </div>
             </div>
-            <div className="bg-white rounded-lg shadow-md p-4 border-l-4 border-blue-500">
-              <div className="text-2xl font-bold text-blue-500 mb-1">{stats.totalEnrollments || 0}</div>
-              <div className="text-sm text-gray-600">Total de Inscrições</div>
-              <div className="text-xs text-gray-500 mt-1">
-                {courses.reduce((sum: number, c: any) => sum + (c._count?.enrollments || 0), 0)} alunos
-              </div>
-            </div>
-            <div className="bg-white rounded-lg shadow-md p-4 border-l-4 border-green-500">
-              <div className="text-2xl font-bold text-green-500 mb-1">{stats.activeCourses}</div>
-              <div className="text-sm text-gray-600">Cursos Ativos</div>
-              <div className="text-xs text-gray-500 mt-1">
-                {((stats.activeCourses / stats.totalCourses) * 100 || 0).toFixed(0)}% do total
-              </div>
-            </div>
-            <div className="bg-white rounded-lg shadow-md p-4 border-l-4 border-purple-500">
-              <div className="text-2xl font-bold text-purple-500 mb-1">{stats.totalEvents}</div>
-              <div className="text-sm text-gray-600">Total de Eventos</div>
-              <div className="text-xs text-gray-500 mt-1">
-                {stats.activeEvents} ativos
-              </div>
-            </div>
-          </div>
-        )}
 
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <Link
-            to="/admin/courses/new"
-            className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow border-l-4 border-[#FF6600]"
-          >
-            <div className="flex items-center gap-3 mb-2">
-              <svg className="w-8 h-8 text-[#FF6600]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              <h2 className="text-lg font-semibold text-[#003366]">Criar Curso</h2>
+            <div className="space-y-4">
+              {filteredCourses.map((course) => (
+                <div key={course.id} className="flex items-center gap-4 p-4 hover:bg-[var(--bg-main)]/50 rounded-2xl transition-all border border-transparent hover:border-[var(--border-light)] group cursor-pointer">
+                  <div className="w-16 h-12 bg-slate-100 rounded-xl overflow-hidden shrink-0 border border-[var(--border-light)]">
+                    {course.bannerUrl ? (
+                      <img src={course.bannerUrl} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-[var(--primary)]">
+                        <BookOpen size={20} />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-bold text-[var(--secondary)] truncate group-hover:text-[var(--primary)] transition-colors">{course.title}</h4>
+                    <div className="flex items-center gap-4 mt-1">
+                      <span className="text-[10px] text-[var(--text-muted)] font-bold flex items-center gap-1">
+                        <Users size={12} /> {course._count?.enrollments || 0} Alunos
+                      </span>
+                      <span className="text-[10px] text-[var(--text-muted)] font-bold flex items-center gap-1 uppercase tracking-wider">
+                        <div className={`w-1.5 h-1.5 rounded-full ${course.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-red-400'}`}></div>
+                        {course.status === 'ACTIVE' ? 'Ativo' : 'Inativo'}
+                      </span>
+                    </div>
+                  </div>
+                  <button onClick={() => navigate(`/admin/courses/${course.id}`)} className="p-2 text-[var(--text-muted)] hover:text-[var(--primary)] rounded-lg group-hover:bg-white transition-all opacity-0 group-hover:opacity-100">
+                    <ArrowRight size={18} />
+                  </button>
+                </div>
+              ))}
+              {filteredCourses.length === 0 && (
+                <div className="text-center py-12 text-[var(--text-muted)]">
+                  Nenhum curso encontrado.
+                </div>
+              )}
             </div>
-            <p className="text-sm text-gray-600">Adicionar novo curso à plataforma</p>
-          </Link>
 
-          <Link
-            to="/admin/whatsapp/send"
-            className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow border-l-4 border-green-500"
-          >
-            <div className="flex items-center gap-3 mb-2">
-              <svg className="w-8 h-8 text-green-500" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
-              </svg>
-              <h2 className="text-lg font-semibold text-[#003366]">Enviar WhatsApp</h2>
-            </div>
-            <p className="text-sm text-gray-600">Compartilhar cursos ou eventos via WhatsApp</p>
-          </Link>
-
-          <Link
-            to="/admin/courses"
-            className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow border-l-4 border-blue-500"
-          >
-            <div className="flex items-center gap-3 mb-2">
-              <svg className="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-              </svg>
-              <h2 className="text-lg font-semibold text-[#003366]">Gerenciar Cursos</h2>
-            </div>
-            <p className="text-sm text-gray-600">Visualizar e editar cursos existentes</p>
-          </Link>
-
-          <Link
-            to="/admin/events"
-            className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow border-l-4 border-green-500"
-          >
-            <div className="flex items-center gap-3 mb-2">
-              <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              <h2 className="text-lg font-semibold text-[#003366]">Gerenciar Eventos</h2>
-            </div>
-            <p className="text-sm text-gray-600">Visualizar e editar eventos existentes</p>
-          </Link>
-
-          <Link
-            to="/admin/chat"
-            className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow border-l-4 border-emerald-500"
-          >
-            <div className="flex items-center gap-3 mb-2">
-              <svg className="w-8 h-8 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-              </svg>
-              <h2 className="text-lg font-semibold text-[#003366]">Atendimento</h2>
-            </div>
-            <p className="text-sm text-gray-600">Chat em tempo real com alunos e leads</p>
-          </Link>
-        </div>
-
-
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold text-[#003366]">Cursos Disponíveis</h2>
-            <Link
-              to="/admin/courses"
-              className="text-sm text-[#FF6600] hover:underline font-medium"
-            >
-              Ver todos →
+            <Link to="/admin/courses" className="mt-8 w-full py-3 border-2 border-dashed border-[var(--border-light)] rounded-2xl text-[var(--text-muted)] font-bold text-xs hover:border-[var(--primary)] hover:text-[var(--primary)] transition-all flex items-center justify-center gap-2 group">
+              VER TODOS OS CURSOS <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
             </Link>
-          </div>
+          </section>
+        </div>
 
-          {filteredCourses.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-gray-500 text-lg mb-4">Nenhum curso encontrado.</p>
-              <p className="text-gray-400 text-sm">Tente ajustar os filtros ou a busca.</p>
+        {/* Sidebar Column within content area */}
+        <div className="space-y-8">
+          {/* CRM Summary */}
+          <section className="bg-[var(--secondary)] rounded-3xl p-8 text-white relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-3xl -mr-16 -mt-16 group-hover:scale-110 transition-transform"></div>
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-6">
+                <Users size={24} className="text-[var(--primary)]" />
+                <button className="text-white/40 hover:text-white transition-colors">
+                  <MoreHorizontal size={20} />
+                </button>
+              </div>
+              <div className="text-4xl font-black mb-1">{realCrmStats.total}</div>
+              <p className="text-white/60 text-xs font-bold uppercase tracking-widest mb-6">Contatos Totais</p>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-[11px] font-medium bg-white/5 p-2.5 rounded-xl border border-white/5">
+                  <span className="text-white/60">Novos hoje</span>
+                  <span className="text-emerald-400 font-bold">+{realCrmStats.today}</span>
+                </div>
+                <div className="flex items-center justify-between text-[11px] font-medium bg-white/5 p-2.5 rounded-xl border border-white/5">
+                  <span className="text-white/60">Soluções Ativas</span>
+                  <span className="text-blue-400 font-bold">{realCrmStats.activeEventsAndCourses}</span>
+                </div>
+              </div>
+
+              <Link to="/admin/crm/contacts" className="mt-6 flex items-center justify-center gap-2 py-3 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white text-xs font-bold rounded-2xl transition-all shadow-lg shadow-[var(--primary)]/20 group">
+                GERENCIAR LEADS <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+              </Link>
             </div>
-          ) : (
-            <div className="space-y-3">
-              {filteredCourses.slice(0, 5).map((course: any) => (
-                <div
-                  key={course.id}
-                  className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="font-semibold text-[#003366]">{course.title}</h3>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${course.status === 'ACTIVE'
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-gray-100 text-gray-800'
-                          }`}>
-                          {course.status === 'ACTIVE' ? 'Ativo' : 'Inativo'}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-4 text-sm text-gray-500 mb-2">
-                        <span>{course.lessons?.length || 0} aulas</span>
-                        <span>{course._count?.enrollments || 0} alunos</span>
-                        {course.startDate && (
-                          <span>{format(new Date(course.startDate), 'dd/MM/yyyy', { locale: ptBR })}</span>
-                        )}
-                      </div>
-                      {course.description && (
-                        <p className="text-sm text-gray-600 line-clamp-2">{course.description}</p>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 ml-4">
-                      <Link
-                        to={`/admin/courses/${course.id}/lessons`}
-                        className="px-3 py-1 bg-[#FF6600] text-white text-sm rounded-md hover:bg-[#e55a00] transition-colors"
-                      >
-                        Gerenciar
-                      </Link>
-                    </div>
+          </section>
+
+          {/* Recent Enrollments Log */}
+          <section className="bg-white rounded-3xl border border-[var(--border-light)] p-8 shadow-sm">
+            <h3 className="text-lg font-bold text-[var(--secondary)] mb-6 flex items-center gap-2">
+              Atividade <Calendar size={18} className="text-blue-500" />
+            </h3>
+            <div className="space-y-6">
+              {recentEnrollments.slice(0, 5).map((enrollment, idx) => (
+                <div key={enrollment.id} className="relative flex gap-4">
+                  {idx !== 4 && <div className="absolute left-[15px] top-8 bottom-[-24px] w-px bg-[var(--border-light)]"></div>}
+                  <img src={`https://i.pravatar.cc/100?u=${enrollment.id}`} className="w-8 h-8 rounded-full z-10" alt="" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[11px] text-[var(--secondary)] font-bold">
+                      {enrollment.user?.name?.split(' ')[0] || 'Usuário'} <span className="text-[var(--text-muted)] font-normal">{enrollment.isCourse ? 'se matriculou em' : 'se registrou em'}</span>
+                    </p>
+                    <p className="text-[10px] text-[var(--primary)] font-bold truncate mt-0.5">{enrollment.courseTitle}</p>
+                    <span className="text-[9px] text-[var(--text-muted)] font-medium">{format(new Date(enrollment.createdAt), 'dd/MM HH:mm')}</span>
                   </div>
                 </div>
               ))}
             </div>
-          )}
-        </div>
-
-
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold text-[#003366]">Inscrições Recentes</h2>
-            <Link
-              to="/admin/courses"
-              className="text-sm text-[#FF6600] hover:underline font-medium"
-            >
-              Ver todas →
-            </Link>
-          </div>
-          {recentEnrollments.length === 0 ? (
-            <p className="text-gray-500 text-center py-8">Nenhuma inscrição recente.</p>
-          ) : (
-            <div className="space-y-3">
-              {recentEnrollments.map((enrollment: any) => (
-                <div
-                  key={enrollment.id}
-                  className="p-4 border border-gray-200 rounded-lg"
-                >
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <p className="font-semibold text-[#003366]">{enrollment.user.name}</p>
-                      <p className="text-sm text-gray-500">{enrollment.user.email}</p>
-                    </div>
-                    <span className="text-xs text-gray-500">
-                      {format(new Date(enrollment.createdAt), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
-                    </span>
-                  </div>
-                  <div className="mt-2">
-                    <p className="text-sm text-gray-600 mb-1">{enrollment.courseTitle}</p>
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-[#FF6600] h-2 rounded-full transition-all"
-                          style={{ width: `${enrollment.progress}%` }}
-                        />
-                      </div>
-                      <span className="text-xs text-gray-600">{enrollment.progress}%</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          </section>
         </div>
       </div>
-
-      <Footer />
-
-
-      {user && <div className="md:hidden h-20" />}
-    </div>
+    </AdminLayout>
   )
 }

@@ -9,7 +9,7 @@ export default function AdminCoursePage() {
   const { isAuthenticated, user } = useAuth()
 
   useEffect(() => {
-    if (!isAuthenticated || user?.role !== 'ADMIN') {
+    if (!isAuthenticated || (user?.role !== 'ADMIN' && user?.role !== 'SUPER_ADMIN')) {
       navigate('/login')
       return
     }

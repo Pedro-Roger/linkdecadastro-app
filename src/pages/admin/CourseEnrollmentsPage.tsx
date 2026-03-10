@@ -83,7 +83,7 @@ export default function CourseEnrollmentsPage() {
 
   useEffect(() => {
     if (!authLoading) {
-      if (!isAuthenticated || user?.role !== 'ADMIN') {
+      if (!isAuthenticated || (user?.role !== 'ADMIN' && user?.role !== 'SUPER_ADMIN')) {
         navigate('/my-courses')
       } else if (courseId) {
         fetchData()
@@ -295,7 +295,7 @@ export default function CourseEnrollmentsPage() {
       {/* Modal de Exportação */}
       {exportModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6">
-          <div className="w-full max-w-2xl rounded-2xl bg-white shadow-xl">
+          <div className="w-full max-w-2xl rounded-xl bg-white shadow-xl">
             <div className="flex items-center justify-between border-b px-6 py-4">
               <h2 className="text-lg font-semibold text-[#003366]">
                 Exportar Cadastros
