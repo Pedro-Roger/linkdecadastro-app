@@ -80,6 +80,7 @@ export default function RegistrationForm({ eventId }: { eventId: string }) {
   const [cities, setCities] = useState<CityOption[]>([])
   const [loadingStates, setLoadingStates] = useState(false)
   const [loadingCities, setLoadingCities] = useState(false)
+  const [loadingCep, setLoadingCep] = useState(false)
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<RegistrationFormData>({
     resolver: zodResolver(registrationSchema)
@@ -87,6 +88,7 @@ export default function RegistrationForm({ eventId }: { eventId: string }) {
 
   const participantType = watch('participantType')
   const selectedState = watch('state')
+  const cepValue = watch('cep')
 
   useEffect(() => {
     fetchStates()
@@ -100,18 +102,18 @@ export default function RegistrationForm({ eventId }: { eventId: string }) {
     }
   }, [selectedState])
 
+  useEffect(() => {
+    const normalizedCep = (cepValue || '').replace(/\D/g, '')
+    if (normalizedCep.length === 8) {
+      lookupCep(normalizedCep)
+    }
+  }, [cepValue])
+
   const fetchStates = async () => {
     try {
       setLoadingStates(true)
-      const response = await fetch(
-        'https://servicodados.ibge.gov.br/api/v1/localidades/estados?orderBy=nome'
-      )
-      if (response.ok) {
-        const data = await response.json()
-        setStates(data)
-      } else {
-        setStates(FALLBACK_STATES)
-      }
+      const data = await apiFetch<StateOption[]>('/locations/states')
+      setStates(Array.isArray(data) && data.length > 0 ? data : FALLBACK_STATES)
     } catch (fetchError) {
       setStates(FALLBACK_STATES)
     } finally {
@@ -122,20 +124,43 @@ export default function RegistrationForm({ eventId }: { eventId: string }) {
   const fetchCities = async (stateSigla: string) => {
     try {
       setLoadingCities(true)
-      const response = await fetch(
-        `https://servicodados.ibge.gov.br/api/v1/localidades/estados/${stateSigla}/municipios`
-      )
-      if (response.ok) {
-        const data = await response.json()
-        const sorted = (data as CityOption[]).sort((a, b) => a.nome.localeCompare(b.nome))
-        setCities(sorted)
-      } else {
-        setCities([])
-      }
+      const data = await apiFetch<CityOption[]>(`/locations/states/${stateSigla}/cities`)
+      const sorted = (Array.isArray(data) ? data : []).sort((a, b) => a.nome.localeCompare(b.nome))
+      setCities(sorted)
     } catch (fetchError) {
       setCities([])
     } finally {
       setLoadingCities(false)
+    }
+  }
+
+  const lookupCep = async (cep: string) => {
+    try {
+      setLoadingCep(true)
+      const data = await apiFetch<any>(`/locations/cep/${cep}`)
+
+      if (!data) return
+
+      if (data.state) {
+        setValue('state', data.state, { shouldValidate: true, shouldDirty: true })
+      }
+
+      if (data.city) {
+        setValue('city', data.city, { shouldValidate: true, shouldDirty: true })
+        setCities((prev) => {
+          if (prev.some((city) => city.nome === data.city)) {
+            return prev
+          }
+          return [...prev, { nome: data.city }].sort((a, b) => a.nome.localeCompare(b.nome))
+        })
+      }
+
+      if (data.neighborhood) {
+        setValue('locality', data.neighborhood, { shouldValidate: true, shouldDirty: true })
+      }
+    } catch (error) {
+    } finally {
+      setLoadingCep(false)
     }
   }
 
@@ -241,6 +266,7 @@ export default function RegistrationForm({ eventId }: { eventId: string }) {
               maxLength={8}
               className={inputClass}
             />
+            {loadingCep && <p className="text-[10px] font-bold uppercase tracking-wider mt-2 ml-1 text-[var(--primary)]">Buscando endereco...</p>}
             {errors.cep && <p className="text-red-500 text-[10px] font-bold uppercase tracking-wider mt-2 ml-1">{errors.cep.message}</p>}
           </div>
 
