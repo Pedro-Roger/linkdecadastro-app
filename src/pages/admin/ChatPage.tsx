@@ -81,6 +81,8 @@ export default function ChatPage() {
     const [availableAgents, setAvailableAgents] = useState<any[]>([]);
     const [selectedRoute, setSelectedRoute] = useState<any>(null);
     const [savingRoute, setSavingRoute] = useState(false);
+    const [conversationInsights, setConversationInsights] = useState<any>(null);
+    const [loadingInsights, setLoadingInsights] = useState(false);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const fallbackAvatar = useCallback(
@@ -88,6 +90,46 @@ export default function ChatPage() {
             `https://ui-avatars.com/api/?name=${encodeURIComponent(name || 'WhatsApp')}&background=random`,
         [],
     );
+
+    const formatInsightReason = useCallback((reason?: string) => {
+        if (!reason) return 'Sem diagnostico';
+
+        const labels: Record<string, string> = {
+            reply_generated: 'Respondeu automaticamente',
+            empty_model_response: 'Modelo nao retornou resposta',
+            conversation_in_human_mode: 'Conversa em modo humano',
+            conversation_in_copilot_mode: 'Conversa em modo copilot',
+            missing_api_key: 'Sem chave de API configurada',
+            missing_channel_owner: 'Numero sem dono vinculado',
+            assistant_disabled_for_owner: 'IA desativada para o dono do numero',
+            provider_request_failed: 'Falha ao consultar o provedor de IA',
+            bot_cooldown_active: 'Aguardando cooldown para nova resposta',
+        };
+
+        return labels[reason] || reason.replace(/_/g, ' ');
+    }, []);
+
+    const formatInsightStatus = useCallback((status?: string) => {
+        const labels: Record<string, string> = {
+            RESPONDED: 'Respondeu',
+            SKIPPED: 'Ignorou',
+            BLOCKED: 'Bloqueado',
+            ERROR: 'Erro',
+        };
+
+        return labels[status || ''] || status || 'Desconhecido';
+    }, []);
+
+    const formatActionStatus = useCallback((status?: string) => {
+        const labels: Record<string, string> = {
+            completed: 'Aprovada e executada',
+            suggested: 'Aprovada automaticamente',
+            blocked: 'Bloqueada',
+            skipped: 'Ignorada',
+        };
+
+        return labels[status || ''] || 'Aprovada automaticamente';
+    }, []);
 
     const pickPreferredSession = useCallback(
         (list: any[], preferredId?: string | null) => {
@@ -480,6 +522,23 @@ export default function ChatPage() {
             .catch(() => setSelectedRoute(null));
     }, [selectedChat?.conversationId, canAccessAgents]);
 
+    useEffect(() => {
+        if (!selectedChat?.jid || !currentSessionId || !canAccessAgents) {
+            setConversationInsights(null);
+            setLoadingInsights(false);
+            return;
+        }
+
+        setLoadingInsights(true);
+        apiFetch<any>(
+            `/api/whatsapp/conversation-insights?sessionId=${currentSessionId}&jid=${encodeURIComponent(selectedChat.jid)}`,
+            { auth: true },
+        )
+            .then((data) => setConversationInsights(data))
+            .catch(() => setConversationInsights(null))
+            .finally(() => setLoadingInsights(false));
+    }, [selectedChat?.jid, currentSessionId, canAccessAgents]);
+
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!newMessage.trim() || !selectedChat || !currentSessionId) return;
@@ -602,6 +661,11 @@ export default function ChatPage() {
             });
 
             setSelectedRoute(data);
+            setConversationInsights((prev: any) => ({
+                ...(prev || {}),
+                memorySummary: data?.route?.memorySummary || data?.memorySummary || prev?.memorySummary || '',
+                lastIntent: data?.route?.lastIntent || data?.lastIntent || prev?.lastIntent || '',
+            }));
             setConversations((prev) =>
                 prev.map((chat) =>
                     chat.jid === selectedChat.jid
@@ -1123,6 +1187,99 @@ export default function ChatPage() {
                                                         Numero atual: {sessions.find((session) => session.id === currentSessionId)?.instance_name || 'Sessao atual'}
                                                     </p>
                                                 </div>
+                                            </div>
+                                        )}
+
+                                        {canAccessAgents && selectedChat?.conversationId && (
+                                            <div className="space-y-4">
+                                                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                                    <Clock size={12} className="text-slate-500" /> Memoria e diagnostico
+                                                </h4>
+                                                {loadingInsights ? (
+                                                    <div className="flex justify-center rounded-2xl border border-slate-100 bg-slate-50 p-5">
+                                                        <RefreshCw className="animate-spin text-slate-400" size={18} />
+                                                    </div>
+                                                ) : (
+                                                    <div className="space-y-3">
+                                                        <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                                                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Memoria resumida</p>
+                                                            <p className="mt-2 text-sm font-medium leading-6 text-slate-700">
+                                                                {conversationInsights?.memorySummary || selectedRoute?.memorySummary || 'Ainda nao existe memoria consolidada para este contato.'}
+                                                            </p>
+                                                        </div>
+                                                        <div className="rounded-2xl border border-slate-100 bg-white p-4">
+                                                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Ultima intencao detectada</p>
+                                                            <p className="mt-2 text-sm font-semibold text-slate-700">
+                                                                {(conversationInsights?.lastIntent || selectedRoute?.lastIntent || 'nao_identificada').replace(/_/g, ' ')}
+                                                            </p>
+                                                        </div>
+                                                        <div className="space-y-3">
+                                                            {(conversationInsights?.diagnostics || []).length > 0 ? (
+                                                                conversationInsights.diagnostics.map((item: any) => (
+                                                                    <div key={item.id || `${item.createdAt}-${item.reason}`} className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+                                                                        <div className="flex items-start justify-between gap-3">
+                                                                            <div>
+                                                                                <p className="text-xs font-black uppercase tracking-widest text-slate-500">
+                                                                                    {formatInsightStatus(item.status)}
+                                                                                </p>
+                                                                                <p className="mt-1 text-sm font-semibold text-slate-700">
+                                                                                    {formatInsightReason(item.reason)}
+                                                                                </p>
+                                                                            </div>
+                                                                            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-slate-500">
+                                                                                {item.mode || selectedRoute?.mode || 'HUMAN'}
+                                                                            </span>
+                                                                        </div>
+                                                                        {item.agentName && (
+                                                                            <p className="mt-3 text-xs font-semibold text-indigo-600">
+                                                                                Agente: {item.agentName}
+                                                                            </p>
+                                                                        )}
+                                                                        {item.userMessage && (
+                                                                            <div className="mt-3 rounded-xl bg-slate-50 p-3">
+                                                                                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Mensagem analisada</p>
+                                                                                <p className="mt-1 text-sm text-slate-700">{item.userMessage}</p>
+                                                                            </div>
+                                                                        )}
+                                                                        {item.reply && (
+                                                                            <div className="mt-3 rounded-xl bg-emerald-50 p-3">
+                                                                                <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-500">Resposta enviada</p>
+                                                                                <p className="mt-1 text-sm text-emerald-900">{item.reply}</p>
+                                                                            </div>
+                                                                        )}
+                                                                        {Array.isArray(item.actions) && item.actions.length > 0 && (
+                                                                            <div className="mt-3 space-y-2">
+                                                                                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Acoes automaticas</p>
+                                                                                {item.actions.map((action: any, index: number) => (
+                                                                                    <div key={`${item.id || item.createdAt}-action-${index}`} className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                                                                                        <div className="flex items-center justify-between gap-3">
+                                                                                            <p className="text-xs font-bold text-slate-700">{action.type}</p>
+                                                                                            <span className="rounded-full bg-indigo-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-indigo-600">
+                                                                                                {formatActionStatus(action.status)}
+                                                                                            </span>
+                                                                                        </div>
+                                                                                        {action.detail && (
+                                                                                            <p className="mt-2 text-xs font-medium leading-5 text-slate-500">{action.detail}</p>
+                                                                                        )}
+                                                                                    </div>
+                                                                                ))}
+                                                                            </div>
+                                                                        )}
+                                                                        <p className="mt-3 text-[11px] font-medium text-slate-400">
+                                                                            {item.createdAt ? new Date(item.createdAt).toLocaleString('pt-BR') : 'Agora mesmo'}
+                                                                        </p>
+                                                                    </div>
+                                                                ))
+                                                            ) : (
+                                                                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4">
+                                                                    <p className="text-sm font-medium text-slate-500">
+                                                                        Ainda nao existem diagnosticos persistidos para esta conversa.
+                                                                    </p>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
 
