@@ -66,7 +66,11 @@ export default function ChatPage() {
     const [pairingCode, setPairingCode] = useState<string | null>(null);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [showNewChatModal, setShowNewChatModal] = useState(false);
+    const [showContactBaseModal, setShowContactBaseModal] = useState(false);
     const [newChatNumber, setNewChatNumber] = useState('');
+    const [crmContacts, setCrmContacts] = useState<any[]>([]);
+    const [crmContactsLoading, setCrmContactsLoading] = useState(false);
+    const [crmSearchQuery, setCrmSearchQuery] = useState('');
     const [groupIdInput, setGroupIdInput] = useState('');
     const [groupParticipantsInput, setGroupParticipantsInput] = useState('');
     const [groupAddLoading, setGroupAddLoading] = useState(false);
@@ -82,6 +86,27 @@ export default function ChatPage() {
     const fallbackAvatar = useCallback(
         (name: string) =>
             `https://ui-avatars.com/api/?name=${encodeURIComponent(name || 'WhatsApp')}&background=random`,
+        [],
+    );
+
+    const pickPreferredSession = useCallback(
+        (list: any[], preferredId?: string | null) => {
+            if (!Array.isArray(list) || list.length === 0) return null;
+
+            const current =
+                preferredId ? list.find((session: any) => session.id === preferredId) : null;
+
+            if (current && (current.status === 'READY' || current.phone_number)) {
+                return current;
+            }
+
+            return (
+                list.find((session: any) => session.status === 'READY') ||
+                list.find((session: any) => Boolean(session.phone_number)) ||
+                current ||
+                list[0]
+            );
+        },
         [],
     );
 
@@ -107,9 +132,10 @@ export default function ChatPage() {
             const data = await apiFetch<any>('/api/whatsapp/sessions', { auth: true });
             if (data.success && data.sessions.length > 0) {
                 setSessions(data.sessions);
-                if (!currentSessionId || !data.sessions.find((s: any) => s.id === currentSessionId)) {
-                    setCurrentSessionId(data.sessions[0].id);
-                    writeWhatsAppSession(data.sessions[0].id, user?.id);
+                const preferredSession = pickPreferredSession(data.sessions, currentSessionId);
+                if (preferredSession && preferredSession.id !== currentSessionId) {
+                    setCurrentSessionId(preferredSession.id);
+                    writeWhatsAppSession(preferredSession.id, user?.id);
                 }
             } else if (data.success && data.sessions.length === 0) {
                 clearWhatsAppSession(user?.id);
@@ -123,7 +149,7 @@ export default function ChatPage() {
             }
             console.error('Erro ao buscar sessoes:', err);
         }
-    }, [currentSessionId, resetInvalidSession, user?.id]);
+    }, [currentSessionId, pickPreferredSession, resetInvalidSession, user?.id]);
 
     const checkWhatsAppStatus = useCallback(async () => {
         if (!currentSessionId) return;
@@ -150,30 +176,27 @@ export default function ChatPage() {
         if (!currentSessionId) return;
         try {
             setLoadingConversations(true);
-            const [chatsData, groupsData] = await Promise.all([
-                apiFetch<any>(`/api/whatsapp/chats?sessionId=${currentSessionId}`, { auth: true }),
-                apiFetch<any>(`/api/whatsapp/groups?sessionId=${currentSessionId}`, { auth: true }).catch(() => ({ groups: [] }))
-            ]);
+            const chatsData = await apiFetch<any>(`/api/whatsapp/chats?sessionId=${currentSessionId}`, { auth: true });
 
-            const waChats = (chatsData.chats || []).map((c: any) => ({
+            const waChats = ((Array.isArray(chatsData) ? chatsData : chatsData?.chats) || []).map((c: any) => ({
                 ...c,
-                avatar: c.profile_pic_url || c.avatar || fallbackAvatar(c.name),
-            }));
-
-            const groups = (groupsData.groups || []).map((group: any) => ({
-                ...group,
-                avatar: group.profile_pic_url || group.avatar || fallbackAvatar(group.name),
+                jid: c.jid || c.id,
+                name: c.name || c.contactName || c.contactNumber || c.jid || c.id || 'WhatsApp',
+                avatar: c.profile_pic_url || c.avatar || fallbackAvatar(c.name || c.contactName || c.contactNumber || 'WhatsApp'),
             }));
 
             const combinedMap = new Map<string, any>();
 
-            [...waChats, ...groups].forEach((chat: any) => {
-                combinedMap.set(chat.jid, chat);
+            waChats.forEach((chat: any) => {
+                const key = chat.jid || chat.id;
+                if (!key) return;
+                combinedMap.set(key, chat);
             });
 
             setConversations(Array.from(combinedMap.values()));
         } catch (error) {
             console.error('Erro ao buscar conversas:', error);
+            setConversations([]);
         } finally {
             setLoadingConversations(false);
         }
@@ -216,6 +239,83 @@ export default function ChatPage() {
         setShowNewChatModal(false);
         setNewChatNumber('');
     };
+
+    const normalizePhoneToJid = useCallback((input: string) => {
+        let phone = input.replace(/\D/g, '');
+
+        if (phone.startsWith('0')) phone = phone.substring(1);
+
+        if (phone.length === 11 && phone[2] === '9') {
+            phone = phone.substring(0, 2) + phone.substring(3);
+        }
+
+        if ((phone.length === 10 || phone.length === 11) && !phone.startsWith('55')) {
+            phone = '55' + phone;
+        }
+
+        return {
+            phone,
+            jid: `${phone}@s.whatsapp.net`,
+        };
+    }, []);
+
+    const fetchCrmContacts = useCallback(async () => {
+        try {
+            setCrmContactsLoading(true);
+            const data = await apiFetch<any[]>('/admin/crm/contacts', { auth: true });
+            setCrmContacts(Array.isArray(data) ? data : []);
+        } catch (error) {
+            console.error('Erro ao buscar base de contatos:', error);
+            setCrmContacts([]);
+        } finally {
+            setCrmContactsLoading(false);
+        }
+    }, []);
+
+    const handleSelectCrmContact = useCallback((contact: any) => {
+        if (!contact?.phone) return;
+
+        const { phone, jid } = normalizePhoneToJid(contact.phone);
+        const contactName = contact.name || contact.email || contact.phone;
+
+        const newChat = {
+            id: jid,
+            jid,
+            name: contactName,
+            contactName,
+            contactNumber: phone,
+            phone,
+            lastMessage: 'Contato salvo na base',
+            avatar: fallbackAvatar(contactName),
+            profile_pic_url: null,
+            type: 'person',
+            city: contact.city,
+            state: contact.state,
+            email: contact.email,
+            source: contact.source,
+        };
+
+        setConversations((prev) => {
+            const existing = prev.find((chat) => chat.jid === jid);
+            if (existing) {
+                return prev.map((chat) =>
+                    chat.jid === jid
+                        ? {
+                              ...chat,
+                              ...newChat,
+                              lastMessage: chat.lastMessage || newChat.lastMessage,
+                          }
+                        : chat,
+                );
+            }
+
+            return [newChat, ...prev];
+        });
+
+        setSelectedChat((prev: any) => (prev?.jid === jid ? { ...prev, ...newChat } : newChat));
+        setShowContactBaseModal(false);
+        setCrmSearchQuery('');
+    }, [fallbackAvatar, normalizePhoneToJid]);
 
     const handleAddToGroup = async () => {
         const trimmedGroupId = groupIdInput.trim();
@@ -590,6 +690,19 @@ export default function ChatPage() {
                                     </button>
 
                                     <button
+                                        onClick={() => {
+                                            setShowContactBaseModal(true);
+                                            if (crmContacts.length === 0 && !crmContactsLoading) {
+                                                fetchCrmContacts();
+                                            }
+                                        }}
+                                        className="p-2 hover:bg-blue-50 text-slate-400 hover:text-blue-500 rounded-xl transition-all"
+                                        title="Abrir base de contatos"
+                                    >
+                                        <User size={18} />
+                                    </button>
+
+                                    <button
                                         onClick={() => setShowAddToGroupModal(true)}
                                         className="p-2 hover:bg-indigo-50 text-slate-400 hover:text-indigo-500 rounded-xl transition-all"
                                         title="Adicionar participantes a grupo"
@@ -777,7 +890,127 @@ export default function ChatPage() {
                                 </p>
                             </div>
                         )}
+                </div>
+
+                {showContactBaseModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm">
+                        <div className="w-full max-w-2xl rounded-[2rem] bg-white shadow-2xl border border-slate-100 overflow-hidden">
+                            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
+                                <div>
+                                    <h3 className="text-lg font-black text-slate-900 tracking-tight">Base de Contatos</h3>
+                                    <p className="text-sm font-medium text-slate-400">
+                                        Inicie conversa com contatos salvos no CRM.
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={() => setShowContactBaseModal(false)}
+                                    className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-black uppercase tracking-[0.2em] text-slate-500 transition-all hover:bg-slate-50"
+                                >
+                                    Fechar
+                                </button>
+                            </div>
+
+                            <div className="border-b border-slate-100 px-6 py-4">
+                                <div className="relative">
+                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                                    <input
+                                        type="text"
+                                        placeholder="Pesquisar por nome, email, telefone ou cidade..."
+                                        value={crmSearchQuery}
+                                        onChange={(e) => setCrmSearchQuery(e.target.value)}
+                                        autoComplete="off"
+                                        name="crm-contact-search"
+                                        className="w-full rounded-2xl bg-slate-50 py-3 pl-12 pr-4 text-sm font-medium text-slate-700 outline-none ring-1 ring-slate-200 transition-all focus:ring-2 focus:ring-blue-200"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="max-h-[28rem] overflow-y-auto p-4 custom-scrollbar">
+                                {crmContactsLoading ? (
+                                    <div className="flex h-40 flex-col items-center justify-center gap-3 text-slate-400">
+                                        <RefreshCw className="animate-spin text-blue-500" size={22} />
+                                        <span className="text-sm font-bold">Carregando base de contatos...</span>
+                                    </div>
+                                ) : crmContacts.filter((contact) => {
+                                    const haystack = [
+                                        contact.name,
+                                        contact.email,
+                                        contact.phone,
+                                        contact.city,
+                                        contact.state,
+                                        Array.isArray(contact.source) ? contact.source.join(' ') : '',
+                                    ]
+                                        .filter(Boolean)
+                                        .join(' ')
+                                        .toLowerCase();
+
+                                    return haystack.includes(crmSearchQuery.toLowerCase());
+                                }).length > 0 ? (
+                                    <div className="space-y-2">
+                                        {crmContacts
+                                            .filter((contact) => {
+                                                const haystack = [
+                                                    contact.name,
+                                                    contact.email,
+                                                    contact.phone,
+                                                    contact.city,
+                                                    contact.state,
+                                                    Array.isArray(contact.source) ? contact.source.join(' ') : '',
+                                                ]
+                                                    .filter(Boolean)
+                                                    .join(' ')
+                                                    .toLowerCase();
+
+                                                return haystack.includes(crmSearchQuery.toLowerCase());
+                                            })
+                                            .map((contact) => (
+                                                <button
+                                                    key={`${contact.id}-${contact.phone || contact.email || contact.name}`}
+                                                    onClick={() => handleSelectCrmContact(contact)}
+                                                    disabled={!contact.phone}
+                                                    className="flex w-full items-start gap-4 rounded-2xl border border-slate-100 bg-white p-4 text-left transition-all hover:border-blue-200 hover:bg-blue-50/50 disabled:cursor-not-allowed disabled:opacity-60"
+                                                >
+                                                    <img
+                                                        src={fallbackAvatar(contact.name || contact.email || contact.phone || 'Contato')}
+                                                        alt={contact.name || contact.phone || 'Contato'}
+                                                        className="h-12 w-12 rounded-2xl border border-slate-100 object-cover shadow-sm"
+                                                    />
+                                                    <div className="min-w-0 flex-1">
+                                                        <div className="flex items-center gap-2">
+                                                            <h4 className="truncate text-sm font-black text-slate-800">
+                                                                {contact.name || 'Sem nome'}
+                                                            </h4>
+                                                            <span className="rounded-lg bg-slate-100 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-slate-500">
+                                                                {contact.type === 'GUEST' ? 'Guest' : 'CRM'}
+                                                            </span>
+                                                        </div>
+                                                        <div className="mt-1 space-y-1 text-xs font-medium text-slate-500">
+                                                            <p>{contact.phone || 'Sem telefone cadastrado'}</p>
+                                                            {contact.email && <p className="truncate">{contact.email}</p>}
+                                                            {(contact.city || contact.state) && (
+                                                                <p>{[contact.city, contact.state].filter(Boolean).join(' - ')}</p>
+                                                            )}
+                                                            {Array.isArray(contact.source) && contact.source.length > 0 && (
+                                                                <p className="truncate text-slate-400">{contact.source.join(' • ')}</p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <div className="pt-1 text-[10px] font-black uppercase tracking-[0.2em] text-blue-500">
+                                                        Abrir
+                                                    </div>
+                                                </button>
+                                            ))}
+                                    </div>
+                                ) : (
+                                    <div className="flex h-40 flex-col items-center justify-center gap-3 text-center text-slate-400">
+                                        <User size={24} className="text-slate-300" />
+                                        <span className="text-sm font-bold">Nenhum contato encontrado na sua base.</span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
                     </div>
+                )}
 
                     {/* Right Info Panel */}
                     {selectedChat && showRightPanel && (

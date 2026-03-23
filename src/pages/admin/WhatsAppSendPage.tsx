@@ -360,7 +360,6 @@ export default function WhatsAppSendPage() {
     setShowSessionSelector(false)
     setWhatsappStatus(null)
     setPairingCode(null)
-    autoReconnectAttemptRef.current = null
   }, [user?.id])
 
   const handleDeleteSession = async (sessionId: string) => {

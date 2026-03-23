@@ -234,6 +234,23 @@ export default function AgentsPage() {
                                             ))}
                                         </select>
                                     </div>
+                                    <div className="space-y-2">
+                                        <label className="block text-xs font-black uppercase tracking-[0.2em] text-slate-500">
+                                            Modo padrao do agente
+                                        </label>
+                                        <select
+                                            value={form.defaultMode}
+                                            onChange={(e) => setForm((prev) => ({ ...prev, defaultMode: e.target.value as 'HUMAN' | 'COPILOT' | 'AUTONOMOUS' }))}
+                                            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold outline-none focus:border-teal-500"
+                                        >
+                                            <option value="HUMAN">HUMAN</option>
+                                            <option value="COPILOT">COPILOT</option>
+                                            <option value="AUTONOMOUS">AUTONOMOUS</option>
+                                        </select>
+                                        <p className="text-xs text-slate-500">
+                                            Use <strong>AUTONOMOUS</strong> para o agente responder sozinho no numero vinculado.
+                                        </p>
+                                    </div>
                                     <textarea
                                         value={form.instructions}
                                         onChange={(e) => setForm((prev) => ({ ...prev, instructions: e.target.value }))}
