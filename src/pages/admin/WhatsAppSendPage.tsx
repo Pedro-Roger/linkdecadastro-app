@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   MessageSquare, Send, Search, Filter, CheckCircle,
@@ -10,6 +10,7 @@ import {
 import LoadingScreen from '@/components/ui/LoadingScreen'
 import { apiFetch, normalizeImageUrl, getApiUrl } from '@/lib/api'
 import { useAuth } from '@/lib/useAuth'
+import { clearWhatsAppSession, readWhatsAppSession, writeWhatsAppSession } from '@/lib/whatsappSessionStorage'
 import AdminLayout from '@/components/layouts/AdminLayout'
 
 interface Participant {
@@ -39,9 +40,11 @@ export default function WhatsAppSendPage() {
 
   // Sessions state
   const [sessions, setSessions] = useState<any[]>([])
-  const [currentSessionId, setCurrentSessionId] = useState<string | null>(localStorage.getItem('active_whatsapp_session'))
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
   const [showSessionSelector, setShowSessionSelector] = useState(false)
   const [sessionsLoaded, setSessionsLoaded] = useState(false)
+  const [backendUnavailable, setBackendUnavailable] = useState(false)
+  const [deletingSessionId, setDeletingSessionId] = useState<string | null>(null)
 
   // States
   const [participants, setParticipants] = useState<Participant[]>([])
@@ -78,52 +81,63 @@ export default function WhatsAppSendPage() {
   const [pairingCode, setPairingCode] = useState<string | null>(null)
   const [pairingLoading, setPairingLoading] = useState(false)
   const [reconnecting, setReconnecting] = useState(false)
-  const autoReconnectAttemptRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!user?.id) return
+    setCurrentSessionId(readWhatsAppSession(user.id))
+  }, [user?.id])
 
   const resetInvalidSession = useCallback(() => {
-    localStorage.removeItem('active_whatsapp_session')
+    clearWhatsAppSession(user?.id)
     setCurrentSessionId(null)
     setWhatsappStatus(null)
     setPairingCode(null)
+    setShowPairingUI(false)
     setSessions([])
-    autoReconnectAttemptRef.current = null
-  }, [])
+    setSessionsLoaded(false)
+  }, [user?.id])
 
   const fetchSessions = useCallback(async () => {
+    setSessionsLoaded(false)
     try {
       const data = await apiFetch<any>('/api/whatsapp/sessions', { auth: true })
+      setBackendUnavailable(false)
       if (data.success && data.sessions.length > 0) {
         setSessions(data.sessions)
         if (!currentSessionId || !data.sessions.find((s: any) => s.id === currentSessionId)) {
           setCurrentSessionId(data.sessions[0].id)
-          localStorage.setItem('active_whatsapp_session', data.sessions[0].id)
+          writeWhatsAppSession(data.sessions[0].id, user?.id)
         }
       } else if (data.success && data.sessions.length === 0) {
-        const newSess = await apiFetch<any>('/api/whatsapp/sessions', {
-          method: 'POST', auth: true, body: JSON.stringify({ name: 'Meu WhatsApp' })
-        })
-        if (newSess.success) {
-          setSessions([newSess.session])
-          setCurrentSessionId(newSess.session.id)
-          localStorage.setItem('active_whatsapp_session', newSess.session.id)
-        }
+        clearWhatsAppSession(user?.id)
+        setSessions([])
+        setCurrentSessionId(null)
+        setWhatsappStatus(null)
       }
-    } catch (err) {
-      console.error('Erro ao buscar sessões:', err)
+    } catch (err: any) {
+      if (err?.status === 403) {
+        resetInvalidSession()
+      }
+      setBackendUnavailable(true)
+      setError('Nao foi possivel falar com o backend do WhatsApp. Confira se a API na porta 3333 esta ligada.')
+      console.error('Erro ao buscar sessoes:', err)
+    } finally {
+      setSessionsLoaded(true)
     }
-    setSessionsLoaded(true)
-  }, [currentSessionId])
+  }, [currentSessionId, resetInvalidSession, user?.id])
 
   const checkWhatsAppStatus = useCallback(async () => {
     if (!currentSessionId || !sessionsLoaded) return
     try {
       const status = await apiFetch<any>(`/api/whatsapp/status?sessionId=${currentSessionId}`, { auth: true })
+      setBackendUnavailable(false)
       setWhatsappStatus(status)
       if (status.status === 'QR_CODE') setShowPairingUI(true)
     } catch (error: any) {
       if (error?.status === 403) {
         resetInvalidSession()
-        await fetchSessions()
+        setError('A sessao ativa ficou invalida para este usuario. Crie uma nova conexao de WhatsApp.')
+      } else {
+        setBackendUnavailable(true)
       }
     }
   }, [currentSessionId, sessionsLoaded, resetInvalidSession, fetchSessions])
@@ -141,21 +155,22 @@ export default function WhatsAppSendPage() {
         auth: true,
         body: JSON.stringify({ sessionId: currentSessionId })
       })
+      setBackendUnavailable(false)
       setWhatsappStatus(status)
       if (status.status === 'QR_CODE') setShowPairingUI(true)
       await fetchSessions()
     } catch (error: any) {
       if (error?.status === 403) {
         resetInvalidSession()
-        await fetchSessions()
-        setError('A sessao anterior nao pertence mais a este usuario. Selecione ou conecte um novo WhatsApp.')
+        setError('A sessao anterior nao pertence mais a este usuario. Crie uma nova conexao de WhatsApp.')
       } else {
+        setBackendUnavailable(true)
         setError('Nao foi possivel reconectar o WhatsApp.')
       }
     } finally {
       setReconnecting(false)
     }
-  }, [currentSessionId, sessionsLoaded, reconnecting, fetchSessions, resetInvalidSession])
+  }, [currentSessionId, sessionsLoaded, reconnecting, resetInvalidSession])
 
   const fetchParticipants = useCallback(async () => {
     try {
@@ -187,33 +202,35 @@ export default function WhatsAppSendPage() {
   }, [isAuthenticated, fetchSessions, fetchParticipants])
 
   useEffect(() => {
-    if (sessionsLoaded && currentSessionId) {
-      autoReconnectAttemptRef.current = null
+    if (!currentSessionId) {
+      setShowPairingUI(false)
+      setPairingCode(null)
+    }
+  }, [currentSessionId])
+
+  useEffect(() => {
+    if (!currentSessionId) return
+    if (sessions.length === 0) return
+
+    const hasCurrentSession = sessions.some((session) => session.id === currentSessionId)
+    if (!hasCurrentSession) {
+      resetInvalidSession()
+    }
+  }, [currentSessionId, sessions, resetInvalidSession])
+
+  useEffect(() => {
+    if (backendUnavailable) {
+      return
+    }
+
+    const hasCurrentSession = sessions.some((session) => session.id === currentSessionId)
+
+    if (sessionsLoaded && currentSessionId && hasCurrentSession) {
       checkWhatsAppStatus()
       const interval = setInterval(checkWhatsAppStatus, 10000)
       return () => clearInterval(interval)
     }
-  }, [sessionsLoaded, currentSessionId, checkWhatsAppStatus])
-
-  useEffect(() => {
-    if (
-      !currentSessionId ||
-      !sessionsLoaded ||
-      !whatsappStatus ||
-      whatsappStatus.status === 'READY' ||
-      whatsappStatus.status === 'QR_CODE' ||
-      reconnecting
-    ) {
-      return
-    }
-
-    if (autoReconnectAttemptRef.current === currentSessionId) {
-      return
-    }
-
-    autoReconnectAttemptRef.current = currentSessionId
-    handleReconnect().catch(() => { })
-  }, [sessionsLoaded, currentSessionId, whatsappStatus, reconnecting, handleReconnect])
+  }, [backendUnavailable, sessionsLoaded, currentSessionId, sessions, checkWhatsAppStatus])
 
   const handleMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -320,7 +337,7 @@ export default function WhatsAppSendPage() {
     }
   }
 
-  const handleCreateNewSession = async () => {
+  const handleCreateNewSession = useCallback(async () => {
     const name = prompt('Nome para esta conexão:')
     if (!name) return
     try {
@@ -328,21 +345,51 @@ export default function WhatsAppSendPage() {
         method: 'POST', auth: true, body: JSON.stringify({ name })
       })
       if (data.success) {
+        setBackendUnavailable(false)
         setSessions(prev => [...prev, data.session])
         setCurrentSessionId(data.session.id)
-        localStorage.setItem('active_whatsapp_session', data.session.id)
+        writeWhatsAppSession(data.session.id, user?.id)
         setShowSessionSelector(false)
       }
     } catch (err) { console.error(err) }
-  }
+  }, [user?.id])
 
-  const handleSessionSwitch = (id: string) => {
+  const handleSessionSwitch = useCallback((id: string) => {
     setCurrentSessionId(id)
-    localStorage.setItem('active_whatsapp_session', id)
+    writeWhatsAppSession(id, user?.id)
     setShowSessionSelector(false)
     setWhatsappStatus(null)
     setPairingCode(null)
     autoReconnectAttemptRef.current = null
+  }, [user?.id])
+
+  const handleDeleteSession = async (sessionId: string) => {
+    const targetSession = sessions.find((session) => session.id === sessionId)
+    if (!targetSession) return
+    if (!confirm(`Deseja excluir a conta "${targetSession.instance_name}"?`)) return
+
+    setDeletingSessionId(sessionId)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      await apiFetch(`/api/whatsapp/sessions/${sessionId}`, {
+        method: 'DELETE',
+        auth: true,
+      })
+
+      if (currentSessionId === sessionId) {
+        resetInvalidSession()
+      }
+
+      setSessions(prev => prev.filter((session) => session.id !== sessionId))
+      await fetchSessions()
+      setSuccess('Conta de WhatsApp removida com sucesso.')
+    } catch (err: any) {
+      setError(err?.message || 'Nao foi possivel excluir a conta conectada.')
+    } finally {
+      setDeletingSessionId(null)
+    }
   }
 
   const handleLogout = async () => {
@@ -380,18 +427,36 @@ export default function WhatsAppSendPage() {
               <div className="absolute top-14 right-0 w-72 bg-white rounded-3xl shadow-2xl border border-slate-100 z-50 p-3 animate-in fade-in slide-in-from-top-4 duration-200">
                 <div className="p-3 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50 mb-2">Contas Conectadas</div>
                 <div className="space-y-1 max-h-60 overflow-y-auto custom-scrollbar">
+                  {sessions.length === 0 && (
+                    <div className="px-4 py-6 text-center text-sm font-semibold text-slate-400">
+                      Nenhuma conta conectada ainda.
+                    </div>
+                  )}
                   {sessions.map(s => (
-                    <button
+                    <div
                       key={s.id}
-                      onClick={() => handleSessionSwitch(s.id)}
-                      className={`w-full flex items-center justify-between p-4 rounded-2xl text-sm font-bold transition-all ${currentSessionId === s.id ? 'bg-emerald-50 text-emerald-700' : 'hover:bg-slate-50 text-slate-600'}`}
+                      className={`w-full flex items-center justify-between gap-2 p-2 rounded-2xl transition-all ${currentSessionId === s.id ? 'bg-emerald-50' : 'hover:bg-slate-50'}`}
                     >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-2.5 h-2.5 rounded-full ${s.status === 'READY' ? 'bg-emerald-500' : 'bg-slate-300'}`} />
-                        {s.instance_name}
-                      </div>
-                      {currentSessionId === s.id && <Check size={18} />}
-                    </button>
+                      <button
+                        onClick={() => handleSessionSwitch(s.id)}
+                        className={`flex min-w-0 flex-1 items-center justify-between p-2 rounded-xl text-sm font-bold transition-all ${currentSessionId === s.id ? 'text-emerald-700' : 'text-slate-600'}`}
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className={`w-2.5 h-2.5 rounded-full ${s.status === 'READY' ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                          <span className="truncate">{s.instance_name}</span>
+                        </div>
+                        {currentSessionId === s.id && <Check size={18} />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteSession(s.id)}
+                        disabled={deletingSessionId === s.id}
+                        className="rounded-xl p-2 text-slate-400 transition-all hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-50"
+                        title="Excluir conta conectada"
+                      >
+                        <Trash2 size={16} className={deletingSessionId === s.id ? 'animate-pulse' : ''} />
+                      </button>
+                    </div>
                   ))}
                 </div>
                 <button
@@ -455,6 +520,12 @@ export default function WhatsAppSendPage() {
               <div className="flex-1 text-center md:text-left space-y-4">
                 <h2 className="text-3xl font-black text-white leading-tight">Conecte seu WhatsApp para enviar transmissões.</h2>
                 <p className="text-slate-400 font-medium max-w-xl">Abra o WhatsApp em seu celular, acesse Aparelhos Conectados e escaneie o código ao lado. O sistema permite manter múltiplos números conectados individualmente.</p>
+
+                {backendUnavailable && (
+                  <div className="rounded-2xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-100">
+                    O backend nao respondeu em http://localhost:3333. Ligue a API antes de tentar conectar um novo WhatsApp.
+                  </div>
+                )}
 
                 <div className="flex flex-wrap gap-3 pt-2">
                   <button

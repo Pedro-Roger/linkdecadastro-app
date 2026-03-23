@@ -36,6 +36,7 @@ import { useNavigate } from 'react-router-dom';
 import LoadingScreen from '@/components/ui/LoadingScreen';
 import AdminLayout from '@/components/layouts/AdminLayout';
 import { apiFetch } from '@/lib/api';
+import { clearWhatsAppSession, readWhatsAppSession, writeWhatsAppSession } from '@/lib/whatsappSessionStorage';
 
 export default function ChatPage() {
     const navigate = useNavigate();
@@ -46,7 +47,7 @@ export default function ChatPage() {
 
     // Sessions state
     const [sessions, setSessions] = useState<any[]>([]);
-    const [currentSessionId, setCurrentSessionId] = useState<string | null>(localStorage.getItem('active_whatsapp_session'));
+    const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
     const [showSessionSelector, setShowSessionSelector] = useState(false);
 
     const [conversations, setConversations] = useState<any[]>([]);
@@ -71,6 +72,11 @@ export default function ChatPage() {
     const [groupAddLoading, setGroupAddLoading] = useState(false);
     const [groupAddError, setGroupAddError] = useState<string | null>(null);
     const [groupAddSuccess, setGroupAddSuccess] = useState<string | null>(null);
+    const [showAddToGroupModal, setShowAddToGroupModal] = useState(false);
+    const [canAccessAgents, setCanAccessAgents] = useState(false);
+    const [availableAgents, setAvailableAgents] = useState<any[]>([]);
+    const [selectedRoute, setSelectedRoute] = useState<any>(null);
+    const [savingRoute, setSavingRoute] = useState(false);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const fallbackAvatar = useCallback(
@@ -79,6 +85,23 @@ export default function ChatPage() {
         [],
     );
 
+    useEffect(() => {
+        if (!user?.id) return;
+        setCurrentSessionId(readWhatsAppSession(user.id));
+    }, [user?.id]);
+
+    const resetInvalidSession = useCallback(() => {
+        clearWhatsAppSession(user?.id);
+        setCurrentSessionId(null);
+        setSessions([]);
+        setWhatsappStatus(null);
+        setQrCode(null);
+        setPairingCode(null);
+        setConversations([]);
+        setSelectedChat(null);
+        setMessages([]);
+    }, [user?.id]);
+
     const fetchSessions = useCallback(async () => {
         try {
             const data = await apiFetch<any>('/api/whatsapp/sessions', { auth: true });
@@ -86,25 +109,21 @@ export default function ChatPage() {
                 setSessions(data.sessions);
                 if (!currentSessionId || !data.sessions.find((s: any) => s.id === currentSessionId)) {
                     setCurrentSessionId(data.sessions[0].id);
-                    localStorage.setItem('active_whatsapp_session', data.sessions[0].id);
+                    writeWhatsAppSession(data.sessions[0].id, user?.id);
                 }
             } else if (data.success && data.sessions.length === 0) {
-                // Criar uma sessão padrão se não existir
-                const newSess = await apiFetch<any>('/api/whatsapp/sessions', {
-                    method: 'POST',
-                    auth: true,
-                    body: JSON.stringify({ name: 'Meu WhatsApp' })
-                });
-                if (newSess.success) {
-                    setSessions([newSess.session]);
-                    setCurrentSessionId(newSess.session.id);
-                    localStorage.setItem('active_whatsapp_session', newSess.session.id);
-                }
+                clearWhatsAppSession(user?.id);
+                setSessions([]);
+                setCurrentSessionId(null);
+                setWhatsappStatus(null);
             }
-        } catch (err) {
-            console.error('Erro ao buscar sessões:', err);
+        } catch (err: any) {
+            if (err?.status === 403) {
+                resetInvalidSession();
+            }
+            console.error('Erro ao buscar sessoes:', err);
         }
-    }, [currentSessionId]);
+    }, [currentSessionId, resetInvalidSession, user?.id]);
 
     const checkWhatsAppStatus = useCallback(async () => {
         if (!currentSessionId) return;
@@ -118,50 +137,23 @@ export default function ChatPage() {
                     setQrCode(null);
                 }
             }
-        } catch (error) {
+        } catch (error: any) {
+            if (error?.status === 403) {
+                resetInvalidSession();
+                return;
+            }
             console.error('Error checking WhatsApp status:', error);
         }
-    }, [currentSessionId]);
+    }, [currentSessionId, fetchSessions, resetInvalidSession]);
 
     const fetchConversations = useCallback(async () => {
-        if (!currentSessionId || whatsappStatus !== 'READY') return;
+        if (!currentSessionId) return;
         try {
             setLoadingConversations(true);
-            const [participantsData, chatsData, groupsData] = await Promise.all([
-                apiFetch<any>('/api/whatsapp/participantes', { auth: true }),
+            const [chatsData, groupsData] = await Promise.all([
                 apiFetch<any>(`/api/whatsapp/chats?sessionId=${currentSessionId}`, { auth: true }),
                 apiFetch<any>(`/api/whatsapp/groups?sessionId=${currentSessionId}`, { auth: true }).catch(() => ({ groups: [] }))
             ]);
-
-            const dbParticipants = (participantsData.participantes || []).map((p: any) => {
-                let id = p.id_contato.replace(/\D/g, '');
-                if (id.startsWith('0')) id = id.substring(1);
-
-                // Força o 55 se não tiver
-                if (id.length >= 10 && id.length <= 11 && !id.startsWith('55')) {
-                    // Se tiver 11 dígitos, remove o 9º dígito (terceiro dígito após o país ser adicionado ou antes)
-                    if (id.length === 11 && id[2] === '9') {
-                        id = id.substring(0, 2) + id.substring(3);
-                    }
-                    id = '55' + id;
-                } else if (id.length === 13 && id.startsWith('55') && id[4] === '9') {
-                    // Se já tiver o 55 e tiver 13 dígitos (55 + DD + 9 + 8), remove o 9
-                    id = id.substring(0, 4) + id.substring(5);
-                }
-
-                const jid = id.includes('@') ? id : `${id}@s.whatsapp.net`;
-                return {
-                    id: p.id_contato,
-                    jid: jid,
-                    name: p.nome || p.id_contato,
-                    lastMessage: 'Contato da Base',
-                    avatar: fallbackAvatar(p.nome || p.id_contato),
-                    profile_pic_url: undefined,
-                    phone: p.id_contato,
-                    type: 'crm',
-                    unreadCount: 0,
-                };
-            });
 
             const waChats = (chatsData.chats || []).map((c: any) => ({
                 ...c,
@@ -179,19 +171,13 @@ export default function ChatPage() {
                 combinedMap.set(chat.jid, chat);
             });
 
-            dbParticipants.forEach((dbP: any) => {
-                if (!combinedMap.has(dbP.jid)) {
-                    combinedMap.set(dbP.jid, dbP);
-                }
-            });
-
             setConversations(Array.from(combinedMap.values()));
         } catch (error) {
             console.error('Erro ao buscar conversas:', error);
         } finally {
             setLoadingConversations(false);
         }
-    }, [currentSessionId, whatsappStatus, fallbackAvatar]);
+    }, [currentSessionId, fallbackAvatar]);
 
     const handleStartNewChat = () => {
         if (!newChatNumber.trim()) return;
@@ -290,34 +276,59 @@ export default function ChatPage() {
         try {
             const data = await apiFetch<any>(`/api/whatsapp/messages?sessionId=${currentSessionId}&jid=${selectedChat.jid}`, { auth: true });
             if (data.success) {
-                setMessages(data.messages);
+                setMessages(Array.isArray(data.messages) ? data.messages : []);
             }
         } catch (error) {
             console.error('Erro ao buscar mensagens:', error);
+            setMessages([]);
         }
     }, [selectedChat, currentSessionId]);
 
     useEffect(() => {
         if (isAuthenticated) {
             fetchSessions();
+            apiFetch<any>('/admin/agents/my-access', { auth: true })
+                .then((data) => {
+                    const hasAccess = Boolean(data?.canAccessAgents);
+                    setCanAccessAgents(hasAccess);
+                    if (hasAccess) {
+                        return apiFetch<any[]>('/admin/agents?module=atendimento', { auth: true })
+                            .then((agentsData) => setAvailableAgents(Array.isArray(agentsData) ? agentsData : []));
+                    }
+                    setAvailableAgents([]);
+                })
+                .catch(() => {
+                    setCanAccessAgents(false);
+                    setAvailableAgents([]);
+                });
         }
     }, [isAuthenticated, fetchSessions]);
 
     useEffect(() => {
-        if (currentSessionId) {
+        if (!currentSessionId) return;
+        if (sessions.length === 0) return;
+
+        const hasCurrentSession = sessions.some((session) => session.id === currentSessionId);
+        if (!hasCurrentSession) {
+            resetInvalidSession();
+        }
+    }, [currentSessionId, sessions, resetInvalidSession]);
+
+    useEffect(() => {
+        const hasCurrentSession = sessions.some((session) => session.id === currentSessionId);
+        if (currentSessionId && hasCurrentSession) {
             checkWhatsAppStatus();
             const interval = setInterval(checkWhatsAppStatus, 10000);
             return () => clearInterval(interval);
         }
-    }, [currentSessionId, checkWhatsAppStatus]);
+    }, [currentSessionId, sessions, checkWhatsAppStatus]);
 
     useEffect(() => {
-        if (whatsappStatus === 'READY') {
-            fetchConversations();
-            const interval = setInterval(fetchConversations, 30000); // 30s to update contact names/source
-            return () => clearInterval(interval);
-        }
-    }, [whatsappStatus, fetchConversations]);
+        if (!currentSessionId) return;
+        fetchConversations();
+        const interval = setInterval(fetchConversations, 30000);
+        return () => clearInterval(interval);
+    }, [currentSessionId, fetchConversations]);
 
     useEffect(() => {
         if (!selectedChat) return;
@@ -357,6 +368,17 @@ export default function ChatPage() {
             setContactDetails(null);
         }
     }, [selectedChat, fetchMessages]);
+
+    useEffect(() => {
+        if (!selectedChat?.conversationId || !canAccessAgents) {
+            setSelectedRoute(null);
+            return;
+        }
+
+        apiFetch<any>(`/admin/agents/routes/${selectedChat.conversationId}`, { auth: true })
+            .then((data) => setSelectedRoute(data))
+            .catch(() => setSelectedRoute(null));
+    }, [selectedChat?.conversationId, canAccessAgents]);
 
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -401,7 +423,7 @@ export default function ChatPage() {
             if (data.success) {
                 setSessions(prev => [...prev, data.session]);
                 setCurrentSessionId(data.session.id);
-                localStorage.setItem('active_whatsapp_session', data.session.id);
+                writeWhatsAppSession(data.session.id, user?.id);
                 setShowSessionSelector(false);
             }
         } catch (err) {
@@ -411,7 +433,7 @@ export default function ChatPage() {
 
     const handleSessionSwitch = (id: string) => {
         setCurrentSessionId(id);
-        localStorage.setItem('active_whatsapp_session', id);
+        writeWhatsAppSession(id, user?.id);
         setShowSessionSelector(false);
         setConversations([]);
         setSelectedChat(null);
@@ -456,6 +478,56 @@ export default function ChatPage() {
             console.error('Erro ao reconectar WhatsApp:', error);
         } finally {
             setIsRefreshing(false);
+        }
+    };
+
+    const handleUpdateRoute = async (patch: { mode?: 'HUMAN' | 'COPILOT' | 'AUTONOMOUS'; agentId?: string | null }) => {
+        if (!selectedChat?.conversationId || !canAccessAgents) return;
+
+        const nextMode = patch.mode ?? selectedRoute?.mode ?? selectedChat?.attendanceMode ?? 'HUMAN';
+        const nextAgentId =
+            patch.agentId !== undefined
+                ? patch.agentId
+                : selectedRoute?.agent?.id ?? selectedChat?.assignedAgentId ?? null;
+
+        setSavingRoute(true);
+        try {
+            const data = await apiFetch<any>(`/admin/agents/routes/${selectedChat.conversationId}`, {
+                method: 'PUT',
+                auth: true,
+                body: JSON.stringify({
+                    mode: nextMode,
+                    agentId: nextAgentId,
+                }),
+            });
+
+            setSelectedRoute(data);
+            setConversations((prev) =>
+                prev.map((chat) =>
+                    chat.jid === selectedChat.jid
+                        ? {
+                              ...chat,
+                              attendanceMode: data?.mode || nextMode,
+                              assignedAgentId: data?.agentId || nextAgentId || null,
+                              assignedAgentName: data?.agent?.name || null,
+                          }
+                        : chat,
+                ),
+            );
+            setSelectedChat((prev: any) =>
+                prev
+                    ? {
+                          ...prev,
+                          attendanceMode: data?.mode || nextMode,
+                          assignedAgentId: data?.agentId || nextAgentId || null,
+                          assignedAgentName: data?.agent?.name || null,
+                      }
+                    : prev,
+            );
+        } catch (error) {
+            console.error('Erro ao atualizar rota do agente:', error);
+        } finally {
+            setSavingRoute(false);
         }
     };
 
@@ -517,6 +589,14 @@ export default function ChatPage() {
                                         <PlusCircle size={20} />
                                     </button>
 
+                                    <button
+                                        onClick={() => setShowAddToGroupModal(true)}
+                                        className="p-2 hover:bg-indigo-50 text-slate-400 hover:text-indigo-500 rounded-xl transition-all"
+                                        title="Adicionar participantes a grupo"
+                                    >
+                                        <UserPlus size={18} />
+                                    </button>
+
                                     <button onClick={handleLogout} className="p-2 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-xl transition-all" title="Desconectar Conta Atual">
                                         <LogOut size={18} />
                                     </button>
@@ -567,81 +647,12 @@ export default function ChatPage() {
                                 />
                             </div>
                         </div>
-                        <div className="px-6 pb-4 border-b border-[var(--border-light)]">
-                            <div className="bg-white border border-slate-100 rounded-3xl p-4 space-y-3 shadow-sm">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Grupo existente</p>
-                                        <h3 className="text-sm font-black text-slate-800">
-                                            Adicionar participantes
-                                        </h3>
-                                    </div>
-                                    <UserPlus size={18} className="text-emerald-500" />
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">ID do grupo</label>
-                                    <input
-                                        type="text"
-                                        value={groupIdInput}
-                                        onChange={(e) => {
-                                            setGroupIdInput(e.target.value);
-                                            setGroupAddError(null);
-                                            setGroupAddSuccess(null);
-                                        }}
-                                        placeholder="ex: 1234567890-123456@g.us"
-                                        className="w-full rounded-2xl border border-slate-200 text-sm font-bold px-4 py-3 outline-none focus:border-emerald-500 transition-all"
-                                    />
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Participantes</label>
-                                    <textarea
-                                        rows={3}
-                                        value={groupParticipantsInput}
-                                        onChange={(e) => {
-                                            setGroupParticipantsInput(e.target.value);
-                                            setGroupAddError(null);
-                                            setGroupAddSuccess(null);
-                                        }}
-                                        placeholder="Informe números ou JIDs separados por quebra de linha ou vírgula"
-                                        className="w-full rounded-2xl border border-slate-200 bg-slate-50 text-sm font-semibold px-4 py-3 resize-none focus:border-emerald-500 transition-all"
-                                    />
-                                    <p className="text-[10px] text-slate-400">Você pode usar números nacionais (ex: 5511999998888) ou JIDs (@s.whatsapp.net).</p>
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={handleAddToGroup}
-                                    disabled={
-                                        groupAddLoading ||
-                                        !groupIdInput.trim() ||
-                                        !groupParticipantsInput.trim() ||
-                                        !currentSessionId
-                                    }
-                                    className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 text-white text-xs font-black uppercase tracking-[0.3em] py-3 transition-all shadow-lg shadow-slate-900/10 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
-                                >
-                                    {groupAddLoading ? (
-                                        <RefreshCw size={16} className="animate-spin text-emerald-400" />
-                                    ) : (
-                                        <>
-                                            <PlusCircle size={16} />
-                                            Adicionar
-                                        </>
-                                    )}
-                                </button>
-                                {groupAddSuccess && (
-                                    <p className="text-[11px] font-semibold text-emerald-500">{groupAddSuccess}</p>
-                                )}
-                                {groupAddError && (
-                                    <p className="text-[11px] font-semibold text-rose-500">{groupAddError}</p>
-                                )}
-                            </div>
-                        </div>
-
                         {/* Chat List */}
                         <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-1">
                             {loadingConversations ? (
                                 <div className="flex flex-col items-center justify-center h-40 gap-3">
                                     <RefreshCw className="animate-spin text-emerald-500" size={24} />
-                                    <span className="text-xs font-bold text-slate-400">Sincronizando contatos...</span>
+                                    <span className="text-xs font-bold text-slate-400">Carregando conversas recentes...</span>
                                 </div>
                             ) : conversations.length > 0 ? (
                                 conversations.filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase())).map((chat) => (
@@ -668,7 +679,7 @@ export default function ChatPage() {
                                 ))
                             ) : (
                                 <div className="text-center p-8 text-slate-400">
-                                    {whatsappStatus === 'READY' ? 'Nenhuma conversa encontrada.' : 'Conecte o WhatsApp para ver as conversas.'}
+                                    {whatsappStatus === 'READY' ? 'Nenhuma conversa encontrada.' : 'Conecte o WhatsApp e inicie uma conversa para ela aparecer aqui.'}
                                 </div>
                             )}
                         </div>
@@ -710,7 +721,7 @@ export default function ChatPage() {
                                         <span className="bg-slate-200 text-slate-500 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-tighter">Hoje</span>
                                     </div>
 
-                                    {messages.map((msg) => (
+                                    {(Array.isArray(messages) ? messages : []).map((msg) => (
                                         <div key={msg.id} className={`flex ${msg.sender === 'me' ? 'justify-end' : 'justify-start'}`}>
                                             <div className={`max-w-[70%] p-4 rounded-2xl shadow-sm border ${msg.sender === 'me'
                                                 ? 'bg-slate-900 text-white border-slate-800 rounded-br-none'
@@ -808,8 +819,79 @@ export default function ChatPage() {
                                                         <p className="text-sm font-bold text-slate-700">{selectedChat.jid.split('@')[0]}</p>
                                                     </div>
                                                 </div>
+                                                {contactDetails?.email && (
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="p-2 bg-slate-50 rounded-xl text-slate-400"><Mail size={16} /></div>
+                                                        <div className="text-left text-ellipsis overflow-hidden">
+                                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Email</p>
+                                                            <p className="text-sm font-bold text-slate-700 break-all">{contactDetails.email}</p>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                {(contactDetails?.city || contactDetails?.state) && (
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="p-2 bg-slate-50 rounded-xl text-slate-400"><MapPin size={16} /></div>
+                                                        <div className="text-left text-ellipsis overflow-hidden">
+                                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Localidade</p>
+                                                            <p className="text-sm font-bold text-slate-700">{[contactDetails?.city, contactDetails?.state].filter(Boolean).join(' - ')}</p>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                {contactDetails?.source && contactDetails?.source !== 'unknown' && (
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="p-2 bg-slate-50 rounded-xl text-slate-400"><BadgeCheck size={16} /></div>
+                                                        <div className="text-left text-ellipsis overflow-hidden">
+                                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Origem</p>
+                                                            <p className="text-sm font-bold text-slate-700">{contactDetails.source === 'user' ? 'Cadastro principal' : 'Inscricao'}</p>
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
+
+                                        {canAccessAgents && selectedChat?.conversationId && (
+                                            <div className="space-y-4">
+                                                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                                    <BadgeCheck size={12} className="text-indigo-500" /> Agente da conversa
+                                                </h4>
+                                                <div className="space-y-3">
+                                                    <div>
+                                                        <label className="mb-2 block text-[10px] font-bold uppercase tracking-widest text-slate-400">Modo</label>
+                                                        <select
+                                                            value={selectedRoute?.mode || selectedChat.attendanceMode || 'HUMAN'}
+                                                            onChange={(e) => handleUpdateRoute({ mode: e.target.value as 'HUMAN' | 'COPILOT' | 'AUTONOMOUS' })}
+                                                            disabled={savingRoute}
+                                                            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold outline-none focus:border-indigo-500"
+                                                        >
+                                                            <option value="HUMAN">Humano</option>
+                                                            <option value="COPILOT">Copilot</option>
+                                                            <option value="AUTONOMOUS">Autonomo</option>
+                                                        </select>
+                                                    </div>
+                                                    <div>
+                                                        <label className="mb-2 block text-[10px] font-bold uppercase tracking-widest text-slate-400">Agente</label>
+                                                        <select
+                                                            value={selectedRoute?.agent?.id || selectedChat.assignedAgentId || ''}
+                                                            onChange={(e) => handleUpdateRoute({ agentId: e.target.value || null })}
+                                                            disabled={savingRoute}
+                                                            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold outline-none focus:border-indigo-500"
+                                                        >
+                                                            <option value="">Sem agente</option>
+                                                            {availableAgents
+                                                                .filter((agent) => !agent.boundChannelId || agent.boundChannelId === currentSessionId)
+                                                                .map((agent) => (
+                                                                    <option key={agent.id} value={agent.id}>
+                                                                        {agent.name} {agent.boundChannelId ? '(numero vinculado)' : ''}
+                                                                    </option>
+                                                                ))}
+                                                        </select>
+                                                    </div>
+                                                    <p className="text-[11px] font-medium text-slate-500">
+                                                        Numero atual: {sessions.find((session) => session.id === currentSessionId)?.instance_name || 'Sessao atual'}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        )}
 
                                         {contactDetails?.courses?.length > 0 && (
                                             <div className="space-y-4">
@@ -846,6 +928,70 @@ export default function ChatPage() {
                         </div>
                     )}
                 </div>
+
+                {showAddToGroupModal && (
+                    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+                        <div className="bg-white rounded-[2.5rem] w-full max-w-lg shadow-2xl border border-slate-100 overflow-hidden animate-in zoom-in-95 duration-200">
+                            <div className="p-8 border-b border-slate-50 flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-xl font-black text-slate-800 tracking-tight">Adicionar Participantes</h3>
+                                    <p className="text-sm text-slate-400 font-medium mt-1">Use um grupo existente e informe os numeros ou JIDs que devem entrar.</p>
+                                </div>
+                                <button onClick={() => setShowAddToGroupModal(false)} className="p-2 hover:bg-slate-50 rounded-xl text-slate-400 transition-all"><Plus size={20} className="rotate-45" /></button>
+                            </div>
+                            <div className="p-8 space-y-5">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">ID do grupo</label>
+                                    <input
+                                        type="text"
+                                        value={groupIdInput}
+                                        onChange={(e) => {
+                                            setGroupIdInput(e.target.value);
+                                            setGroupAddError(null);
+                                            setGroupAddSuccess(null);
+                                        }}
+                                        placeholder="ex: 1234567890-123456@g.us"
+                                        className="w-full rounded-2xl border border-slate-200 text-sm font-bold px-4 py-3 outline-none focus:border-indigo-500 transition-all"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Participantes</label>
+                                    <textarea
+                                        rows={5}
+                                        value={groupParticipantsInput}
+                                        onChange={(e) => {
+                                            setGroupParticipantsInput(e.target.value);
+                                            setGroupAddError(null);
+                                            setGroupAddSuccess(null);
+                                        }}
+                                        placeholder="Informe numeros ou JIDs separados por quebra de linha ou virgula"
+                                        className="w-full rounded-2xl border border-slate-200 bg-slate-50 text-sm font-semibold px-4 py-3 resize-none focus:border-indigo-500 transition-all"
+                                    />
+                                    <p className="text-[10px] text-slate-400">Exemplo: 5511999998888 ou 5511999998888@s.whatsapp.net</p>
+                                </div>
+                                {groupAddSuccess && <p className="text-sm font-semibold text-emerald-600">{groupAddSuccess}</p>}
+                                {groupAddError && <p className="text-sm font-semibold text-rose-500">{groupAddError}</p>}
+                                <div className="flex gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowAddToGroupModal(false)}
+                                        className="flex-1 py-4 bg-slate-100 text-slate-700 font-black text-xs uppercase tracking-[0.2em] rounded-2xl transition-all"
+                                    >
+                                        Fechar
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={handleAddToGroup}
+                                        disabled={groupAddLoading || !groupIdInput.trim() || !groupParticipantsInput.trim() || !currentSessionId}
+                                        className="flex-1 py-4 bg-slate-900 text-white font-black text-xs uppercase tracking-[0.2em] rounded-2xl transition-all shadow-xl shadow-slate-900/10 disabled:opacity-50"
+                                    >
+                                        {groupAddLoading ? 'Adicionando...' : 'Adicionar'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* New Chat Modal */}
                 {showNewChatModal && (

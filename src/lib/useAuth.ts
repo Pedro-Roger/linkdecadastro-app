@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiFetch } from './api'
+import { clearAllWhatsAppSessions } from './whatsappSessionStorage'
 
 interface User {
   id: string
@@ -61,7 +62,7 @@ export function useAuth(options?: UseAuthOptions) {
   function signOut() {
     localStorage.removeItem('token')
     localStorage.removeItem('user')
-    localStorage.removeItem('active_whatsapp_session')
+    clearAllWhatsAppSessions()
     navigate('/')
   }
 
