@@ -121,14 +121,33 @@ export default function RegistrationForm({ eventId }: { eventId: string }) {
     }
   }
 
-  const fetchCities = async (stateSigla: string) => {
+  const ensureCityOption = (cityName: string) => {
+    if (!cityName) return
+
+    setCities((prev) => {
+      if (prev.some((city) => city.nome === cityName)) {
+        return prev
+      }
+
+      return [...prev, { nome: cityName }].sort((a, b) => a.nome.localeCompare(b.nome))
+    })
+  }
+
+  const fetchCities = async (stateSigla: string, preferredCity?: string) => {
     try {
       setLoadingCities(true)
       const data = await apiFetch<CityOption[]>(`/locations/states/${stateSigla}/cities`)
       const sorted = (Array.isArray(data) ? data : []).sort((a, b) => a.nome.localeCompare(b.nome))
-      setCities(sorted)
+      const merged = preferredCity && !sorted.some((city) => city.nome === preferredCity)
+        ? [...sorted, { nome: preferredCity }].sort((a, b) => a.nome.localeCompare(b.nome))
+        : sorted
+      setCities(merged)
     } catch (fetchError) {
-      setCities([])
+      if (preferredCity) {
+        setCities([{ nome: preferredCity }])
+      } else {
+        setCities([])
+      }
     } finally {
       setLoadingCities(false)
     }
@@ -146,13 +165,11 @@ export default function RegistrationForm({ eventId }: { eventId: string }) {
       }
 
       if (data.city) {
+        ensureCityOption(data.city)
         setValue('city', data.city, { shouldValidate: true, shouldDirty: true })
-        setCities((prev) => {
-          if (prev.some((city) => city.nome === data.city)) {
-            return prev
-          }
-          return [...prev, { nome: data.city }].sort((a, b) => a.nome.localeCompare(b.nome))
-        })
+        if (data.state) {
+          await fetchCities(data.state, data.city)
+        }
       }
 
       if (data.neighborhood) {
