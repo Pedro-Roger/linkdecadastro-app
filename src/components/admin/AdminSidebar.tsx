@@ -7,13 +7,13 @@ import {
     Users,
     MessageSquare,
     Send,
-    Settings,
     LogOut,
     ChevronLeft,
     Moon,
     Sun,
     ShieldCheck,
-    Bot
+    Bot,
+    Cpu
 } from 'lucide-react';
 import { useAuth } from '@/lib/useAuth';
 
@@ -33,6 +33,10 @@ export default function AdminSidebar() {
         { icon: Bot, label: 'Inteligência Artificial', path: '/admin/ai-settings' },
     ];
 
+    if (user?.role === 'SUPER_ADMIN' || user?.canAccessAgents) {
+        menuItems.push({ icon: Cpu, label: 'Agentes', path: '/admin/agents' });
+    }
+
     if (user?.role === 'SUPER_ADMIN') {
         menuItems.push({ icon: ShieldCheck, label: 'Acessos', path: '/admin/users' });
     }
@@ -48,7 +52,6 @@ export default function AdminSidebar() {
             className={`h-screen bg-[var(--bg-sidebar)] border-r border-[var(--border-light)] flex flex-col transition-all duration-300 z-30 ${collapsed ? 'w-20' : 'w-72'
                 }`}
         >
-            {/* Header */}
             <div className="p-6 flex items-center justify-between">
                 {!collapsed && (
                     <div className="flex items-center gap-3">
@@ -68,7 +71,6 @@ export default function AdminSidebar() {
                 </button>
             </div>
 
-            {/* Main Menu */}
             <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto custom-scrollbar">
                 <div className="px-3 mb-2 text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest">
                     {!collapsed ? 'Menu Principal' : 'Menu'}
@@ -91,21 +93,18 @@ export default function AdminSidebar() {
                 })}
             </nav>
 
-            {/* Bottom Section */}
             <div className="p-4 bg-[var(--bg-main)]/50 border-t border-[var(--border-light)] space-y-4">
-                {/* Ad Space Card (Inspired by mockup) */}
                 {!collapsed && (
-                    <div className="bg-gradient-to-br from-[#7C3AED] to-[#4F46E5] rounded-2xl p-4 text-white relative overflow-hidden group">
+                    <div className="bg-gradient-to-br from-[#0f766e] to-[#155e75] rounded-2xl p-4 text-white relative overflow-hidden group">
                         <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full blur-2xl -mr-8 -mt-8"></div>
-                        <h4 className="font-bold text-sm mb-1 z-10 relative">Cresça seu negócio</h4>
-                        <p className="text-[10px] text-white/80 mb-3 z-10 relative">Assine ferramentas premium para escalar suas vendas.</p>
-                        <button className="w-full py-2 bg-white text-[#7C3AED] rounded-lg text-[10px] font-bold hover:bg-opacity-90 transition-all z-10 relative">
-                            VER PLANOS
+                        <h4 className="font-bold text-sm mb-1 z-10 relative">Operação assistida</h4>
+                        <p className="text-[10px] text-white/80 mb-3 z-10 relative">Centralize atendimento, WhatsApp e agentes na mesma operação.</p>
+                        <button className="w-full py-2 bg-white text-[#0f766e] rounded-lg text-[10px] font-bold hover:bg-opacity-90 transition-all z-10 relative">
+                            VER MÓDULOS
                         </button>
                     </div>
                 )}
 
-                {/* Theme Toggle */}
                 <div className={`flex items-center gap-2 p-1 bg-[var(--border-light)] rounded-xl ${collapsed ? 'justify-center' : ''}`}>
                     <button
                         onClick={toggleTheme}
@@ -125,7 +124,6 @@ export default function AdminSidebar() {
                     </button>
                 </div>
 
-                {/* User Profile */}
                 <div className={`flex items-center gap-3 p-2 rounded-xl hover:bg-[var(--border-light)] cursor-pointer transition-all ${collapsed ? 'justify-center' : ''}`}>
                     <img
                         src={user?.avatar || `https://ui-avatars.com/api/?name=${user?.name || 'User'}&background=FF6600&color=fff`}
@@ -151,4 +149,3 @@ export default function AdminSidebar() {
         </aside>
     );
 }
-// HMR force update

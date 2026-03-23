@@ -1,49 +1,66 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import {
-  ArrowLeft, Plus, Image as ImageIcon,
+  ArrowLeft, Image as ImageIcon,
   Globe, Shield, Users, Save, X
 } from 'lucide-react'
 import LoadingScreen from '@/components/ui/LoadingScreen'
-import { apiFetch, getApiUrl } from '@/lib/api'
+import { apiFetch, getApiUrl, normalizeImageUrl } from '@/lib/api'
 import { useAuth } from '@/lib/useAuth'
 import AdminLayout from '@/components/layouts/AdminLayout'
 
 const eventSchema = z.object({
-  title: z.string().min(1, 'Título é obrigatório'),
-  description: z.string().min(1, 'Descrição é obrigatória'),
+  title: z.string().min(1, 'TÃ­tulo Ã© obrigatÃ³rio'),
+  description: z.string().min(1, 'DescriÃ§Ã£o Ã© obrigatÃ³ria'),
   bannerUrl: z.string().optional().or(z.literal('')).transform((val) => {
     return val && val.trim() ? val.trim() : undefined
   }).refine(
-    (val) => !val || val.startsWith('/') || val.startsWith('http://') || val.startsWith('https://') || val.startsWith('data:image/'),
-    { message: 'URL inválida' }
+    (val) =>
+      !val ||
+      val.startsWith('/') ||
+      val.startsWith('http://') ||
+      val.startsWith('https://') ||
+      val.startsWith('data:image/'),
+    { message: 'URL invÃ¡lida' }
   ),
-  status: z.enum(['ACTIVE', 'INACTIVE']).default('ACTIVE'),
+  status: z.enum(['ACTIVE', 'INACTIVE', 'CLOSED']).default('ACTIVE'),
   maxRegistrations: z.string().optional().transform((val) => {
-    if (!val || !val.trim()) return null
+    if (!val || !val.trim()) return ''
     const parsed = parseInt(val, 10)
-    return Number.isNaN(parsed) ? null : parsed
+    return Number.isNaN(parsed) ? '' : String(parsed)
   }),
   slug: z.string().optional().transform((val) => {
-    if (!val || typeof val !== 'string' || !val.trim()) return undefined;
-    return val.trim().toLowerCase();
+    if (!val || typeof val !== 'string' || !val.trim()) return undefined
+    return val.trim().toLowerCase()
   }).refine(
     (val) => !val || /^[a-z0-9-]+$/.test(val),
-    { message: 'URL personalizada deve conter apenas letras minúsculas, números e hífens' }
+    { message: 'URL personalizada deve conter apenas letras minÃºsculas, nÃºmeros e hÃ­fens' }
   ),
 })
 
 type EventFormData = z.infer<typeof eventSchema>
 
-export default function NewEventPage() {
+interface EventResponse {
+  id: string
+  title: string
+  description: string
+  bannerUrl?: string | null
+  status: 'ACTIVE' | 'INACTIVE' | 'CLOSED'
+  maxRegistrations?: number | null
+  slug?: string | null
+}
+
+export default function EditEventPage() {
   const navigate = useNavigate()
-  const { user, loading: authLoading, isAuthenticated } = useAuth({
+  const { eventId } = useParams<{ eventId: string }>()
+  const { loading: authLoading } = useAuth({
     requireAuth: true,
     redirectTo: '/login',
   })
+  const [pageLoading, setPageLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
@@ -54,15 +71,54 @@ export default function NewEventPage() {
     handleSubmit,
     watch,
     setValue,
+    reset,
     formState: { errors }
   } = useForm<EventFormData>({
     resolver: zodResolver(eventSchema),
     defaultValues: {
       status: 'ACTIVE',
+      maxRegistrations: '',
     }
   })
 
   const bannerUrl = watch('bannerUrl')
+
+  useEffect(() => {
+    if (!eventId) {
+      setError('Evento nÃ£o informado')
+      setPageLoading(false)
+      return
+    }
+
+    const loadEvent = async () => {
+      try {
+        setPageLoading(true)
+        const data = await apiFetch<EventResponse>(`/admin/events/${eventId}`, {
+          auth: true,
+        })
+
+        reset({
+          title: data.title,
+          description: data.description,
+          bannerUrl: data.bannerUrl || undefined,
+          status: data.status,
+          maxRegistrations:
+            data.maxRegistrations === null || data.maxRegistrations === undefined
+              ? ''
+              : String(data.maxRegistrations),
+          slug: data.slug || undefined,
+        })
+
+        setBannerPreview(data.bannerUrl || null)
+      } catch (err: any) {
+        setError(err?.message || 'Erro ao carregar evento')
+      } finally {
+        setPageLoading(false)
+      }
+    }
+
+    loadEvent()
+  }, [eventId, reset])
 
   const handleFileUpload = async (file: File) => {
     setUploading(true)
@@ -80,7 +136,7 @@ export default function NewEventPage() {
       if (!response.ok) throw new Error('Erro no upload')
       const data = await response.json()
       const imageUrl = data.url || data.path
-      setValue('bannerUrl', imageUrl, { shouldValidate: true })
+      setValue('bannerUrl', imageUrl, { shouldValidate: true, shouldDirty: true })
       setBannerPreview(imageUrl)
     } catch (err: any) {
       setError(err?.message || 'Erro ao fazer upload')
@@ -90,36 +146,37 @@ export default function NewEventPage() {
   }
 
   const onSubmit = async (data: EventFormData) => {
+    if (!eventId) return
+
     setSubmitting(true)
     setError(null)
     try {
-      const payload: any = {
-        title: data.title,
-        description: data.description,
-        bannerUrl: data.bannerUrl || bannerPreview || undefined,
-        status: data.status,
-        maxRegistrations: data.maxRegistrations,
-        slug: data.slug,
-      }
-      await apiFetch('/events', {
-        method: 'POST',
+      await apiFetch(`/admin/events/${eventId}`, {
+        method: 'PATCH',
         auth: true,
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          title: data.title,
+          description: data.description,
+          bannerUrl: data.bannerUrl || '',
+          status: data.status,
+          maxRegistrations: data.maxRegistrations ? Number(data.maxRegistrations) : null,
+          slug: data.slug || '',
+        }),
       })
+
       navigate('/admin/events')
     } catch (err: any) {
-      setError(err?.message || 'Erro ao criar evento')
+      setError(err?.message || 'Erro ao atualizar evento')
     } finally {
       setSubmitting(false)
     }
   }
 
-  if (authLoading) return <LoadingScreen />
+  if (authLoading || pageLoading) return <LoadingScreen />
 
   return (
     <AdminLayout>
       <div className="max-w-5xl mx-auto py-8 px-4">
-        {/* Header Navigation */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
           <div className="flex items-center gap-4">
             <button
@@ -130,9 +187,9 @@ export default function NewEventPage() {
             </button>
             <div>
               <h1 className="text-3xl font-black text-[var(--secondary)] tracking-tight">
-                Novo <span className="text-indigo-600">Evento</span>
+                Editar <span className="text-indigo-600">Evento</span>
               </h1>
-              <p className="text-[var(--text-muted)] font-medium text-sm mt-1">Crie um link de cadastro personalizado para sua campanha.</p>
+              <p className="text-[var(--text-muted)] font-medium text-sm mt-1">Atualize o link, banner e configuraÃ§Ãµes do evento.</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -148,7 +205,7 @@ export default function NewEventPage() {
               disabled={submitting}
               className="px-8 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-xl shadow-indigo-600/20 transition-all flex items-center gap-2 active:scale-95 disabled:opacity-50 text-xs"
             >
-              {submitting ? 'CRIANDO...' : <><Save size={18} /> SALVAR LINK</>}
+              {submitting ? 'SALVANDO...' : <><Save size={18} /> SALVAR ALTERAÃ‡Ã•ES</>}
             </button>
           </div>
         </div>
@@ -161,32 +218,31 @@ export default function NewEventPage() {
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Info Sidebar */}
           <div className="lg:col-span-2 space-y-8">
             <section className="bg-white rounded-[2.5rem] border border-[var(--border-light)] p-8 shadow-sm">
               <h2 className="text-lg font-black text-[var(--secondary)] mb-6 flex items-center gap-2">
-                Informações Básicas <Globe size={20} className="text-indigo-600" />
+                InformaÃ§Ãµes BÃ¡sicas <Globe size={20} className="text-indigo-600" />
               </h2>
 
               <div className="space-y-6">
                 <div>
-                  <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2 px-1">Título do Evento</label>
+                  <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2 px-1">TÃ­tulo do Evento</label>
                   <input
                     type="text"
                     {...register('title')}
                     className="w-full bg-[var(--bg-main)]/50 border-2 border-transparent focus:border-indigo-600/20 rounded-2xl px-5 py-4 text-sm font-bold text-[var(--secondary)] transition-all outline-none"
-                    placeholder="Ex: Workshop de Liderança 2024"
+                    placeholder="Ex: Workshop de LideranÃ§a 2024"
                   />
                   {errors.title && <p className="text-red-500 text-[10px] font-bold mt-1.5 px-1">{errors.title.message}</p>}
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2 px-1">Descrição / Detalhes</label>
+                  <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2 px-1">DescriÃ§Ã£o / Detalhes</label>
                   <textarea
                     {...register('description')}
                     rows={5}
                     className="w-full bg-[var(--bg-main)]/50 border-2 border-transparent focus:border-indigo-600/20 rounded-2xl px-5 py-4 text-sm font-medium text-[var(--secondary)] transition-all outline-none resize-none"
-                    placeholder="Descreva o que os participantes encontrarão neste evento..."
+                    placeholder="Descreva o que os participantes encontrarÃ£o neste evento..."
                   />
                   {errors.description && <p className="text-red-500 text-[10px] font-bold mt-1.5 px-1">{errors.description.message}</p>}
                 </div>
@@ -195,7 +251,7 @@ export default function NewEventPage() {
 
             <section className="bg-white rounded-[2.5rem] border border-[var(--border-light)] p-8 shadow-sm">
               <h2 className="text-lg font-black text-[var(--secondary)] mb-6 flex items-center gap-2">
-                Link Público <ImageIcon size={20} className="text-purple-600" />
+                Link PÃºblico <ImageIcon size={20} className="text-purple-600" />
               </h2>
 
               <div className="space-y-6">
@@ -207,10 +263,10 @@ export default function NewEventPage() {
                       type="text"
                       {...register('slug')}
                       className="bg-transparent border-none flex-1 py-3 text-sm font-bold text-indigo-600 outline-none"
-                      placeholder="lançamento-vip"
+                      placeholder="lancamento-vip"
                     />
                   </div>
-                  <p className="text-[9px] text-[var(--text-muted)] font-medium mt-2 px-1 uppercase tracking-tighter">Use hífens para separar palavras. Ex: workshop-gratis</p>
+                  <p className="text-[9px] text-[var(--text-muted)] font-medium mt-2 px-1 uppercase tracking-tighter">Use hÃ­fens para separar palavras. Ex: workshop-gratis</p>
                   {errors.slug && <p className="text-red-500 text-[10px] font-bold mt-1.5 px-1">{errors.slug.message}</p>}
                 </div>
 
@@ -218,7 +274,7 @@ export default function NewEventPage() {
                   <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-3 px-1">Banner de Capa (Opcional)</label>
                   <div className="relative group cursor-pointer overflow-hidden rounded-[2rem] border-2 border-dashed border-[var(--border-light)] hover:border-indigo-600 transition-all aspect-video flex flex-col items-center justify-center bg-[var(--bg-main)]/30">
                     {(bannerPreview || bannerUrl) ? (
-                      <img src={bannerUrl || bannerPreview || ''} className="w-full h-full object-cover" alt="Banner preview" />
+                      <img src={normalizeImageUrl(bannerUrl || bannerPreview || '')} className="w-full h-full object-cover" alt="Banner preview" />
                     ) : (
                       <>
                         <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center text-indigo-600 mb-4 shadow-sm border border-[var(--border-light)]">
@@ -249,30 +305,27 @@ export default function NewEventPage() {
             </section>
           </div>
 
-          {/* Right Column Config */}
           <div className="space-y-8">
             <section className="bg-slate-900 rounded-[2.5rem] p-8 text-white relative overflow-hidden group">
               <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-600/20 rounded-full blur-3xl -mr-16 -mt-16 transition-transform group-hover:scale-125"></div>
-              <h3 className="text-lg font-black mb-6 relative z-10 flex items-center gap-2">Configurações <Shield size={18} className="text-indigo-400" /></h3>
+              <h3 className="text-lg font-black mb-6 relative z-10 flex items-center gap-2">ConfiguraÃ§Ãµes <Shield size={18} className="text-indigo-400" /></h3>
 
               <div className="space-y-6 relative z-10">
                 <div>
-                  <label className="block text-[9px] font-black text-white/50 uppercase tracking-widest mb-2 px-1">Status Inicial</label>
-                  <div className="p-1 bg-white/10 rounded-2xl flex gap-1">
-                    <button
-                      type="button"
-                      onClick={() => setValue('status', 'ACTIVE')}
-                      className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase transition-all ${watch('status') === 'ACTIVE' ? 'bg-indigo-600 text-white shadow-lg' : 'text-white/40 hover:text-white'}`}
-                    >
-                      ATIVO
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setValue('status', 'INACTIVE')}
-                      className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase transition-all ${watch('status') === 'INACTIVE' ? 'bg-slate-700 text-white shadow-lg' : 'text-white/40 hover:text-white'}`}
-                    >
-                      RASCUNHO
-                    </button>
+                  <label className="block text-[9px] font-black text-white/50 uppercase tracking-widest mb-2 px-1">Status do Evento</label>
+                  <div className="grid grid-cols-3 gap-1 p-1 bg-white/10 rounded-2xl">
+                    {(['ACTIVE', 'INACTIVE', 'CLOSED'] as const).map((status) => (
+                      <button
+                        key={status}
+                        type="button"
+                        onClick={() => setValue('status', status)}
+                        className={`py-2.5 rounded-xl text-[10px] font-black uppercase transition-all ${
+                          watch('status') === status ? 'bg-indigo-600 text-white shadow-lg' : 'text-white/40 hover:text-white'
+                        }`}
+                      >
+                        {status === 'ACTIVE' ? 'ATIVO' : status === 'INACTIVE' ? 'INATIVO' : 'ENCERRADO'}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
@@ -291,13 +344,6 @@ export default function NewEventPage() {
                     <Users size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30" />
                   </div>
                 </div>
-
-                <div className="bg-indigo-600/10 border border-indigo-500/20 p-6 rounded-[2rem]">
-                  <h4 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2">Dica Pro</h4>
-                  <p className="text-[11px] text-indigo-100/70 font-medium leading-relaxed italic">
-                    "Use uma URL chamativa. Links personalizados têm 3x mais taxa de clique que links genéricos."
-                  </p>
-                </div>
               </div>
             </section>
 
@@ -305,13 +351,13 @@ export default function NewEventPage() {
               <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <Shield size={24} />
               </div>
-              <h4 className="text-sm font-black text-[var(--secondary)] mb-2">Pronto para Lançar?</h4>
-              <p className="text-[10px] text-[var(--text-muted)] font-medium mb-6">Ao salvar, o link estará disponível imediatamente para compartilhamento.</p>
+              <h4 className="text-sm font-black text-[var(--secondary)] mb-2">Atualizar agora?</h4>
+              <p className="text-[10px] text-[var(--text-muted)] font-medium mb-6">As alteraÃ§Ãµes ficam disponÃ­veis logo apÃ³s salvar.</p>
               <button
                 onClick={handleSubmit(onSubmit)}
                 className="w-full py-4 bg-[var(--bg-main)] hover:bg-slate-100 text-[var(--secondary)] font-black text-[10px] uppercase rounded-2xl transition-all"
               >
-                SALVAR COMO RASCUNHO
+                SALVAR EVENTO
               </button>
             </div>
           </div>

@@ -65,7 +65,7 @@ export default function AiSettingsPage() {
                         <Bot className="text-blue-500" size={32} />
                         Treinamento da Inteligência Artificial
                     </h1>
-                    <p className="text-slate-500 mt-2 font-medium">Configure como a sua IA deve agir e falar com seus clientes no atendimento humano.</p>
+                    <p className="text-slate-500 mt-2 font-medium">Configure se a IA deve atuar como atendente no WhatsApp e como ela deve conversar com seus contatos.</p>
                 </div>
                 <button
                     onClick={handleSave}
@@ -87,7 +87,7 @@ export default function AiSettingsPage() {
                             </div>
                             <div>
                                 <h3 className="font-bold text-slate-900">Atendimento Autônomo da IA</h3>
-                                <p className="text-sm text-slate-500">A IA responderá os clientes automaticamente se ativada.</p>
+                                <p className="text-sm text-slate-500">Quando ativado, o backend pode responder mensagens do WhatsApp automaticamente usando a chave da IA no .env.</p>
                             </div>
                         </div>
                         <label className="relative inline-flex items-center cursor-pointer">

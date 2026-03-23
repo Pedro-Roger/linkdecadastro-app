@@ -1,4 +1,4 @@
-
+﻿
 import Link from 'next/link'
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
@@ -45,7 +45,7 @@ export default function HomePage() {
     tone: 'success' | 'info' | 'warning'
   } | null>(null)
 
-  // Removido redirecionamento automático - admin pode ver página pública
+  // Removido redirecionamento automÃ¡tico - admin pode ver pÃ¡gina pÃºblica
 
   useEffect(() => {
     fetchAllCourses()
@@ -63,10 +63,10 @@ export default function HomePage() {
 
         switch (activeFilter) {
           case 'featured':
-            // Cursos em destaque (sem data ou começando em breve)
+            // Cursos em destaque (sem data ou comeÃ§ando em breve)
             return !startDate || startDate > now
           case 'available':
-            // Disponíveis para inscrição
+            // DisponÃ­veis para inscriÃ§Ã£o
             return !startDate || startDate >= now || (startDate <= now && (!endDate || endDate >= now))
           case 'ongoing':
             // Em andamento
@@ -123,33 +123,33 @@ export default function HomePage() {
         setEnrollmentFeedback({
           message:
             waitlistPosition && waitlistPosition > 0
-              ? `Você entrou na lista de espera. Posição atual: ${waitlistPosition}.`
-              : 'Você entrou na lista de espera deste curso. Aguarde a aprovação do administrador.',
+              ? `VocÃª entrou na lista de espera. PosiÃ§Ã£o atual: ${waitlistPosition}.`
+              : 'VocÃª entrou na lista de espera deste curso. Aguarde a aprovaÃ§Ã£o do administrador.',
           tone: 'info'
         })
       } else if (status === 'PENDING_REGION') {
         setEnrollmentFeedback({
           message:
             payload.enrollment.eligibilityReason ||
-            'Cadastro registrado, aguardando confirmação da equipe.',
+            'Cadastro registrado, aguardando confirmaÃ§Ã£o da equipe.',
           tone: 'warning'
         })
       } else if (status === 'REJECTED') {
         setEnrollmentFeedback({
           message:
             payload.enrollment.eligibilityReason ||
-            'Sua inscrição foi registrada, mas não pôde ser aprovada automaticamente.',
+            'Sua inscriÃ§Ã£o foi registrada, mas nÃ£o pÃ´de ser aprovada automaticamente.',
           tone: 'warning'
         })
       } else {
         setEnrollmentFeedback({
-          message: 'Inscrição confirmada! Você já pode acessar o conteúdo em "Meus Cursos".',
+          message: 'InscriÃ§Ã£o confirmada! VocÃª jÃ¡ pode acessar o conteÃºdo em "Meus Cursos".',
           tone: 'success'
         })
       }
     } else {
       setEnrollmentFeedback({
-        message: 'Solicitação enviada. Verifique seus cursos em alguns instantes.',
+        message: 'SolicitaÃ§Ã£o enviada. Verifique seus cursos em alguns instantes.',
         tone: 'info'
       })
     }
@@ -167,18 +167,18 @@ export default function HomePage() {
     }
 
     if (!startDate) {
-      return { label: 'Inscrições Abertas', color: 'bg-green-500', badge: 'Inscrições Abertas' }
+      return { label: 'InscriÃ§Ãµes Abertas', color: 'bg-green-500', badge: 'InscriÃ§Ãµes Abertas' }
     }
 
     if (startDate > now) {
-      return { label: 'Inscrições Abertas', color: 'bg-green-500', badge: 'Inscrições Abertas' }
+      return { label: 'InscriÃ§Ãµes Abertas', color: 'bg-green-500', badge: 'InscriÃ§Ãµes Abertas' }
     }
 
     if (startDate <= now && (!endDate || endDate >= now)) {
       return { label: 'Em Andamento', color: 'bg-blue-500', badge: 'Em Andamento' }
     }
 
-    return { label: 'Disponível', color: 'bg-green-500', badge: 'Inscrições Abertas' }
+    return { label: 'DisponÃ­vel', color: 'bg-green-500', badge: 'InscriÃ§Ãµes Abertas' }
   }
 
   const getFilterCount = (filterType: string) => {
@@ -241,9 +241,16 @@ export default function HomePage() {
             </div>
             <input
               type="text"
-              placeholder="Pesquisar cursos por nome, descrição ou local..."
+              placeholder="Pesquisar cursos por nome, descriÃ§Ã£o ou local..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="none"
+              spellCheck={false}
+              name="search_home_courses"
+              readOnly
+              onFocus={(e) => e.currentTarget.removeAttribute('readonly')}
               className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6600] focus:border-transparent text-gray-900"
             />
           </div>
@@ -282,7 +289,7 @@ export default function HomePage() {
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              Disponíveis ({getFilterCount('available')})
+              DisponÃ­veis ({getFilterCount('available')})
             </button>
             <button
               onClick={() => setActiveFilter('ongoing')}
@@ -354,7 +361,7 @@ export default function HomePage() {
                     </div>
                   ) : (
                     <>
-                      {/* Header do Card quando não há banner */}
+                      {/* Header do Card quando nÃ£o hÃ¡ banner */}
                       <div className={`h-2 ${isFeatured ? 'bg-[#FF6600]' : 'bg-[#003366]'}`}></div>
                       {isFeatured && (
                         <div className="absolute top-2 right-2 bg-[#FF6600] text-white text-xs px-2 py-1 rounded-full font-semibold">
@@ -372,19 +379,19 @@ export default function HomePage() {
                       </span>
                     </div>
                     
-                    {/* Título */}
+                    {/* TÃ­tulo */}
                     <h3 className="text-xl font-bold text-gray-800 mb-2 line-clamp-2">
                       {course.title}
                     </h3>
                     
-                    {/* Descrição */}
+                    {/* DescriÃ§Ã£o */}
                     {course.description && (
                       <p className="text-gray-600 text-sm mb-4 line-clamp-3">
                         {course.description}
                       </p>
                     )}
                     
-                    {/* Informações */}
+                    {/* InformaÃ§Ãµes */}
                     <div className="space-y-2 mb-4 text-sm text-gray-600">
                       {course.startDate && (
                         <div className="flex items-center gap-2">
@@ -415,7 +422,7 @@ export default function HomePage() {
                       </div>
                     </div>
                     
-                    {/* Botão de Ação */}
+                    {/* BotÃ£o de AÃ§Ã£o */}
                     <button
                       onClick={() => {
                         if (!isAuthenticated) {
@@ -442,10 +449,10 @@ export default function HomePage() {
       
       <Footer />
       
-      {/* Espaçamento para navbar inferior no mobile */}
+      {/* EspaÃ§amento para navbar inferior no mobile */}
       {isAuthenticated && <div className="md:hidden h-20" />}
 
-      {/* Modal de Inscrição */}
+      {/* Modal de InscriÃ§Ã£o */}
       <CourseEnrollmentModal
         isOpen={enrollmentModal.isOpen}
         onClose={() => setEnrollmentModal({ isOpen: false, courseId: '', courseTitle: '' })}
@@ -456,4 +463,5 @@ export default function HomePage() {
     </div>
   )
 }
+
 

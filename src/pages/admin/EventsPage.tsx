@@ -4,7 +4,7 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import {
   Plus, Search, Filter, Calendar, Users, MoreHorizontal,
-  ArrowRight, Link as LinkIcon, Share2, Copy, Trash2, CheckCircle, XCircle, LayoutGrid, MessageCircle
+  ArrowRight, Link as LinkIcon, Share2, Copy, Trash2, CheckCircle, XCircle, LayoutGrid, MessageCircle, Pencil
 } from 'lucide-react'
 import LoadingScreen from '@/components/ui/LoadingScreen'
 import { apiFetch, normalizeImageUrl } from '@/lib/api'
@@ -268,6 +268,13 @@ export default function AdminEventsPage() {
                       >
                         <MessageCircle size={14} />
                         WhatsApp
+                      </Link>
+                      <Link
+                        to={`/admin/events/${event.id}/edit`}
+                        className="flex items-center justify-center gap-2 h-9 bg-amber-50 border border-amber-100 text-amber-700 text-[10px] font-black uppercase tracking-widest rounded-xl shadow-sm hover:bg-amber-100 transition-all active:scale-95"
+                      >
+                        <Pencil size={14} />
+                        Editar
                       </Link>
 
                       {event.status === 'ACTIVE' ? (

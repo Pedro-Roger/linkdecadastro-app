@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from 'react'
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   MessageSquare, Send, Search, Filter, CheckCircle,
@@ -41,6 +41,7 @@ export default function WhatsAppSendPage() {
   const [sessions, setSessions] = useState<any[]>([])
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(localStorage.getItem('active_whatsapp_session'))
   const [showSessionSelector, setShowSessionSelector] = useState(false)
+  const [sessionsLoaded, setSessionsLoaded] = useState(false)
 
   // States
   const [participants, setParticipants] = useState<Participant[]>([])
@@ -76,6 +77,17 @@ export default function WhatsAppSendPage() {
   const [pairingPhone, setPairingPhone] = useState('')
   const [pairingCode, setPairingCode] = useState<string | null>(null)
   const [pairingLoading, setPairingLoading] = useState(false)
+  const [reconnecting, setReconnecting] = useState(false)
+  const autoReconnectAttemptRef = useRef<string | null>(null)
+
+  const resetInvalidSession = useCallback(() => {
+    localStorage.removeItem('active_whatsapp_session')
+    setCurrentSessionId(null)
+    setWhatsappStatus(null)
+    setPairingCode(null)
+    setSessions([])
+    autoReconnectAttemptRef.current = null
+  }, [])
 
   const fetchSessions = useCallback(async () => {
     try {
@@ -99,17 +111,51 @@ export default function WhatsAppSendPage() {
     } catch (err) {
       console.error('Erro ao buscar sessões:', err)
     }
+    setSessionsLoaded(true)
   }, [currentSessionId])
 
   const checkWhatsAppStatus = useCallback(async () => {
-    if (!currentSessionId) return
+    if (!currentSessionId || !sessionsLoaded) return
     try {
       const status = await apiFetch<any>(`/api/whatsapp/status?sessionId=${currentSessionId}`, { auth: true })
       setWhatsappStatus(status)
       if (status.status === 'QR_CODE') setShowPairingUI(true)
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.status === 403) {
+        resetInvalidSession()
+        await fetchSessions()
+      }
     }
-  }, [currentSessionId])
+  }, [currentSessionId, sessionsLoaded, resetInvalidSession, fetchSessions])
+
+  const handleReconnect = useCallback(async () => {
+    if (!currentSessionId || !sessionsLoaded || reconnecting) return
+
+    setReconnecting(true)
+    setPairingCode(null)
+    setError(null)
+
+    try {
+      const status = await apiFetch<any>('/api/whatsapp/reconnect', {
+        method: 'POST',
+        auth: true,
+        body: JSON.stringify({ sessionId: currentSessionId })
+      })
+      setWhatsappStatus(status)
+      if (status.status === 'QR_CODE') setShowPairingUI(true)
+      await fetchSessions()
+    } catch (error: any) {
+      if (error?.status === 403) {
+        resetInvalidSession()
+        await fetchSessions()
+        setError('A sessao anterior nao pertence mais a este usuario. Selecione ou conecte um novo WhatsApp.')
+      } else {
+        setError('Nao foi possivel reconectar o WhatsApp.')
+      }
+    } finally {
+      setReconnecting(false)
+    }
+  }, [currentSessionId, sessionsLoaded, reconnecting, fetchSessions, resetInvalidSession])
 
   const fetchParticipants = useCallback(async () => {
     try {
@@ -141,12 +187,33 @@ export default function WhatsAppSendPage() {
   }, [isAuthenticated, fetchSessions, fetchParticipants])
 
   useEffect(() => {
-    if (currentSessionId) {
+    if (sessionsLoaded && currentSessionId) {
+      autoReconnectAttemptRef.current = null
       checkWhatsAppStatus()
       const interval = setInterval(checkWhatsAppStatus, 10000)
       return () => clearInterval(interval)
     }
-  }, [currentSessionId, checkWhatsAppStatus])
+  }, [sessionsLoaded, currentSessionId, checkWhatsAppStatus])
+
+  useEffect(() => {
+    if (
+      !currentSessionId ||
+      !sessionsLoaded ||
+      !whatsappStatus ||
+      whatsappStatus.status === 'READY' ||
+      whatsappStatus.status === 'QR_CODE' ||
+      reconnecting
+    ) {
+      return
+    }
+
+    if (autoReconnectAttemptRef.current === currentSessionId) {
+      return
+    }
+
+    autoReconnectAttemptRef.current = currentSessionId
+    handleReconnect().catch(() => { })
+  }, [sessionsLoaded, currentSessionId, whatsappStatus, reconnecting, handleReconnect])
 
   const handleMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -275,6 +342,7 @@ export default function WhatsAppSendPage() {
     setShowSessionSelector(false)
     setWhatsappStatus(null)
     setPairingCode(null)
+    autoReconnectAttemptRef.current = null
   }
 
   const handleLogout = async () => {
@@ -337,10 +405,10 @@ export default function WhatsAppSendPage() {
           </div>
 
           <button
-            onClick={checkWhatsAppStatus}
+            onClick={whatsappStatus?.status === 'READY' ? checkWhatsAppStatus : handleReconnect}
             className="p-3.5 bg-white border border-slate-200 text-slate-400 rounded-2xl hover:text-emerald-500 hover:bg-slate-50 transition-all shadow-sm"
           >
-            <RefreshCw size={22} className={whatsappStatus?.status === 'CHECKING' ? 'animate-spin' : ''} />
+            <RefreshCw size={22} className={reconnecting ? 'animate-spin' : ''} />
           </button>
 
           {whatsappStatus?.status === 'READY' && (
@@ -380,7 +448,7 @@ export default function WhatsAppSendPage() {
                 </div>
               ) : (
                 <div className="w-48 h-48 bg-slate-800 rounded-[2.5rem] flex items-center justify-center text-slate-600 border-2 border-dashed border-slate-700">
-                  <RefreshCw size={48} className="animate-spin" />
+                  <RefreshCw size={48} className={reconnecting ? 'animate-spin' : ''} />
                 </div>
               )}
 
@@ -388,6 +456,17 @@ export default function WhatsAppSendPage() {
                 <h2 className="text-3xl font-black text-white leading-tight">Conecte seu WhatsApp para enviar transmissões.</h2>
                 <p className="text-slate-400 font-medium max-w-xl">Abra o WhatsApp em seu celular, acesse Aparelhos Conectados e escaneie o código ao lado. O sistema permite manter múltiplos números conectados individualmente.</p>
 
+                <div className="flex flex-wrap gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={handleReconnect}
+                    disabled={!currentSessionId || reconnecting}
+                    className="inline-flex items-center gap-2 rounded-2xl bg-emerald-500 px-5 py-3 text-[10px] font-black uppercase tracking-widest text-white transition-all hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <RefreshCw size={16} className={reconnecting ? 'animate-spin' : ''} />
+                    {reconnecting ? 'Gerando QR...' : 'Reconectar Agora'}
+                  </button>
+                </div>
                 <div className="flex flex-col sm:flex-row gap-4 pt-4">
                   <div className="flex-1 flex gap-2">
                     <input

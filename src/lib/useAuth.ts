@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { apiFetch } from './api'
 
 interface User {
   id: string
@@ -8,6 +9,7 @@ interface User {
   role?: string
   avatar?: string
   companyId?: string
+  canAccessAgents?: boolean
 }
 
 interface UseAuthOptions {
@@ -34,7 +36,18 @@ export function useAuth(options?: UseAuthOptions) {
       }
 
       try {
-        setUser(JSON.parse(storedUser))
+        const parsedUser = JSON.parse(storedUser)
+        setUser(parsedUser)
+
+        apiFetch<User>('/user/profile', { auth: true })
+          .then((profile) => {
+            if (!profile) return
+            setUser(profile)
+            localStorage.setItem('user', JSON.stringify(profile))
+          })
+          .catch(() => {
+            // Mantém fallback do localStorage se o profile falhar
+          })
       } catch {
         setUser(null)
       }
@@ -48,6 +61,7 @@ export function useAuth(options?: UseAuthOptions) {
   function signOut() {
     localStorage.removeItem('token')
     localStorage.removeItem('user')
+    localStorage.removeItem('active_whatsapp_session')
     navigate('/')
   }
 

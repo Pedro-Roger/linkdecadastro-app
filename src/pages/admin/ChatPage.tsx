@@ -66,8 +66,18 @@ export default function ChatPage() {
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [showNewChatModal, setShowNewChatModal] = useState(false);
     const [newChatNumber, setNewChatNumber] = useState('');
+    const [groupIdInput, setGroupIdInput] = useState('');
+    const [groupParticipantsInput, setGroupParticipantsInput] = useState('');
+    const [groupAddLoading, setGroupAddLoading] = useState(false);
+    const [groupAddError, setGroupAddError] = useState<string | null>(null);
+    const [groupAddSuccess, setGroupAddSuccess] = useState<string | null>(null);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const fallbackAvatar = useCallback(
+        (name: string) =>
+            `https://ui-avatars.com/api/?name=${encodeURIComponent(name || 'WhatsApp')}&background=random`,
+        [],
+    );
 
     const fetchSessions = useCallback(async () => {
         try {
@@ -117,9 +127,10 @@ export default function ChatPage() {
         if (!currentSessionId || whatsappStatus !== 'READY') return;
         try {
             setLoadingConversations(true);
-            const [participantsData, chatsData] = await Promise.all([
+            const [participantsData, chatsData, groupsData] = await Promise.all([
                 apiFetch<any>('/api/whatsapp/participantes', { auth: true }),
-                apiFetch<any>(`/api/whatsapp/chats?sessionId=${currentSessionId}`, { auth: true })
+                apiFetch<any>(`/api/whatsapp/chats?sessionId=${currentSessionId}`, { auth: true }),
+                apiFetch<any>(`/api/whatsapp/groups?sessionId=${currentSessionId}`, { auth: true }).catch(() => ({ groups: [] }))
             ]);
 
             const dbParticipants = (participantsData.participantes || []).map((p: any) => {
@@ -144,32 +155,43 @@ export default function ChatPage() {
                     jid: jid,
                     name: p.nome || p.id_contato,
                     lastMessage: 'Contato da Base',
-                    avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(p.nome || p.id_contato)}&background=indigo&color=fff`,
+                    avatar: fallbackAvatar(p.nome || p.id_contato),
+                    profile_pic_url: undefined,
                     phone: p.id_contato,
-                    type: 'crm'
+                    type: 'crm',
+                    unreadCount: 0,
                 };
             });
 
             const waChats = (chatsData.chats || []).map((c: any) => ({
                 ...c,
-                avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(c.name)}&background=random`,
+                avatar: c.profile_pic_url || c.avatar || fallbackAvatar(c.name),
             }));
 
-            // Merge avoiding duplicates (prefer WA chat if exists)
-            const combined = [...waChats];
+            const groups = (groupsData.groups || []).map((group: any) => ({
+                ...group,
+                avatar: group.profile_pic_url || group.avatar || fallbackAvatar(group.name),
+            }));
+
+            const combinedMap = new Map<string, any>();
+
+            [...waChats, ...groups].forEach((chat: any) => {
+                combinedMap.set(chat.jid, chat);
+            });
+
             dbParticipants.forEach((dbP: any) => {
-                if (!combined.find((waC: any) => waC.jid === dbP.jid)) {
-                    combined.push(dbP);
+                if (!combinedMap.has(dbP.jid)) {
+                    combinedMap.set(dbP.jid, dbP);
                 }
             });
 
-            setConversations(combined);
+            setConversations(Array.from(combinedMap.values()));
         } catch (error) {
             console.error('Erro ao buscar conversas:', error);
         } finally {
             setLoadingConversations(false);
         }
-    }, [currentSessionId, whatsappStatus]);
+    }, [currentSessionId, whatsappStatus, fallbackAvatar]);
 
     const handleStartNewChat = () => {
         if (!newChatNumber.trim()) return;
@@ -196,7 +218,7 @@ export default function ChatPage() {
             jid: jid,
             name: newChatNumber,
             lastMessage: 'Nova conversa',
-            avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(newChatNumber)}&background=random`,
+            avatar: fallbackAvatar(newChatNumber),
             type: 'person',
             phone: phone
         };
@@ -207,6 +229,60 @@ export default function ChatPage() {
         });
         setShowNewChatModal(false);
         setNewChatNumber('');
+    };
+
+    const handleAddToGroup = async () => {
+        const trimmedGroupId = groupIdInput.trim();
+        const parsedParticipants = Array.from(new Set(groupParticipantsInput
+            .split(/[\n,;]+/)
+            .map(item => item.trim())
+            .filter(Boolean)));
+
+        if (!trimmedGroupId) {
+            setGroupAddError('Informe o ID do grupo.');
+            setGroupAddSuccess(null);
+            return;
+        }
+
+        if (parsedParticipants.length === 0) {
+            setGroupAddError('Adicione pelo menos um número ou JID válido.');
+            setGroupAddSuccess(null);
+            return;
+        }
+
+        if (!currentSessionId) {
+            setGroupAddError('Nenhuma sessão de WhatsApp ativa.');
+            setGroupAddSuccess(null);
+            return;
+        }
+
+        setGroupAddLoading(true);
+        setGroupAddError(null);
+        setGroupAddSuccess(null);
+
+        try {
+            const response = await apiFetch<any>('/api/whatsapp/add-to-group', {
+                method: 'POST',
+                auth: true,
+                body: JSON.stringify({
+                    sessionId: currentSessionId,
+                    groupId: trimmedGroupId,
+                    participants: parsedParticipants,
+                }),
+            });
+
+            if (response.success) {
+                const addedCount = response.added ?? parsedParticipants.length;
+                setGroupAddSuccess(`${addedCount} participante(s) adicionados ao grupo.`);
+                setGroupParticipantsInput('');
+            } else {
+                setGroupAddError(response.message || 'Não foi possível adicionar participantes.');
+            }
+        } catch (error: any) {
+            setGroupAddError(error?.message || 'Erro ao adicionar participantes.');
+        } finally {
+            setGroupAddLoading(false);
+        }
     };
 
     const fetchMessages = useCallback(async () => {
@@ -244,12 +320,25 @@ export default function ChatPage() {
     }, [whatsappStatus, fetchConversations]);
 
     useEffect(() => {
+        if (!selectedChat) return;
+        const refreshedSelectedChat = conversations.find((chat) => chat.jid === selectedChat.jid);
+        if (refreshedSelectedChat) {
+            setSelectedChat(refreshedSelectedChat);
+        }
+    }, [conversations, selectedChat]);
+
+    useEffect(() => {
         if (selectedChat) {
             fetchMessages();
             const interval = setInterval(fetchMessages, 3000); // Polling 3s
 
             // Fetch CRM details
             const fetchCRMDetails = async () => {
+                if (selectedChat.type === 'group') {
+                    setContactDetails(null);
+                    setLoadingDetails(false);
+                    return;
+                }
                 setLoadingDetails(true);
                 try {
                     const phone = selectedChat.jid.split('@')[0];
@@ -345,6 +434,31 @@ export default function ChatPage() {
         }
     };
 
+    const handleReconnect = async () => {
+        if (!currentSessionId || isRefreshing) return;
+
+        setIsRefreshing(true);
+        setPairingCode(null);
+
+        try {
+            const data = await apiFetch<any>('/api/whatsapp/reconnect', {
+                method: 'POST',
+                auth: true,
+                body: JSON.stringify({ sessionId: currentSessionId })
+            });
+
+            if (data.success) {
+                setWhatsappStatus(data.status);
+                setQrCode(data.qrCodeBase64 || null);
+                await fetchSessions();
+            }
+        } catch (error) {
+            console.error('Erro ao reconectar WhatsApp:', error);
+        } finally {
+            setIsRefreshing(false);
+        }
+    };
+
     if (authLoading) return <LoadingScreen />;
 
     return (
@@ -428,6 +542,15 @@ export default function ChatPage() {
                                             ? 'Abra o WhatsApp no seu celular e escaneie o código acima para começar.'
                                             : 'A conta selecionada está desconectada. Clique em reconectar para gerar um novo QR.'}
                                     </p>
+                                    <button
+                                        type="button"
+                                        onClick={handleReconnect}
+                                        disabled={!currentSessionId || isRefreshing}
+                                        className="mt-4 inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-[11px] font-black uppercase tracking-[0.2em] text-white transition-all hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
+                                    >
+                                        <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
+                                        {isRefreshing ? 'Gerando QR...' : 'Reconectar'}
+                                    </button>
                                 </div>
                             )}
 
@@ -438,8 +561,78 @@ export default function ChatPage() {
                                     placeholder="Pesquisar conversas..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
+                                    autoComplete="off"
+                                    name="chat-search"
                                     className="w-full bg-slate-100 border-none rounded-2xl py-3 pl-12 pr-4 text-sm font-medium focus:ring-2 focus:ring-[var(--primary)]/20 transition-all shadow-inner"
                                 />
+                            </div>
+                        </div>
+                        <div className="px-6 pb-4 border-b border-[var(--border-light)]">
+                            <div className="bg-white border border-slate-100 rounded-3xl p-4 space-y-3 shadow-sm">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Grupo existente</p>
+                                        <h3 className="text-sm font-black text-slate-800">
+                                            Adicionar participantes
+                                        </h3>
+                                    </div>
+                                    <UserPlus size={18} className="text-emerald-500" />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">ID do grupo</label>
+                                    <input
+                                        type="text"
+                                        value={groupIdInput}
+                                        onChange={(e) => {
+                                            setGroupIdInput(e.target.value);
+                                            setGroupAddError(null);
+                                            setGroupAddSuccess(null);
+                                        }}
+                                        placeholder="ex: 1234567890-123456@g.us"
+                                        className="w-full rounded-2xl border border-slate-200 text-sm font-bold px-4 py-3 outline-none focus:border-emerald-500 transition-all"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Participantes</label>
+                                    <textarea
+                                        rows={3}
+                                        value={groupParticipantsInput}
+                                        onChange={(e) => {
+                                            setGroupParticipantsInput(e.target.value);
+                                            setGroupAddError(null);
+                                            setGroupAddSuccess(null);
+                                        }}
+                                        placeholder="Informe números ou JIDs separados por quebra de linha ou vírgula"
+                                        className="w-full rounded-2xl border border-slate-200 bg-slate-50 text-sm font-semibold px-4 py-3 resize-none focus:border-emerald-500 transition-all"
+                                    />
+                                    <p className="text-[10px] text-slate-400">Você pode usar números nacionais (ex: 5511999998888) ou JIDs (@s.whatsapp.net).</p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={handleAddToGroup}
+                                    disabled={
+                                        groupAddLoading ||
+                                        !groupIdInput.trim() ||
+                                        !groupParticipantsInput.trim() ||
+                                        !currentSessionId
+                                    }
+                                    className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 text-white text-xs font-black uppercase tracking-[0.3em] py-3 transition-all shadow-lg shadow-slate-900/10 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
+                                >
+                                    {groupAddLoading ? (
+                                        <RefreshCw size={16} className="animate-spin text-emerald-400" />
+                                    ) : (
+                                        <>
+                                            <PlusCircle size={16} />
+                                            Adicionar
+                                        </>
+                                    )}
+                                </button>
+                                {groupAddSuccess && (
+                                    <p className="text-[11px] font-semibold text-emerald-500">{groupAddSuccess}</p>
+                                )}
+                                {groupAddError && (
+                                    <p className="text-[11px] font-semibold text-rose-500">{groupAddError}</p>
+                                )}
                             </div>
                         </div>
 
@@ -460,7 +653,7 @@ export default function ChatPage() {
                                             : 'hover:bg-slate-50'}`}
                                     >
                                         <div className="relative">
-                                            <img src={chat.avatar} alt={chat.name} className="w-12 h-12 rounded-xl object-cover border border-slate-100 shadow-sm" />
+                                            <img src={chat.profile_pic_url || chat.avatar || fallbackAvatar(chat.name)} alt={chat.name} className="w-12 h-12 rounded-xl object-cover border border-slate-100 shadow-sm" />
                                             <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white flex items-center justify-center ${chat.type === 'group' ? 'bg-indigo-500' : 'bg-emerald-500'}`}>
                                                 {chat.type === 'group' ? <Users size={8} className="text-white" /> : <div className="w-1 h-1 bg-white rounded-full" />}
                                             </div>
@@ -488,7 +681,7 @@ export default function ChatPage() {
                                 {/* Chat Header */}
                                 <div className="h-20 bg-white border-b border-slate-100 px-8 flex items-center justify-between shadow-sm">
                                     <div className="flex items-center gap-4">
-                                        <img src={selectedChat.avatar} alt={selectedChat.name} className="w-10 h-10 rounded-xl shadow-sm border border-slate-100" />
+                                        <img src={selectedChat.profile_pic_url || selectedChat.avatar || fallbackAvatar(selectedChat.name)} alt={selectedChat.name} className="w-10 h-10 rounded-xl shadow-sm border border-slate-100 object-cover" />
                                         <div>
                                             <h3 className="font-bold text-slate-800 flex items-center gap-2">
                                                 {selectedChat.name}
@@ -522,6 +715,9 @@ export default function ChatPage() {
                                             <div className={`max-w-[70%] p-4 rounded-2xl shadow-sm border ${msg.sender === 'me'
                                                 ? 'bg-slate-900 text-white border-slate-800 rounded-br-none'
                                                 : 'bg-white text-slate-700 border-slate-100 rounded-bl-none'}`}>
+                                                {selectedChat.type === 'group' && msg.sender === 'them' && msg.senderName && (
+                                                    <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-indigo-500">{msg.senderName}</p>
+                                                )}
                                                 <p className="text-sm font-medium leading-relaxed">{msg.text}</p>
                                                 <div className="flex items-center justify-end gap-1 mt-2">
                                                     <span className={`text-[9px] font-bold uppercase ${msg.sender === 'me' ? 'text-slate-400' : 'text-slate-300'}`}>{msg.time}</span>
@@ -545,6 +741,8 @@ export default function ChatPage() {
                                             value={newMessage}
                                             onChange={(e) => setNewMessage(e.target.value)}
                                             placeholder="Digite uma mensagem..."
+                                            autoComplete="off"
+                                            name="chat-message"
                                             className="flex-1 bg-transparent border-none py-3 text-sm font-medium focus:ring-0 placeholder:text-slate-400"
                                         />
                                         <button

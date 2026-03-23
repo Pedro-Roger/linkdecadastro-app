@@ -17,11 +17,13 @@ const AdminCourseEnrollmentsPage = lazy(() => import('./pages/admin/CourseEnroll
 const AdminCourseClassesPage = lazy(() => import('./pages/admin/CourseClassesPage'))
 const AdminEventsPage = lazy(() => import('./pages/admin/EventsPage'))
 const AdminNewEventPage = lazy(() => import('./pages/admin/NewEventPage'))
+const AdminEditEventPage = lazy(() => import('./pages/admin/EditEventPage'))
 const EventRegistrationsPage = lazy(() => import('./pages/admin/EventRegistrationsPage'))
 const EventClassesPage = lazy(() => import('./pages/admin/EventClassesPage'))
 const AdminCrmContactsPage = lazy(() => import('./pages/admin/CrmContactsPage'))
 const WhatsAppSendPage = lazy(() => import('./pages/admin/WhatsAppSendPage'))
 const AiSettingsPage = lazy(() => import('./pages/admin/AiSettingsPage'))
+const AgentsPage = lazy(() => import('./pages/admin/AgentsPage'))
 const AdminUsersPage = lazy(() => import('./pages/admin/UsersPage'))
 const UserCoursesPage = lazy(() => import('./pages/user/CoursesPage'))
 const UserMyCoursesPage = lazy(() => import('./pages/user/MyCoursesPage'))
@@ -68,11 +70,13 @@ function App() {
           <Route path="/admin/courses/:courseId/classes" element={<AdminCourseClassesPage />} />
           <Route path="/admin/events" element={<AdminEventsPage />} />
           <Route path="/admin/events/new" element={<AdminNewEventPage />} />
+          <Route path="/admin/events/:eventId/edit" element={<AdminEditEventPage />} />
           <Route path="/admin/events/:eventId/registrations" element={<EventRegistrationsPage />} />
           <Route path="/admin/events/:eventId/classes" element={<EventClassesPage />} />
           <Route path="/admin/crm/contacts" element={<AdminCrmContactsPage />} />
           <Route path="/admin/whatsapp/send" element={<WhatsAppSendPage />} />
           <Route path="/admin/ai-settings" element={<AiSettingsPage />} />
+          <Route path="/admin/agents" element={<AgentsPage />} />
           <Route path="/admin/chat" element={<AdminChatPage />} />
           <Route path="/admin/users" element={<AdminUsersPage />} />
 
