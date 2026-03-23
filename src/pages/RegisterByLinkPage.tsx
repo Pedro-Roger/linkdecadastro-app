@@ -13,17 +13,22 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    async function fetchEvent() {
-      try {
-        // Tenta buscar por slug primeiro, depois por linkId
-        let data
+      async function fetchEvent() {
         try {
-          data = await apiFetch(`/events/slug/${linkId}`)
-        } catch (slugError) {
-          data = await apiFetch(`/events/link/${linkId}`)
-        }
-        setEvent(data)
-      } catch (error) {
+          let data
+          const looksLikeLegacyLinkId = /^evt-\d+-[a-z0-9]+$/i.test(linkId)
+
+          try {
+            data = looksLikeLegacyLinkId
+              ? await apiFetch(`/events/link/${linkId}`)
+              : await apiFetch(`/events/slug/${linkId}`)
+          } catch (primaryError) {
+            data = looksLikeLegacyLinkId
+              ? await apiFetch(`/events/slug/${linkId}`)
+              : await apiFetch(`/events/link/${linkId}`)
+          }
+          setEvent(data)
+        } catch (error) {
       } finally {
         setLoading(false)
       }

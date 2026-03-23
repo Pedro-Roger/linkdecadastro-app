@@ -63,6 +63,10 @@ export default function NewEventPage() {
   })
 
   const bannerUrl = watch('bannerUrl')
+  const slugValue = watch('slug')
+  const publicUrl = slugValue?.trim()
+    ? `${window.location.origin}/e/${slugValue.trim()}`
+    : null
 
   const handleFileUpload = async (file: File) => {
     setUploading(true)
@@ -211,6 +215,11 @@ export default function NewEventPage() {
                     />
                   </div>
                   <p className="text-[9px] text-[var(--text-muted)] font-medium mt-2 px-1 uppercase tracking-tighter">Use hífens para separar palavras. Ex: workshop-gratis</p>
+                  {publicUrl && (
+                    <p className="text-[10px] text-indigo-600 font-bold mt-2 px-1 break-all">
+                      {publicUrl}
+                    </p>
+                  )}
                   {errors.slug && <p className="text-red-500 text-[10px] font-bold mt-1.5 px-1">{errors.slug.message}</p>}
                 </div>
 

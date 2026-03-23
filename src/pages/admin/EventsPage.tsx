@@ -26,6 +26,14 @@ interface EventItem {
   }
 }
 
+const buildPublicEventUrl = (event: EventItem) => {
+  if (event.slug && event.slug.trim()) {
+    return `${window.location.origin}/e/${event.slug.trim()}`
+  }
+
+  return `${window.location.origin}/register/${event.linkId}`
+}
+
 import EventRegistrationsPage from './EventRegistrationsPage'
 import EventClassesPage from './EventClassesPage'
 
@@ -253,7 +261,7 @@ export default function AdminEventsPage() {
                       </button>
                       <button
                         onClick={() => {
-                          const url = `${window.location.origin}/register/${event.linkId}`
+                          const url = buildPublicEventUrl(event)
                           navigator.clipboard.writeText(url)
                           alert('Link copiado!')
                         }}
