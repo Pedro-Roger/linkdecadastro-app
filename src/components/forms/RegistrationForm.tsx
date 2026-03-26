@@ -70,10 +70,28 @@ interface CityOption {
   nome: string
 }
 
+interface ExistingRegistrationInfo {
+  id: string
+  createdAt: string
+}
+
+function formatDateTime(value?: string | Date | null) {
+  if (!value) return ''
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+
+  return new Intl.DateTimeFormat('pt-BR', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(date)
+}
+
 export default function RegistrationForm({ eventId }: { eventId: string }) {
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [loadingCpf, setLoadingCpf] = useState(false)
+  const [existingRegistration, setExistingRegistration] = useState<ExistingRegistrationInfo | null>(null)
 
   // State for selectors
   const [states, setStates] = useState<StateOption[]>([])
@@ -89,6 +107,7 @@ export default function RegistrationForm({ eventId }: { eventId: string }) {
   const participantType = watch('participantType')
   const selectedState = watch('state')
   const cepValue = watch('cep')
+  const cpfValue = watch('cpf')
 
   useEffect(() => {
     fetchStates()
@@ -108,6 +127,22 @@ export default function RegistrationForm({ eventId }: { eventId: string }) {
       lookupCep(normalizedCep)
     }
   }, [cepValue])
+
+  useEffect(() => {
+    const normalizedCpf = (cpfValue || '').replace(/\D/g, '')
+
+    if (normalizedCpf.length !== 11) {
+      setExistingRegistration(null)
+      setLoadingCpf(false)
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      lookupCpf(normalizedCpf)
+    }, 400)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [cpfValue, eventId])
 
   const fetchStates = async () => {
     try {
@@ -181,18 +216,85 @@ export default function RegistrationForm({ eventId }: { eventId: string }) {
     }
   }
 
+  const applyProfileData = async (profile: any) => {
+    if (!profile) return
+
+    const updates: Array<[keyof RegistrationFormData, any]> = [
+      ['name', profile.name || ''],
+      ['email', profile.email || ''],
+      ['phone', profile.phone || ''],
+      ['cep', profile.cep || ''],
+      ['locality', profile.locality || ''],
+      ['state', profile.state || ''],
+      ['city', profile.city || ''],
+      ['participantType', profile.participantType === 'PRODUTOR' ? 'PRODUTOR' : 'OUTROS'],
+      ['otherType', profile.participantType === 'PRODUTOR' ? '' : (profile.otherType || '')],
+      ['pondCount', profile.pondCount ?? undefined],
+      ['waterArea', profile.waterArea ?? undefined],
+    ]
+
+    updates.forEach(([field, value]) => {
+      if (value !== undefined) {
+        setValue(field, value, { shouldValidate: false, shouldDirty: true })
+      }
+    })
+
+    if (profile.state) {
+      await fetchCities(profile.state, profile.city)
+    }
+  }
+
+  const lookupCpf = async (cpf: string) => {
+    try {
+      setLoadingCpf(true)
+      const response = await apiFetch<any>(`/registrations/cpf/${cpf}?eventId=${eventId}`)
+      await applyProfileData(response?.profile)
+      setExistingRegistration(response?.existingRegistration || null)
+    } catch (lookupError: any) {
+      if (lookupError?.status === 404) {
+        setExistingRegistration(null)
+        return
+      }
+    } finally {
+      setLoadingCpf(false)
+    }
+  }
+
   const onSubmit = async (data: RegistrationFormData) => {
+    if (existingRegistration) {
+      setError(`Você já está inscrito neste evento desde ${formatDateTime(existingRegistration.createdAt)}.`)
+      return
+    }
+
     setSubmitting(true)
     setError(null)
 
     try {
-      await apiFetch('/registrations', {
+      const response = await apiFetch<any>('/registrations', {
         method: 'POST',
         body: JSON.stringify({ ...data, eventId }),
       })
+
+      if (response?.error) {
+        setExistingRegistration(response.existingRegistration || null)
+        setError(
+          response?.existingRegistration?.createdAt
+            ? `Você já está inscrito neste evento desde ${formatDateTime(response.existingRegistration.createdAt)}.`
+            : response.error,
+        )
+        return
+      }
+
       setSuccess(true)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao processar cadastro')
+      const apiError = err as any
+      const duplicateRegistration = apiError?.body?.existingRegistration
+      setExistingRegistration(duplicateRegistration || null)
+      setError(
+        duplicateRegistration?.createdAt
+          ? `Você já está inscrito neste evento desde ${formatDateTime(duplicateRegistration.createdAt)}.`
+          : err instanceof Error ? err.message : 'Erro ao processar cadastro',
+      )
     } finally {
       setSubmitting(false)
     }
@@ -249,6 +351,7 @@ export default function RegistrationForm({ eventId }: { eventId: string }) {
               maxLength={11}
               className={inputClass}
             />
+            {loadingCpf && <p className="text-[10px] font-bold uppercase tracking-wider mt-2 ml-1 text-[var(--primary)]">Buscando cadastro anterior...</p>}
             {errors.cpf && <p className="text-red-500 text-[10px] font-bold uppercase tracking-wider mt-2 ml-1">{errors.cpf.message}</p>}
           </div>
 
@@ -393,6 +496,15 @@ export default function RegistrationForm({ eventId }: { eventId: string }) {
         )}
       </div>
 
+      {existingRegistration && (
+        <div className="p-4 bg-amber-500/10 border border-amber-500/20 text-amber-700 rounded-2xl text-xs font-bold uppercase tracking-wide flex items-center gap-3">
+          <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          Você já está inscrito neste evento desde {formatDateTime(existingRegistration.createdAt)}.
+        </div>
+      )}
+
       {error && (
         <div className="p-4 bg-red-500/10 border border-red-500/20 text-red-600 rounded-2xl text-xs font-bold uppercase tracking-wide flex items-center gap-3">
           <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -404,7 +516,7 @@ export default function RegistrationForm({ eventId }: { eventId: string }) {
 
       <button
         type="submit"
-        disabled={submitting}
+        disabled={submitting || !!existingRegistration}
         className="w-full py-5 bg-gradient-to-r from-[var(--primary)] to-[var(--accent)] text-white font-black text-xs uppercase tracking-[0.2em] rounded-[1.5rem] shadow-2xl shadow-[var(--primary)]/30 hover:shadow-[var(--primary)]/40 hover:-translate-y-1 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-y-0"
       >
         {submitting ? (

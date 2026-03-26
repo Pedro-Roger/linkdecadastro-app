@@ -57,8 +57,10 @@ export async function apiFetch<T = any>(
 
   if (!res.ok) {
     let message = 'Erro na requisição';
+    let parsedBody: any = null;
     try {
       const body = await res.json();
+      parsedBody = body;
       // NestJS retorna mensagens em body.message ou body.error
       message = body.message || body.error || message;
     } catch {
@@ -67,6 +69,7 @@ export async function apiFetch<T = any>(
     }
     const error = new Error(message);
     (error as any).status = res.status;
+    (error as any).body = parsedBody;
     throw error;
   }
 
