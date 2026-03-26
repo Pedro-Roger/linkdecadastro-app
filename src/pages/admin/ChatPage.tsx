@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
     Search,
     MoreVertical,
@@ -37,6 +37,17 @@ import LoadingScreen from '@/components/ui/LoadingScreen';
 import AdminLayout from '@/components/layouts/AdminLayout';
 import { apiFetch } from '@/lib/api';
 import { clearWhatsAppSession, readWhatsAppSession, writeWhatsAppSession } from '@/lib/whatsappSessionStorage';
+import {
+    readChatInboxPreferences,
+    writeChatInboxPreferences,
+    type ChatInboxPreferences,
+    type GroupCollection,
+} from '@/lib/chatInboxPreferences';
+import {
+    clearChatInboxCache,
+    readChatInboxCache,
+    writeChatInboxCache,
+} from '@/lib/chatInboxCache';
 
 export default function ChatPage() {
     const navigate = useNavigate();
@@ -61,6 +72,7 @@ export default function ChatPage() {
     const [loadingDetails, setLoadingDetails] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [loadingConversations, setLoadingConversations] = useState(true);
+    const [conversationError, setConversationError] = useState<string | null>(null);
     const [whatsappStatus, setWhatsappStatus] = useState<any>(null);
     const [qrCode, setQrCode] = useState<string | null>(null);
     const [pairingCode, setPairingCode] = useState<string | null>(null);
@@ -83,6 +95,10 @@ export default function ChatPage() {
     const [savingRoute, setSavingRoute] = useState(false);
     const [conversationInsights, setConversationInsights] = useState<any>(null);
     const [loadingInsights, setLoadingInsights] = useState(false);
+    const [inboxPreferences, setInboxPreferences] = useState<ChatInboxPreferences>({
+        favoriteGroupJids: [],
+        groupCollections: [],
+    });
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const fallbackAvatar = useCallback(
@@ -157,8 +173,97 @@ export default function ChatPage() {
         setCurrentSessionId(readWhatsAppSession(user.id));
     }, [user?.id]);
 
+    useEffect(() => {
+        const cachedConversations = readChatInboxCache(user?.id, currentSessionId);
+        if (cachedConversations.length > 0) {
+            setConversations(cachedConversations);
+            setLoadingConversations(false);
+        }
+    }, [user?.id, currentSessionId]);
+
+    useEffect(() => {
+        setInboxPreferences(readChatInboxPreferences(user?.id, currentSessionId));
+    }, [user?.id, currentSessionId]);
+
+    const persistInboxPreferences = useCallback((updater: (current: ChatInboxPreferences) => ChatInboxPreferences) => {
+        setInboxPreferences((current) => {
+            const next = updater(current);
+            writeChatInboxPreferences(next, user?.id, currentSessionId);
+            return next;
+        });
+    }, [currentSessionId, user?.id]);
+
+    const toggleFavoriteGroup = useCallback((jid: string) => {
+        persistInboxPreferences((current) => {
+            const exists = current.favoriteGroupJids.includes(jid);
+            return {
+                ...current,
+                favoriteGroupJids: exists
+                    ? current.favoriteGroupJids.filter((item) => item !== jid)
+                    : [jid, ...current.favoriteGroupJids],
+            };
+        });
+    }, [persistInboxPreferences]);
+
+    const createGroupCollection = useCallback(() => {
+        const name = window.prompt('Nome do agrupamento de grupos:');
+        if (!name?.trim()) return;
+
+        persistInboxPreferences((current) => ({
+            ...current,
+            groupCollections: [
+                ...current.groupCollections,
+                {
+                    id: `${Date.now()}`,
+                    name: name.trim(),
+                    jids: [],
+                },
+            ],
+        }));
+    }, [persistInboxPreferences]);
+
+    const assignGroupToCollection = useCallback((jid: string, collectionId: string | null) => {
+        persistInboxPreferences((current) => ({
+            ...current,
+            groupCollections: current.groupCollections.map((collection) => {
+                const withoutCurrent = collection.jids.filter((item) => item !== jid);
+                if (collection.id !== collectionId) {
+                    return {
+                        ...collection,
+                        jids: withoutCurrent,
+                    };
+                }
+
+                return {
+                    ...collection,
+                    jids: [...withoutCurrent, jid],
+                };
+            }),
+        }));
+    }, [persistInboxPreferences]);
+
+    const renameCollection = useCallback((collection: GroupCollection) => {
+        const name = window.prompt('Novo nome do agrupamento:', collection.name);
+        if (!name?.trim()) return;
+
+        persistInboxPreferences((current) => ({
+            ...current,
+            groupCollections: current.groupCollections.map((item) =>
+                item.id === collection.id ? { ...item, name: name.trim() } : item,
+            ),
+        }));
+    }, [persistInboxPreferences]);
+
+    const removeCollection = useCallback((collectionId: string) => {
+        persistInboxPreferences((current) => ({
+            ...current,
+            groupCollections: current.groupCollections.filter((item) => item.id !== collectionId),
+        }));
+    }, [persistInboxPreferences]);
+
     const resetInvalidSession = useCallback(() => {
         clearWhatsAppSession(user?.id);
+        clearChatInboxCache(user?.id, currentSessionId);
         setCurrentSessionId(null);
         setSessions([]);
         setWhatsappStatus(null);
@@ -167,7 +272,7 @@ export default function ChatPage() {
         setConversations([]);
         setSelectedChat(null);
         setMessages([]);
-    }, [user?.id]);
+    }, [currentSessionId, user?.id]);
 
     const fetchSessions = useCallback(async () => {
         try {
@@ -215,9 +320,14 @@ export default function ChatPage() {
     }, [currentSessionId, fetchSessions, resetInvalidSession]);
 
     const fetchConversations = useCallback(async () => {
-        if (!currentSessionId) return;
+        if (!currentSessionId) {
+            setConversations([]);
+            setLoadingConversations(false);
+            return;
+        }
         try {
             setLoadingConversations(true);
+            setConversationError(null);
             const chatsData = await apiFetch<any>(`/api/whatsapp/chats?sessionId=${currentSessionId}`, { auth: true });
 
             const waChats = ((Array.isArray(chatsData) ? chatsData : chatsData?.chats) || []).map((c: any) => ({
@@ -229,20 +339,44 @@ export default function ChatPage() {
 
             const combinedMap = new Map<string, any>();
 
-            waChats.forEach((chat: any) => {
+            conversations.forEach((chat: any) => {
                 const key = chat.jid || chat.id;
                 if (!key) return;
                 combinedMap.set(key, chat);
             });
 
-            setConversations(Array.from(combinedMap.values()));
-        } catch (error) {
+            waChats.forEach((chat: any) => {
+                const key = chat.jid || chat.id;
+                if (!key) return;
+                combinedMap.set(key, {
+                    ...combinedMap.get(key),
+                    ...chat,
+                });
+            });
+
+            const nextConversations = Array.from(combinedMap.values());
+
+            if (nextConversations.length > 0) {
+                setConversations(nextConversations);
+                writeChatInboxCache(nextConversations, user?.id, currentSessionId);
+            } else if (conversations.length === 0) {
+                setConversations([]);
+            }
+        } catch (error: any) {
             console.error('Erro ao buscar conversas:', error);
-            setConversations([]);
+            setConversationError(error?.message || 'Nao foi possivel carregar conversas agora.');
         } finally {
             setLoadingConversations(false);
         }
-    }, [currentSessionId, fallbackAvatar]);
+    }, [conversations, currentSessionId, fallbackAvatar, user?.id]);
+
+    const handleRefreshWorkspace = useCallback(async () => {
+        await Promise.allSettled([
+            fetchSessions(),
+            checkWhatsAppStatus(),
+            fetchConversations(),
+        ]);
+    }, [checkWhatsAppStatus, fetchConversations, fetchSessions]);
 
     const handleStartNewChat = () => {
         if (!newChatNumber.trim()) return;
@@ -468,9 +602,15 @@ export default function ChatPage() {
     useEffect(() => {
         if (!currentSessionId) return;
         fetchConversations();
-        const interval = setInterval(fetchConversations, 30000);
+        const interval = setInterval(fetchConversations, 90000);
         return () => clearInterval(interval);
     }, [currentSessionId, fetchConversations]);
+
+    useEffect(() => {
+        if (whatsappStatus === 'READY' && currentSessionId) {
+            fetchConversations();
+        }
+    }, [whatsappStatus, currentSessionId, fetchConversations]);
 
     useEffect(() => {
         if (!selectedChat) return;
@@ -695,19 +835,147 @@ export default function ChatPage() {
         }
     };
 
+    const filteredConversations = useMemo(() => {
+        const normalizedSearch = searchQuery.trim().toLowerCase();
+
+        return conversations
+            .filter((chat) => {
+                if (activeTab === 'people') return chat.type !== 'group';
+                if (activeTab === 'groups') return chat.type === 'group';
+                return true;
+            })
+            .filter((chat) => {
+                const haystack = [
+                    chat.name,
+                    chat.contactNumber,
+                    chat.lastMessage,
+                    chat.jid,
+                ]
+                    .filter(Boolean)
+                    .join(' ')
+                    .toLowerCase();
+
+                return haystack.includes(normalizedSearch);
+            });
+    }, [activeTab, conversations, searchQuery]);
+
+    const inboxSections = useMemo(() => {
+        const peopleConversations = filteredConversations.filter((chat) => chat.type !== 'group');
+        const groupConversations = filteredConversations.filter((chat) => chat.type === 'group');
+        const favoriteSet = new Set(inboxPreferences.favoriteGroupJids);
+        const favoriteGroups = groupConversations.filter((chat) => favoriteSet.has(chat.jid));
+
+        const collectionSections = inboxPreferences.groupCollections
+            .map((collection) => ({
+                id: collection.id,
+                title: collection.name,
+                chats: collection.jids
+                    .map((jid) => groupConversations.find((chat) => chat.jid === jid))
+                    .filter(Boolean) as any[],
+                collection,
+            }))
+            .filter((section) => section.chats.length > 0);
+
+        const groupedJids = new Set<string>([
+            ...favoriteGroups.map((chat) => chat.jid),
+            ...collectionSections.flatMap((section) => section.chats.map((chat) => chat.jid)),
+        ]);
+
+        const remainingGroups = groupConversations.filter((chat) => !groupedJids.has(chat.jid));
+
+        return {
+            peopleConversations,
+            favoriteGroups,
+            collectionSections,
+            remainingGroups,
+        };
+    }, [filteredConversations, inboxPreferences]);
+
+    const renderChatItem = useCallback((chat: any) => {
+        const assignedCollection = inboxPreferences.groupCollections.find((collection) =>
+            collection.jids.includes(chat.jid),
+        );
+
+        return (
+            <button
+                key={chat.id}
+                onClick={() => setSelectedChat(chat)}
+                className={`w-full flex items-center gap-3 p-3 rounded-2xl transition-all group ${selectedChat?.id === chat.id
+                    ? 'bg-emerald-50 shadow-sm border border-emerald-100'
+                    : 'hover:bg-slate-50'}`}
+            >
+                <div className="relative">
+                    <img src={chat.profile_pic_url || chat.avatar || fallbackAvatar(chat.name)} alt={chat.name} className="w-12 h-12 rounded-xl object-cover border border-slate-100 shadow-sm" />
+                    <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white flex items-center justify-center ${chat.type === 'group' ? 'bg-indigo-500' : 'bg-emerald-500'}`}>
+                        {chat.type === 'group' ? <Users size={8} className="text-white" /> : <div className="w-1 h-1 bg-white rounded-full" />}
+                    </div>
+                </div>
+                <div className="flex-1 text-left min-w-0">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                        <h4 className="font-bold text-sm text-slate-800 truncate">{chat.name}</h4>
+                        {chat.type === 'group' && inboxPreferences.favoriteGroupJids.includes(chat.jid) && (
+                            <Star size={12} className="text-amber-500 fill-amber-400 shrink-0" />
+                        )}
+                    </div>
+                    <p className="text-xs text-slate-400 truncate font-medium">{chat.lastMessage}</p>
+                    {chat.type === 'group' && assignedCollection && (
+                        <p className="mt-1 text-[10px] font-black uppercase tracking-[0.18em] text-indigo-500 truncate">
+                            {assignedCollection.name}
+                        </p>
+                    )}
+                </div>
+                {chat.type === 'group' && (
+                    <div
+                        className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100"
+                        onClick={(event) => event.stopPropagation()}
+                    >
+                        <button
+                            type="button"
+                            onClick={() => toggleFavoriteGroup(chat.jid)}
+                            className={`rounded-lg p-2 transition-all ${inboxPreferences.favoriteGroupJids.includes(chat.jid)
+                                ? 'bg-amber-50 text-amber-500'
+                                : 'bg-white text-slate-400 hover:bg-slate-100'}`}
+                            title="Favoritar grupo"
+                        >
+                            <Star size={14} className={inboxPreferences.favoriteGroupJids.includes(chat.jid) ? 'fill-amber-400' : ''} />
+                        </button>
+                        <select
+                            value={assignedCollection?.id || ''}
+                            onChange={(event) => assignGroupToCollection(chat.jid, event.target.value || null)}
+                            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 outline-none"
+                            title="Agrupar grupo"
+                        >
+                            <option value="">Sem grupo</option>
+                            {inboxPreferences.groupCollections.map((collection) => (
+                                <option key={collection.id} value={collection.id}>
+                                    {collection.name}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                )}
+            </button>
+        );
+    }, [assignGroupToCollection, fallbackAvatar, inboxPreferences.favoriteGroupJids, inboxPreferences.groupCollections, selectedChat?.id, toggleFavoriteGroup]);
+
     if (authLoading) return <LoadingScreen />;
 
     return (
-        <AdminLayout>
+        <AdminLayout hideRightSidebar fullWidth>
             <>
-                <div className="flex h-[calc(100vh-120px)] bg-slate-50 rounded-[2.5rem] overflow-hidden border border-[var(--border-light)] shadow-sm">
+                <div className="flex h-[calc(100vh-2rem)] min-h-[calc(100vh-2rem)] w-full overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.08)]">
 
                     {/* Conversations Sidebar */}
-                    <div className="w-80 md:w-96 bg-white border-r border-[var(--border-light)] flex flex-col">
+                    <div className="w-[360px] min-w-[360px] bg-white border-r border-slate-200 flex flex-col xl:w-[390px] xl:min-w-[390px]">
                         {/* Sidebar Header */}
-                        <div className="p-6 border-b border-[var(--border-light)] bg-slate-50/50">
+                        <div className="p-6 border-b border-slate-200 bg-[linear-gradient(180deg,rgba(248,250,252,0.95),rgba(255,255,255,0.9))] backdrop-blur-sm">
                             <div className="flex items-center justify-between mb-6">
-                                <h2 className="text-xl font-black text-[var(--secondary)] tracking-tight">Atendimento</h2>
+                                <div>
+                                    <h2 className="text-2xl font-black text-[var(--secondary)] tracking-tight">Atendimento</h2>
+                                    <p className="mt-1 text-xs font-semibold text-slate-400">
+                                        Conversas, grupos e atendimento automatizado em um so lugar.
+                                    </p>
+                                </div>
                                 <div className="flex gap-2 relative">
                                     {/* Session Selector */}
                                     <button
@@ -777,6 +1045,14 @@ export default function ChatPage() {
                                     <button onClick={handleLogout} className="p-2 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-xl transition-all" title="Desconectar Conta Atual">
                                         <LogOut size={18} />
                                     </button>
+
+                                    <button
+                                        onClick={handleRefreshWorkspace}
+                                        className="p-2 hover:bg-slate-100 text-slate-400 hover:text-slate-700 rounded-xl transition-all"
+                                        title="Atualizar conversas"
+                                    >
+                                        <RefreshCw size={18} className={loadingConversations ? 'animate-spin' : ''} />
+                                    </button>
                                 </div>
                             </div>
 
@@ -823,6 +1099,39 @@ export default function ChatPage() {
                                     className="w-full bg-slate-100 border-none rounded-2xl py-3 pl-12 pr-4 text-sm font-medium focus:ring-2 focus:ring-[var(--primary)]/20 transition-all shadow-inner"
                                 />
                             </div>
+
+                            <div className="mt-4 flex items-center gap-2">
+                                {[
+                                    { id: 'all', label: 'Tudo', count: conversations.length },
+                                    { id: 'people', label: 'Pessoas', count: conversations.filter((chat) => chat.type !== 'group').length },
+                                    { id: 'groups', label: 'Grupos', count: conversations.filter((chat) => chat.type === 'group').length },
+                                ].map((tab) => (
+                                    <button
+                                        key={tab.id}
+                                        onClick={() => setActiveTab(tab.id)}
+                                        className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-[11px] font-black uppercase tracking-[0.18em] transition-all ${
+                                            activeTab === tab.id
+                                                ? 'bg-slate-900 text-white shadow-lg shadow-slate-900/10'
+                                                : 'bg-white text-slate-500 ring-1 ring-slate-200 hover:bg-slate-50'
+                                        }`}
+                                    >
+                                        {tab.label}
+                                        <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${activeTab === tab.id ? 'bg-white/15 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                                            {tab.count}
+                                        </span>
+                                    </button>
+                                ))}
+                            </div>
+
+                            {activeTab !== 'people' && (
+                                <button
+                                    onClick={createGroupCollection}
+                                    className="mt-4 inline-flex items-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white px-3 py-2 text-[11px] font-black uppercase tracking-[0.18em] text-slate-500 transition-all hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600"
+                                >
+                                    <PlusCircle size={14} />
+                                    Novo agrupamento
+                                </button>
+                            )}
                         </div>
                         {/* Chat List */}
                         <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-1">
@@ -831,39 +1140,91 @@ export default function ChatPage() {
                                     <RefreshCw className="animate-spin text-emerald-500" size={24} />
                                     <span className="text-xs font-bold text-slate-400">Carregando conversas recentes...</span>
                                 </div>
-                            ) : conversations.length > 0 ? (
-                                conversations.filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase())).map((chat) => (
+                            ) : conversationError ? (
+                                <div className="m-3 rounded-3xl border border-rose-100 bg-rose-50 p-5 text-left">
+                                    <p className="text-xs font-black uppercase tracking-[0.18em] text-rose-500">Falha ao carregar</p>
+                                    <p className="mt-2 text-sm font-medium leading-6 text-rose-700">{conversationError}</p>
                                     <button
-                                        key={chat.id}
-                                        onClick={() => setSelectedChat(chat)}
-                                        className={`w-full flex items-center gap-3 p-3 rounded-2xl transition-all group ${selectedChat?.id === chat.id
-                                            ? 'bg-emerald-50 shadow-sm border border-emerald-100'
-                                            : 'hover:bg-slate-50'}`}
+                                        onClick={handleRefreshWorkspace}
+                                        className="mt-4 inline-flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-[11px] font-black uppercase tracking-[0.18em] text-rose-600 ring-1 ring-rose-200 transition-all hover:bg-rose-100"
                                     >
-                                        <div className="relative">
-                                            <img src={chat.profile_pic_url || chat.avatar || fallbackAvatar(chat.name)} alt={chat.name} className="w-12 h-12 rounded-xl object-cover border border-slate-100 shadow-sm" />
-                                            <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white flex items-center justify-center ${chat.type === 'group' ? 'bg-indigo-500' : 'bg-emerald-500'}`}>
-                                                {chat.type === 'group' ? <Users size={8} className="text-white" /> : <div className="w-1 h-1 bg-white rounded-full" />}
-                                            </div>
-                                        </div>
-                                        <div className="flex-1 text-left min-w-0">
-                                            <div className="flex items-center justify-between mb-1">
-                                                <h4 className="font-bold text-sm text-slate-800 truncate">{chat.name}</h4>
-                                            </div>
-                                            <p className="text-xs text-slate-400 truncate font-medium">{chat.lastMessage}</p>
-                                        </div>
+                                        <RefreshCw size={14} />
+                                        Tentar de novo
                                     </button>
-                                ))
+                                </div>
+                            ) : filteredConversations.length > 0 ? (
+                                <div className="space-y-4">
+                                    {activeTab !== 'groups' && inboxSections.peopleConversations.length > 0 && (
+                                        <div className="space-y-1">
+                                            <div className="px-3 pb-2 pt-1">
+                                                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Conversas prioritarias</p>
+                                            </div>
+                                            {inboxSections.peopleConversations.map(renderChatItem)}
+                                        </div>
+                                    )}
+
+                                    {activeTab !== 'people' && inboxSections.favoriteGroups.length > 0 && (
+                                        <div className="space-y-1">
+                                            <div className="px-3 pb-2 pt-1">
+                                                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-500">Grupos favoritos</p>
+                                            </div>
+                                            {inboxSections.favoriteGroups.map(renderChatItem)}
+                                        </div>
+                                    )}
+
+                                    {activeTab !== 'people' && inboxSections.collectionSections.map((section) => (
+                                        <div key={section.id} className="space-y-1">
+                                            <div className="flex items-center justify-between px-3 pb-2 pt-1 gap-2">
+                                                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-500 truncate">{section.title}</p>
+                                                <div className="flex items-center gap-1">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => renameCollection(section.collection)}
+                                                        className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-slate-100 hover:text-slate-700"
+                                                        title="Renomear agrupamento"
+                                                    >
+                                                        <Pencil size={12} />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeCollection(section.id)}
+                                                        className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-rose-50 hover:text-rose-500"
+                                                        title="Remover agrupamento"
+                                                    >
+                                                        <Trash2 size={12} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            {section.chats.map(renderChatItem)}
+                                        </div>
+                                    ))}
+
+                                    {activeTab !== 'people' && inboxSections.remainingGroups.length > 0 && (
+                                        <div className="space-y-1">
+                                            <div className="px-3 pb-2 pt-1">
+                                                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Outros grupos</p>
+                                            </div>
+                                            {inboxSections.remainingGroups.map(renderChatItem)}
+                                        </div>
+                                    )}
+                                </div>
                             ) : (
-                                <div className="text-center p-8 text-slate-400">
-                                    {whatsappStatus === 'READY' ? 'Nenhuma conversa encontrada.' : 'Conecte o WhatsApp e inicie uma conversa para ela aparecer aqui.'}
+                                <div className="m-3 rounded-[1.75rem] border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-slate-400">
+                                    <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Caixa de entrada vazia</p>
+                                    <p className="mt-3 text-sm font-medium leading-6">
+                                        {whatsappStatus === 'READY'
+                                            ? activeTab === 'groups'
+                                                ? 'Ainda nao apareceu nenhum grupo nessa conta.'
+                                                : 'Ainda nao apareceu nenhuma conversa nessa conta.'
+                                            : 'Conecte o WhatsApp e inicie uma conversa para ela aparecer aqui.'}
+                                    </p>
                                 </div>
                             )}
                         </div>
                     </div>
 
                     {/* Main Chat Area */}
-                    <div className="flex-1 flex flex-col bg-slate-50/30">
+                    <div className="flex-1 flex flex-col bg-[radial-gradient(circle_at_top,#f8fafc,white_45%,#f8fafc)] min-w-0">
                         {selectedChat ? (
                             <>
                                 {/* Chat Header */}
@@ -944,8 +1305,8 @@ export default function ChatPage() {
                                 </div>
                             </>
                         ) : (
-                            <div className="flex-1 flex flex-col items-center justify-center p-12 text-center bg-slate-50/50">
-                                <div className="w-24 h-24 bg-white rounded-3xl flex items-center justify-center text-emerald-500 shadow-2xl shadow-emerald-500/10 mb-8 border border-slate-100 animate-bounce duration-[2000ms]">
+                            <div className="flex-1 flex flex-col items-center justify-center p-12 text-center bg-[radial-gradient(circle_at_center,rgba(16,185,129,0.08),transparent_28%),radial-gradient(circle_at_center,rgba(15,23,42,0.03),transparent_56%)]">
+                                <div className="w-24 h-24 bg-white rounded-3xl flex items-center justify-center text-emerald-500 shadow-2xl shadow-emerald-500/10 mb-8 border border-slate-100">
                                     <MessageSquare size={48} />
                                 </div>
                                 <h3 className="text-2xl font-black text-slate-800 mb-4 tracking-tight">Atendimento Inteligente</h3>
