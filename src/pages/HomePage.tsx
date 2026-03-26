@@ -15,6 +15,8 @@ import {
 import Footer from '@/components/ui/Footer';
 import { apiFetch, normalizeImageUrl } from '@/lib/api';
 
+const SALES_WHATSAPP_NUMBER = '5585998653476';
+
 const pricingPlans = [
   {
     name: 'Simples',
@@ -107,6 +109,11 @@ export default function HomePage() {
         new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime(),
     );
   }, [courses, events]);
+
+  const buildPlanWhatsAppLink = (planName: string) => {
+    const message = `Ola, quero contratar o plano ${planName} da LinkDeCadastro. Pode me passar os proximos passos?`;
+    return `https://wa.me/${SALES_WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
+  };
 
   return (
     <div className="relative flex min-h-screen flex-col overflow-hidden bg-[var(--bg-main)] selection:bg-[var(--primary)] selection:text-white">
@@ -263,8 +270,10 @@ export default function HomePage() {
                   ))}
                 </div>
 
-                <Link
-                  to={isAuthenticated ? '/admin/dashboard' : '/login'}
+                <a
+                  href={buildPlanWhatsAppLink(plan.name)}
+                  target="_blank"
+                  rel="noreferrer"
                   className={`inline-flex w-full items-center justify-center rounded-2xl px-6 py-4 text-xs font-black uppercase tracking-[0.22em] text-white transition-all ${
                     plan.featured
                       ? 'bg-gradient-to-r from-[var(--primary)] to-[var(--accent)] shadow-lg shadow-[var(--primary)]/30'
@@ -272,7 +281,7 @@ export default function HomePage() {
                   }`}
                 >
                   Escolher Plano
-                </Link>
+                </a>
               </div>
             ))}
           </div>
