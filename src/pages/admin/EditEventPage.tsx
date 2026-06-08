@@ -13,8 +13,8 @@ import { useAuth } from '@/lib/useAuth'
 import AdminLayout from '@/components/layouts/AdminLayout'
 
 const eventSchema = z.object({
-  title: z.string().min(1, 'TÃ­tulo Ã© obrigatÃ³rio'),
-  description: z.string().min(1, 'DescriÃ§Ã£o Ã© obrigatÃ³ria'),
+  title: z.string().min(1, 'Título é obrigatório'),
+  description: z.string().min(1, 'Descrição é obrigatória'),
   bannerUrl: z.string().optional().or(z.literal('')).transform((val) => {
     return val && val.trim() ? val.trim() : undefined
   }).refine(
@@ -24,7 +24,7 @@ const eventSchema = z.object({
       val.startsWith('http://') ||
       val.startsWith('https://') ||
       val.startsWith('data:image/'),
-    { message: 'URL invÃ¡lida' }
+    { message: 'URL inválida' }
   ),
   status: z.enum(['ACTIVE', 'INACTIVE', 'CLOSED']).default('ACTIVE'),
   maxRegistrations: z.string().optional().transform((val) => {
@@ -37,7 +37,7 @@ const eventSchema = z.object({
     return val.trim().toLowerCase()
   }).refine(
     (val) => !val || /^[a-z0-9-]+$/.test(val),
-    { message: 'URL personalizada deve conter apenas letras minÃºsculas, nÃºmeros e hÃ­fens' }
+    { message: 'URL personalizada deve conter apenas letras minúsculas, números e hífens' }
   ),
 })
 
@@ -89,7 +89,7 @@ export default function EditEventPage() {
 
   useEffect(() => {
     if (!eventId) {
-      setError('Evento nÃ£o informado')
+      setError('Evento não informado')
       setPageLoading(false)
       return
     }
@@ -193,7 +193,7 @@ export default function EditEventPage() {
               <h1 className="text-3xl font-black text-[var(--secondary)] tracking-tight">
                 Editar <span className="text-indigo-600">Evento</span>
               </h1>
-              <p className="text-[var(--text-muted)] font-medium text-sm mt-1">Atualize o link, banner e configuraÃ§Ãµes do evento.</p>
+              <p className="text-[var(--text-muted)] font-medium text-sm mt-1">Atualize o link, banner e configurações do evento.</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -209,7 +209,7 @@ export default function EditEventPage() {
               disabled={submitting}
               className="px-8 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-xl shadow-indigo-600/20 transition-all flex items-center gap-2 active:scale-95 disabled:opacity-50 text-xs"
             >
-              {submitting ? 'SALVANDO...' : <><Save size={18} /> SALVAR ALTERAÃ‡Ã•ES</>}
+              {submitting ? 'SALVANDO...' : <><Save size={18} /> SALVAR ALTERAÇÕES</>}
             </button>
           </div>
         </div>
@@ -225,28 +225,28 @@ export default function EditEventPage() {
           <div className="lg:col-span-2 space-y-8">
             <section className="bg-white rounded-[2.5rem] border border-[var(--border-light)] p-8 shadow-sm">
               <h2 className="text-lg font-black text-[var(--secondary)] mb-6 flex items-center gap-2">
-                InformaÃ§Ãµes BÃ¡sicas <Globe size={20} className="text-indigo-600" />
+                Informações Básicas <Globe size={20} className="text-indigo-600" />
               </h2>
 
               <div className="space-y-6">
                 <div>
-                  <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2 px-1">TÃ­tulo do Evento</label>
+                  <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2 px-1">Título do Evento</label>
                   <input
                     type="text"
                     {...register('title')}
                     className="w-full bg-[var(--bg-main)]/50 border-2 border-transparent focus:border-indigo-600/20 rounded-2xl px-5 py-4 text-sm font-bold text-[var(--secondary)] transition-all outline-none"
-                    placeholder="Ex: Workshop de LideranÃ§a 2024"
+                    placeholder="Ex: Workshop de Liderança 2024"
                   />
                   {errors.title && <p className="text-red-500 text-[10px] font-bold mt-1.5 px-1">{errors.title.message}</p>}
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2 px-1">DescriÃ§Ã£o / Detalhes</label>
+                  <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2 px-1">Descrição / Detalhes</label>
                   <textarea
                     {...register('description')}
                     rows={5}
                     className="w-full bg-[var(--bg-main)]/50 border-2 border-transparent focus:border-indigo-600/20 rounded-2xl px-5 py-4 text-sm font-medium text-[var(--secondary)] transition-all outline-none resize-none"
-                    placeholder="Descreva o que os participantes encontrarÃ£o neste evento..."
+                    placeholder="Descreva o que os participantes encontrarão neste evento..."
                   />
                   {errors.description && <p className="text-red-500 text-[10px] font-bold mt-1.5 px-1">{errors.description.message}</p>}
                 </div>
@@ -255,7 +255,7 @@ export default function EditEventPage() {
 
             <section className="bg-white rounded-[2.5rem] border border-[var(--border-light)] p-8 shadow-sm">
               <h2 className="text-lg font-black text-[var(--secondary)] mb-6 flex items-center gap-2">
-                Link PÃºblico <ImageIcon size={20} className="text-purple-600" />
+                Link Público <ImageIcon size={20} className="text-purple-600" />
               </h2>
 
               <div className="space-y-6">
@@ -270,7 +270,7 @@ export default function EditEventPage() {
                       placeholder="lancamento-vip"
                     />
                   </div>
-                  <p className="text-[9px] text-[var(--text-muted)] font-medium mt-2 px-1 uppercase tracking-tighter">Use hÃ­fens para separar palavras. Ex: workshop-gratis</p>
+                  <p className="text-[9px] text-[var(--text-muted)] font-medium mt-2 px-1 uppercase tracking-tighter">Use hífens para separar palavras. Ex: workshop-gratis</p>
                   {publicUrl && (
                     <p className="text-[10px] text-indigo-600 font-bold mt-2 px-1 break-all">
                       {publicUrl}
@@ -317,7 +317,7 @@ export default function EditEventPage() {
           <div className="space-y-8">
             <section className="bg-slate-900 rounded-[2.5rem] p-8 text-white relative overflow-hidden group">
               <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-600/20 rounded-full blur-3xl -mr-16 -mt-16 transition-transform group-hover:scale-125"></div>
-              <h3 className="text-lg font-black mb-6 relative z-10 flex items-center gap-2">ConfiguraÃ§Ãµes <Shield size={18} className="text-indigo-400" /></h3>
+              <h3 className="text-lg font-black mb-6 relative z-10 flex items-center gap-2">Configurações <Shield size={18} className="text-indigo-400" /></h3>
 
               <div className="space-y-6 relative z-10">
                 <div>
@@ -361,7 +361,7 @@ export default function EditEventPage() {
                 <Shield size={24} />
               </div>
               <h4 className="text-sm font-black text-[var(--secondary)] mb-2">Atualizar agora?</h4>
-              <p className="text-[10px] text-[var(--text-muted)] font-medium mb-6">As alteraÃ§Ãµes ficam disponÃ­veis logo apÃ³s salvar.</p>
+              <p className="text-[10px] text-[var(--text-muted)] font-medium mb-6">As alterações ficam disponíveis logo após salvar.</p>
               <button
                 onClick={handleSubmit(onSubmit)}
                 className="w-full py-4 bg-[var(--bg-main)] hover:bg-slate-100 text-[var(--secondary)] font-black text-[10px] uppercase rounded-2xl transition-all"

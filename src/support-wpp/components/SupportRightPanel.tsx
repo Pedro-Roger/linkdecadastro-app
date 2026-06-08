@@ -63,7 +63,7 @@ export const SupportRightPanel: React.FC<SupportRightPanelProps> = ({
               {/* Contact Section */}
               <div className="space-y-4">
                 <h4 className="text-[11px] font-extrabold text-slate-400 uppercase tracking-widest">
-                  InformaÃ§Ãµes de Contato
+                  Informações de Contato
                 </h4>
                 <div className="space-y-3">
                   <div className="flex items-center gap-3 group">
@@ -77,7 +77,7 @@ export const SupportRightPanel: React.FC<SupportRightPanelProps> = ({
                       <p className="text-sm font-semibold text-slate-700 truncate">
                         {selectedConversation.client.email ||
                           clientDetails?.email_principal ||
-                          "NÃ£o informado"}
+                          "Não informado"}
                       </p>
                     </div>
                   </div>
@@ -164,7 +164,7 @@ export const SupportRightPanel: React.FC<SupportRightPanelProps> = ({
                 </div>
               )}
 
-              {/* BotÃ£o HistÃ³rico Completo */}
+              {/* Botão Histórico Completo */}
               <div className="pt-2">
                 {clientId && (
                   <Button
@@ -172,7 +172,7 @@ export const SupportRightPanel: React.FC<SupportRightPanelProps> = ({
                     className="w-full text-[11px] font-bold rounded-lg"
                     onClick={() => navigate(`/clients/view/${clientId}`)}
                   >
-                    Ver todo histÃ³rico
+                    Ver todo histórico
                   </Button>
                 )}
               </div>
@@ -255,7 +255,7 @@ export const SupportRightPanel: React.FC<SupportRightPanelProps> = ({
               </div>
               <h3 className="text-slate-900 font-bold">Contato Desconhecido</h3>
               <p className="text-xs text-slate-500 mt-2 max-w-[200px]">
-                Este nÃºmero nÃ£o estÃ¡ salvo nos contatos do sistema.
+                Este número não está salvo nos contatos do sistema.
               </p>
             </div>
           )}

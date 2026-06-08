@@ -116,7 +116,7 @@ export const SupportSidebar: React.FC<SupportSidebarProps> = ({
                     ? "bg-orange-100 text-orange-600"
                     : "text-slate-400 hover:text-slate-600 hover:bg-slate-200/50"
                 )}
-                title="Filtrar por usuÃ¡rio"
+                title="Filtrar por usuário"
               >
                 <Filter className="w-3.5 h-3.5" />
               </button>
@@ -140,11 +140,11 @@ export const SupportSidebar: React.FC<SupportSidebarProps> = ({
                   <SingleUserSelector
                     selectedUser={filterUserId || ""}
                     onUserChange={(value) => setFilterUserId(value || null)}
-                    placeholder="Selecione um usuÃ¡rio"
+                    placeholder="Selecione um usuário"
                     className="w-full"
                   />
                   <p className="text-xs text-slate-500">
-                    Selecione um usuÃ¡rio para ver apenas as conversas atribuÃ­das
+                    Selecione um usuário para ver apenas as conversas atribuídas
                     a ele na aba "Todos".
                   </p>
                 </div>
@@ -209,11 +209,11 @@ export const SupportSidebar: React.FC<SupportSidebarProps> = ({
 
                 <div className="flex flex-col gap-1">
                   <p className="flex items-center gap-1 text-xs text-slate-500 truncate leading-relaxed">
-                    {conv.lastMessage?.includes("[Ãudio]") && (
+                    {conv.lastMessage?.includes("[Áudio]") && (
                       <Mic
                         className={cn(
                           "w-3.5 h-3.5 flex-shrink-0",
-                          conv.lastMessage?.includes("VocÃª:")
+                          conv.lastMessage?.includes("Você:")
                             ? "text-slate-400"
                             : "text-emerald-500"
                         )}
@@ -221,10 +221,10 @@ export const SupportSidebar: React.FC<SupportSidebarProps> = ({
                     )}
                     <span className="truncate">
                       {conv.lastMessage
-                        ? conv.lastMessage.includes("[Ãudio]")
+                        ? conv.lastMessage.includes("[Áudio]")
                           ? conv.lastMessage
-                              .replace("[Ãudio] ", "")
-                              .replace("VocÃª: [Ãudio]", "VocÃª:")
+                              .replace("[Áudio] ", "")
+                              .replace("Você: [Áudio]", "Você:")
                           : conv.lastMessage
                         : "Nenhuma mensagem"}
                     </span>

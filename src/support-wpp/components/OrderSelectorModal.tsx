@@ -70,7 +70,7 @@ export const OrderSelectorModal: React.FC<OrderSelectorModalProps> = ({
       console.error("Error fetching orders:", error);
       toast({
         title: "Erro ao buscar pedidos",
-        description: "NÃ£o foi possÃ­vel carregar a lista de pedidos.",
+        description: "Não foi possível carregar a lista de pedidos.",
         variant: "destructive",
       });
     } finally {
@@ -94,7 +94,7 @@ export const OrderSelectorModal: React.FC<OrderSelectorModalProps> = ({
       console.error("Error generating link:", error);
       toast({
         title: "Erro ao gerar link",
-        description: "NÃ£o foi possÃ­vel gerar o link pÃºblico para este pedido.",
+        description: "Não foi possível gerar o link público para este pedido.",
         variant: "destructive",
       });
     } finally {
@@ -123,7 +123,7 @@ export const OrderSelectorModal: React.FC<OrderSelectorModalProps> = ({
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
             <Input
               type="text"
-              placeholder="Buscar por nÃºmero ou cliente..."
+              placeholder="Buscar por número ou cliente..."
               className="pl-9"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}

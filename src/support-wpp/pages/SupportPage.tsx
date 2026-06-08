@@ -583,7 +583,7 @@ const SupportPage = () => {
       >
         <DialogContent className="sm:max-w-md" allowOverflow>
           <DialogHeader>
-            <DialogTitle>Vincular cliente Ã  conversa</DialogTitle>
+            <DialogTitle>Vincular cliente à conversa</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-slate-500">
             Busque um cliente na sua base para vincular a esta conversa de
@@ -656,7 +656,7 @@ const SupportPage = () => {
 
           const caption =
             `*${product.name}*\n` +
-            `*PreÃ§o:* ${formatPrice(product.price)}\n` +
+            `*Preço:* ${formatPrice(product.price)}\n` +
             (product.description ? `\n${product.description}` : "") +
             (product.sku ? `\nSKU: ${product.sku}` : "");
 
@@ -736,14 +736,14 @@ const SupportPage = () => {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-rose-600">
               <AlertCircle className="w-5 h-5" />
-              AtenÃ§Ã£o: Dispositivos Desconectados
+              Atenção: Dispositivos Desconectados
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-slate-600">
-              Detectamos que os seguintes dispositivos do WhatsApp estÃ£o
-              desconectados. As mensagens nÃ£o serÃ£o enviadas ou recebidas por
-              eles atÃ© que a conexÃ£o seja restabelecida:
+              Detectamos que os seguintes dispositivos do WhatsApp estão
+              desconectados. As mensagens não serão enviadas ou recebidas por
+              eles até que a conexão seja restabelecida:
             </p>
             <ul className="space-y-2 bg-slate-50 border border-slate-100 p-3 rounded-lg max-h-40 overflow-y-auto">
               {disconnectedInstances.map((inst, index) => (
@@ -761,7 +761,7 @@ const SupportPage = () => {
               ))}
             </ul>
             <p className="text-xs text-slate-500">
-              VÃ¡ em <strong>OrganizaÃ§Ã£o &gt; IntegraÃ§Ãµes &gt; WhatsApp</strong>{" "}
+              Vá em <strong>Organização &gt; Integrações &gt; WhatsApp</strong>{" "}
               para ler o QR Code novamente.
             </p>
           </div>

@@ -90,7 +90,7 @@ export const CampaignHistoryModal: React.FC<CampaignHistoryModalProps> = ({
           });
         }
       } catch (error) {
-        console.error("Erro ao carregar histÃ³rico", error);
+        console.error("Erro ao carregar histórico", error);
       } finally {
         setLoading(false);
         setLoadingMore(false);
@@ -143,7 +143,7 @@ export const CampaignHistoryModal: React.FC<CampaignHistoryModalProps> = ({
               </div>
               <div>
                 <DialogTitle className="text-2xl font-black text-slate-900 tracking-tight">
-                  HistÃ³rico da Campanha
+                  Histórico da Campanha
                 </DialogTitle>
                 <p className="text-slate-500 font-medium text-xs mt-0.5">
                   {campaign?.name}
@@ -210,7 +210,7 @@ export const CampaignHistoryModal: React.FC<CampaignHistoryModalProps> = ({
                 <div className="py-20 flex flex-col items-center justify-center gap-4 bg-white rounded-3xl border border-slate-100">
                   <Loader2 className="w-10 h-10 animate-spin text-orange-500" />
                   <span className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">
-                    Buscando histÃ³rico...
+                    Buscando histórico...
                   </span>
                 </div>
               ) : history.length === 0 ? (
@@ -226,16 +226,16 @@ export const CampaignHistoryModal: React.FC<CampaignHistoryModalProps> = ({
                       <TableHeader className="bg-slate-50/50">
                         <TableRow className="border-b-orange-50">
                           <TableHead className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                            DestinatÃ¡rio
+                            Destinatário
                           </TableHead>
                           <TableHead className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">
                             Status
                           </TableHead>
                           <TableHead className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                            HorÃ¡rio
+                            Horário
                           </TableHead>
                           <TableHead className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                            ObservaÃ§Ã£o
+                            Observação
                           </TableHead>
                         </TableRow>
                       </TableHeader>

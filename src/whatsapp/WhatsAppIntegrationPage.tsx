@@ -67,11 +67,11 @@ const formatLastActivity = (lastSync?: string) => {
   const diffMs = now.getTime() - date.getTime();
   const diffMins = Math.floor(diffMs / 60000);
   if (diffMins < 1) return "Agora mesmo";
-  if (diffMins < 60) return `HÃ¡ ${diffMins} minutos`;
+  if (diffMins < 60) return `Há ${diffMins} minutos`;
   const diffHours = Math.floor(diffMins / 60);
-  if (diffHours < 24) return `HÃ¡ ${diffHours} hora${diffHours > 1 ? "s" : ""}`;
+  if (diffHours < 24) return `Há ${diffHours} hora${diffHours > 1 ? "s" : ""}`;
   const diffDays = Math.floor(diffHours / 24);
-  return `HÃ¡ ${diffDays} dia${diffDays > 1 ? "s" : ""}`;
+  return `Há ${diffDays} dia${diffDays > 1 ? "s" : ""}`;
 };
 
 const WhatsAppIntegrationPage: React.FC = () => {
@@ -241,7 +241,7 @@ const WhatsAppIntegrationPage: React.FC = () => {
       toast({
         title: "Erro ao adicionar dispositivo",
         description:
-          "NÃ£o foi possÃ­vel criar ou gerar o QR Code. Tente novamente.",
+          "Não foi possível criar ou gerar o QR Code. Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -264,7 +264,7 @@ const WhatsAppIntegrationPage: React.FC = () => {
     } catch (error) {
       toast({
         title: "Erro ao conectar",
-        description: "NÃ£o foi possÃ­vel gerar o QR Code. Tente novamente.",
+        description: "Não foi possível gerar o QR Code. Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -286,7 +286,7 @@ const WhatsAppIntegrationPage: React.FC = () => {
       }
       toast({
         title: "Dispositivo desconectado",
-        description: "A instÃ¢ncia foi desconectada com sucesso.",
+        description: "A instância foi desconectada com sucesso.",
       });
     } catch (error) {
       toast({
@@ -302,8 +302,8 @@ const WhatsAppIntegrationPage: React.FC = () => {
   const handleTestMessage = async () => {
     if (!testPhoneNumber) {
       toast({
-        title: "NÃºmero obrigatÃ³rio",
-        description: "Digite um nÃºmero para testar o envio.",
+        title: "Número obrigatório",
+        description: "Digite um número para testar o envio.",
         variant: "destructive",
       });
       return;
@@ -321,7 +321,7 @@ const WhatsAppIntegrationPage: React.FC = () => {
     try {
       await whatsappService.testMessage(
         testPhoneNumber,
-        "OlÃ¡! Este Ã© um teste da integraÃ§Ã£o WhatsApp do Upsprints. Sua conexÃ£o estÃ¡ funcionando corretamente! ðŸš€",
+        "Olá! Este é um teste da integração WhatsApp do Upsprints. Sua conexão está funcionando corretamente! ðŸš€",
         selectedDeviceId || undefined
       );
       toast({
@@ -331,7 +331,7 @@ const WhatsAppIntegrationPage: React.FC = () => {
     } catch (error) {
       toast({
         title: "Erro no envio",
-        description: "NÃ£o foi possÃ­vel enviar a mensagem de teste.",
+        description: "Não foi possível enviar a mensagem de teste.",
         variant: "destructive",
       });
     } finally {
@@ -362,7 +362,7 @@ const WhatsAppIntegrationPage: React.FC = () => {
     } catch (error) {
       toast({
         title: "Erro ao atualizar",
-        description: "NÃ£o foi possÃ­vel alterar o nome do dispositivo.",
+        description: "Não foi possível alterar o nome do dispositivo.",
         variant: "destructive",
       });
     }
@@ -384,14 +384,14 @@ const WhatsAppIntegrationPage: React.FC = () => {
         prev ? { ...prev, isNotificationOnly: val } : null
       );
       toast({
-        title: "ConfiguraÃ§Ã£o atualizada",
-        description: `O dispositivo foi definido como ${val ? "apenas para notificaÃ§Ãµes" : "padrÃ£o"
+        title: "Configuração atualizada",
+        description: `O dispositivo foi definido como ${val ? "apenas para notificações" : "padrão"
           }.`,
       });
     } catch (error) {
       toast({
         title: "Erro ao atualizar",
-        description: "NÃ£o foi possÃ­vel alterar a configuraÃ§Ã£o.",
+        description: "Não foi possível alterar a configuração.",
         variant: "destructive",
       });
     }
@@ -412,12 +412,12 @@ const WhatsAppIntegrationPage: React.FC = () => {
       toast({
         title: "Vendedor vinculado",
         description:
-          "Conversas recebidas por este nÃºmero serÃ£o atribuÃ­das a ele.",
+          "Conversas recebidas por este número serão atribuídas a ele.",
       });
     } catch (error) {
       toast({
         title: "Erro ao vincular",
-        description: "NÃ£o foi possÃ­vel vincular o vendedor a este dispositivo.",
+        description: "Não foi possível vincular o vendedor a este dispositivo.",
         variant: "destructive",
       });
     } finally {
@@ -475,11 +475,11 @@ const WhatsAppIntegrationPage: React.FC = () => {
         <div>
           <h2 className="text-2xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
             <MessageCircle className="w-6 h-6 text-blue-600" />
-            IntegraÃ§Ã£o WhatsApp
+            Integração WhatsApp
           </h2>
           <p className="text-slate-500 text-sm mt-1">
             Gerencie seus dispositivos WhatsApp. Cada dispositivo tem seu
-            prÃ³prio nÃºmero e conversas.
+            próprio número e conversas.
           </p>
         </div>
         <Button
@@ -513,7 +513,7 @@ const WhatsAppIntegrationPage: React.FC = () => {
                   <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <Input
-                      placeholder="Buscar dispositivo ou nÃºmero..."
+                      placeholder="Buscar dispositivo ou número..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="pl-9"
@@ -546,13 +546,13 @@ const WhatsAppIntegrationPage: React.FC = () => {
                         Nome do dispositivo
                       </TableHead>
                       <TableHead className="text-[10px] uppercase tracking-widest font-bold text-slate-400">
-                        NÃºmero
+                        Número
                       </TableHead>
                       <TableHead className="text-[10px] uppercase tracking-widest font-bold text-slate-400">
-                        Ãšltima atividade
+                        Última atividade
                       </TableHead>
                       <TableHead className="text-[10px] uppercase tracking-widest font-bold text-slate-400 text-right">
-                        AÃ§Ãµes
+                        Ações
                       </TableHead>
                     </TableRow>
                   </TableHeader>
@@ -564,7 +564,7 @@ const WhatsAppIntegrationPage: React.FC = () => {
                           className="text-center py-12 text-slate-500"
                         >
                           Nenhum dispositivo encontrado. Adicione um dispositivo
-                          para comeÃ§ar.
+                          para começar.
                         </TableCell>
                       </TableRow>
                     ) : (
@@ -664,7 +664,7 @@ const WhatsAppIntegrationPage: React.FC = () => {
                         <ChevronLeft className="w-4 h-4" />
                       </Button>
                       <span className="text-xs font-medium text-slate-600">
-                        PÃ¡gina {page} de {Math.max(1, totalPages)}
+                        Página {page} de {Math.max(1, totalPages)}
                       </span>
                       <Button
                         variant="ghost"
@@ -683,14 +683,14 @@ const WhatsAppIntegrationPage: React.FC = () => {
               </CardContent>
             </Card>
 
-            {/* Painel direito - VisÃ£o RÃ¡pida */}
+            {/* Painel direito - Visão Rápida */}
             <Card className="xl:w-[42%] min-w-0">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base font-bold">
-                  VisÃ£o RÃ¡pida
+                  Visão Rápida
                 </CardTitle>
                 <CardDescription>
-                  Detalhes e mÃ©tricas do dispositivo selecionado
+                  Detalhes e métricas do dispositivo selecionado
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -783,14 +783,14 @@ const WhatsAppIntegrationPage: React.FC = () => {
                             htmlFor="notif-only"
                             className="text-xs text-slate-600 cursor-pointer"
                           >
-                            Apenas NotificaÃ§Ãµes (Usado para enviar notificaÃ§Ãµes
+                            Apenas Notificações (Usado para enviar notificações
                             para o WhatsApp)
                           </Label>
                         </div>
 
                         <div className="mt-4 pt-4 border-t border-slate-100">
                           <Label className="text-xs text-slate-800 font-bold mb-1.5 block">
-                            Vendedor ResponsÃ¡vel
+                            Vendedor Responsável
                           </Label>
                           <SingleUserSelector
                             selectedUser={deviceMember || ""}
@@ -803,8 +803,8 @@ const WhatsAppIntegrationPage: React.FC = () => {
                             }
                           />
                           <p className="text-[10px] text-slate-500 mt-1">
-                            Novas conversas neste nÃºmero serÃ£o atribuÃ­das
-                            automaticamente a este usuÃ¡rio.
+                            Novas conversas neste número serão atribuídas
+                            automaticamente a este usuário.
                           </p>
                         </div>
                       </div>
@@ -865,7 +865,7 @@ const WhatsAppIntegrationPage: React.FC = () => {
                       <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-50 border border-blue-100">
                         <span className="w-2 h-2 rounded-full bg-blue-500" />
                         <p className="text-xs text-blue-800 font-medium">
-                          Status da instÃ¢ncia: Conectado
+                          Status da instância: Conectado
                         </p>
                       </div>
                     )}
@@ -878,7 +878,7 @@ const WhatsAppIntegrationPage: React.FC = () => {
                     </p>
                     <p className="text-xs text-slate-500 mt-1">
                       Clique em um dispositivo na lista para ver os detalhes e
-                      mÃ©tricas
+                      métricas
                     </p>
                   </div>
                 )}
@@ -921,7 +921,7 @@ const WhatsAppIntegrationPage: React.FC = () => {
                   Escaneie este QR Code com seu WhatsApp
                 </p>
                 <p className="text-xs text-slate-500 text-center mt-2">
-                  Abra o WhatsApp â†’ ConfiguraÃ§Ãµes â†’ Aparelhos conectados â†’
+                  Abra o WhatsApp â†’ Configurações â†’ Aparelhos conectados â†’
                   Conectar um aparelho
                 </p>
               </div>
@@ -931,29 +931,29 @@ const WhatsAppIntegrationPage: React.FC = () => {
           <div className="bg-amber-50 rounded-xl p-4 border border-amber-200/50 space-y-3">
             <div className="flex items-center gap-2 text-amber-800 font-semibold text-sm">
               <Info className="w-4 h-4" />
-              Regras e RecomendaÃ§Ãµes de ConexÃ£o (Evite Quedas)
+              Regras e Recomendações de Conexão (Evite Quedas)
             </div>
             <ul className="text-sm text-amber-700/90 space-y-2 list-disc pl-4">
               <li>
-                <strong className="text-amber-800">WhatsApp Business:</strong> Ã‰
-                extremamente recomendado que o nÃºmero conectado utilize o
-                aplicativo WhatsApp Business, pois as contas pessoais tÃªm regras
+                <strong className="text-amber-800">WhatsApp Business:</strong> É
+                extremamente recomendado que o número conectado utilize o
+                aplicativo WhatsApp Business, pois as contas pessoais têm regras
                 de bloqueio mais agressivas.
               </li>
               <li>
                 <strong className="text-amber-800">Regra dos 14 dias:</strong>{" "}
-                Se o seu nÃºmero principal (aparelho celular) nÃ£o abrir o
+                Se o seu número principal (aparelho celular) não abrir o
                 WhatsApp por mais de 14 dias ou ficar sem internet, o WhatsApp
-                Web (e consequentemente esta API) serÃ¡ desconectado
-                automaticamente por seguranÃ§a da Meta.
+                Web (e consequentemente esta API) será desconectado
+                automaticamente por segurança da Meta.
               </li>
               <li>
                 <strong className="text-amber-800">
                   Bloqueios ou Comportamento Suspeito:
                 </strong>{" "}
-                Envio em massa de campanhas sem "aquecimento" prÃ©vio do nÃºmero
-                ou mÃºltiplos registros de pessoas reportando o nÃºmero como spam
-                resultarÃ£o em desconexÃµes forÃ§adas e risco de banimento da
+                Envio em massa de campanhas sem "aquecimento" prévio do número
+                ou múltiplos registros de pessoas reportando o número como spam
+                resultarão em desconexões forçadas e risco de banimento da
                 conta.
               </li>
             </ul>
@@ -965,7 +965,7 @@ const WhatsAppIntegrationPage: React.FC = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Send className="w-5 h-5 text-orange-600" />
-                Validar ConexÃ£o
+                Validar Conexão
               </CardTitle>
               <CardDescription>
                 Selecione um dispositivo conectado na aba Dispositivos e envie
@@ -974,7 +974,7 @@ const WhatsAppIntegrationPage: React.FC = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                <Label htmlFor="test-phone">NÃºmero de Telefone</Label>
+                <Label htmlFor="test-phone">Número de Telefone</Label>
                 <div className="flex gap-2">
                   <Input
                     id="test-phone"
@@ -997,7 +997,7 @@ const WhatsAppIntegrationPage: React.FC = () => {
                   </Button>
                 </div>
                 <p className="text-[10px] text-slate-400">
-                  Use o formato DDI + DDD + NÃºmero (ex: 5592999999999)
+                  Use o formato DDI + DDD + Número (ex: 5592999999999)
                 </p>
               </div>
             </CardContent>

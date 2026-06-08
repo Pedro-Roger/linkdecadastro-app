@@ -123,7 +123,7 @@ const AudioMessagePlayer = ({
           )}
         />
         <span className="text-[10px] font-bold text-slate-600 min-w-[28px]">
-          {content.replace("[Ãudio] ", "").replace("[Ãudio]", "0:00")}
+          {content.replace("[Áudio] ", "").replace("[Áudio]", "0:00")}
         </span>
       </div>
     </div>
@@ -146,7 +146,7 @@ export const MessageList = forwardRef<HTMLDivElement, MessageListProps>(
     const formatMediaUrl = (url: string, type: string) => {
       if (!url) return "";
 
-      // Se for uma URL completa, blob, path relativo, ou base64 jÃ¡ prÃ©-formatado
+      // Se for uma URL completa, blob, path relativo, ou base64 já pré-formatado
       if (
         url.startsWith("http") ||
         url.startsWith("data:") ||
@@ -154,12 +154,12 @@ export const MessageList = forwardRef<HTMLDivElement, MessageListProps>(
         url.startsWith("/") ||
         url.includes("localhost")
       ) {
-        // CorreÃ§Ã£o especÃ­fica se vier algo sem http localmente (ex: localhost:3000/media...)
+        // Correção específica se vier algo sem http localmente (ex: localhost:3000/media...)
         if (url.startsWith("localhost")) return `http://${url}`;
         return url;
       }
 
-      // Se a string for relativamente curta e nÃ£o parecer um base64 (base64 costuma ter dezenas de kbps)
+      // Se a string for relativamente curta e não parecer um base64 (base64 costuma ter dezenas de kbps)
       if (url.length < 500 && !url.includes(";base64,")) {
         // Talvez seja uma URL faltando o 'https://' do S3/Evolution
         if (
@@ -167,10 +167,10 @@ export const MessageList = forwardRef<HTMLDivElement, MessageListProps>(
           url.includes("storage.googleapis.com")
         )
           return `https://${url}`;
-        if (!url.includes("/")) return url; // Se nÃ£o tem barras e Ã© curto, deixe como estÃ¡
+        if (!url.includes("/")) return url; // Se não tem barras e é curto, deixe como está
       }
 
-      // Caso contrÃ¡rio, injeta a tipagem MIME no Base64 RAW pra o navegador aceitar.
+      // Caso contrário, injeta a tipagem MIME no Base64 RAW pra o navegador aceitar.
       let mimeType = "application/octet-stream";
       if (type === "audio") mimeType = "audio/ogg";
       else if (type === "image") mimeType = "image/jpeg";
@@ -221,7 +221,7 @@ export const MessageList = forwardRef<HTMLDivElement, MessageListProps>(
               participantInfo?.name ||
               msg.push_name ||
               participantId.split("@")[0] ||
-              "UsuÃ¡rio";
+              "Usuário";
             const senderPic =
               participantInfo?.profilePic || msg.sender_profile_pic_url;
 
@@ -344,8 +344,8 @@ export const MessageList = forwardRef<HTMLDivElement, MessageListProps>(
                   {/* Hide content if it is just the placeholder, otherwise show as caption */}
                   {![
                     "[Imagem]",
-                    "[VÃ­deo]",
-                    "[Ãudio]",
+                    "[Vídeo]",
+                    "[Áudio]",
                     "[Documento]",
                     "[GIF]",
                     "[Figurinha]",

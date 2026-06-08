@@ -93,7 +93,7 @@ export const ProductCatalogModal: React.FC<ProductCatalogModalProps> = ({
         <DialogHeader className="p-6 border-b border-slate-100">
           <DialogTitle className="flex items-center gap-2 text-xl font-bold text-slate-800">
             <ShoppingBag className="w-5 h-5 text-orange-600" />
-            CatÃ¡logo de Produtos
+            Catálogo de Produtos
           </DialogTitle>
           <div className="relative mt-4">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -144,7 +144,7 @@ export const ProductCatalogModal: React.FC<ProductCatalogModalProps> = ({
                       {product.name}
                     </h3>
                     <p className="text-xs text-slate-500 line-clamp-2 mb-3 flex-1">
-                      {product.description || "Sem descriÃ§Ã£o"}
+                      {product.description || "Sem descrição"}
                     </p>
                     <div className="flex items-center justify-between text-xs text-slate-400 mt-auto pt-3 border-t border-slate-50">
                       <span>SKU: {product.sku || "-"}</span>

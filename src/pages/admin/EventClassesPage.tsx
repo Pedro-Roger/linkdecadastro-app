@@ -136,15 +136,15 @@ export default function EventClassesPage({ eventIdProp, onClose }: { eventIdProp
     { key: 'city', label: 'Cidade' },
     { key: 'state', label: 'Estado' },
     { key: 'participantType', label: 'Tipo de Participante' },
-    { key: 'otherType', label: 'O que vocÃª Ã©?' },
+    { key: 'otherType', label: 'O que você é?' },
     { key: 'pondCount', label: 'Quantidade de Viveiros' },
-    { key: 'waterArea', label: "LÃ¢mina d'Ã¡gua (ha)" },
+    { key: 'waterArea', label: "Lâmina d'água (ha)" },
     { key: 'classNumber', label: 'Turma' },
     { key: 'status', label: 'Status' },
     { key: 'createdAt', label: 'Data de Cadastro' },
   ]
 
-  // FunÃ§Ã£o para agrupar dados localmente (fallback quando backend falha)
+  // Função para agrupar dados localmente (fallback quando backend falha)
   const groupRegistrationsByRegion = (registrations: Registration[]): RegionsData => {
     const regionsMap = new Map<string, MunicipalityLimit>()
     const byParticipantTypeOverall: Record<string, number> = {}
@@ -248,8 +248,8 @@ export default function EventClassesPage({ eventIdProp, onClose }: { eventIdProp
         const registrationsData = await apiFetch<{ registrations: Registration[] } | Registration[]>(`/admin/events/${eventId}/registrations`, { auth: true })
         const registrations = Array.isArray(registrationsData) ? registrationsData : registrationsData.registrations
 
-        // Agora construÃ­mos os dados agrupados client-side
-        // Isso garante que temos a lista de alunos e evita o 404 do endpoint /regions se ele nÃ£o existir
+        // Agora construímos os dados agrupados client-side
+        // Isso garante que temos a lista de alunos e evita o 404 do endpoint /regions se ele não existir
         const groupedData = groupRegistrationsByRegion(registrations)
         setRegionsData(groupedData)
 
@@ -278,12 +278,12 @@ export default function EventClassesPage({ eventIdProp, onClose }: { eventIdProp
   }, [authLoading, isAuthenticated, user, eventId, fetchData, navigate])
 
   const handleUpdateLimit = async (limitId: string) => {
-    alert('A ediÃ§Ã£o de limites requer endpoint especÃ­fico do backend.')
+    alert('A edição de limites requer endpoint específico do backend.')
     setEditingLimit(null)
   }
 
   const handleCloseClass = async (classId: string) => {
-    alert('O encerramento de turmas requer endpoint especÃ­fico do backend.')
+    alert('O encerramento de turmas requer endpoint específico do backend.')
   }
 
   const getParticipantTypeLabel = (type: string) => {
@@ -296,7 +296,7 @@ export default function EventClassesPage({ eventIdProp, onClose }: { eventIdProp
     return labels[type] || type
   }
 
-  /* ExportaÃ§Ã£o Client-Side */
+  /* Exportação Client-Side */
   const exportToClientSide = (
     data: any[],
     filename: string,
@@ -338,7 +338,7 @@ export default function EventClassesPage({ eventIdProp, onClose }: { eventIdProp
       'Cidade': student.city,
       'Estado': student.state,
       'Tipo': getParticipantTypeLabel(student.participantType || ''),
-      'Data InscriÃ§Ã£o': format(new Date(student.createdAt), 'dd/MM/yyyy HH:mm', { locale: ptBR }),
+      'Data Inscrição': format(new Date(student.createdAt), 'dd/MM/yyyy HH:mm', { locale: ptBR }),
     }));
   };
 
@@ -367,7 +367,7 @@ export default function EventClassesPage({ eventIdProp, onClose }: { eventIdProp
     }
 
     if (!targetClass || !targetRegion) {
-      alert('Turma nÃ£o encontrada.');
+      alert('Turma não encontrada.');
       return;
     }
 
@@ -403,7 +403,7 @@ export default function EventClassesPage({ eventIdProp, onClose }: { eventIdProp
 
       if (exportScope) {
         // Se o ID parece um ObjectId do MongoDB (24 caracteres hex), usa municipalityId
-        // Caso contrÃ¡rio (como city-state), usa city e state
+        // Caso contrário (como city-state), usa city e state
         const isObjectId = /^[0-9a-fA-F]{24}$/.test(exportScope.id || '');
 
         if (exportScope.id && isObjectId) {
@@ -484,8 +484,8 @@ export default function EventClassesPage({ eventIdProp, onClose }: { eventIdProp
 
   return (
     <div className={eventIdProp ? "" : "min-h-screen bg-gray-50 flex flex-col"}>
-      {/* ... resto do cÃ³digo ... */}
-      {/* Vou injetar o botÃ£o no outro bloco replace abaixo, aqui sÃ³ a funÃ§Ã£o */}
+      {/* ... resto do código ... */}
+      {/* Vou injetar o botão no outro bloco replace abaixo, aqui só a função */}
 
       {!eventIdProp && <MobileNavbar />}
 
@@ -545,7 +545,7 @@ export default function EventClassesPage({ eventIdProp, onClose }: { eventIdProp
               <AlertTriangle size={18} />
             </div>
             <p className="text-[11px] text-amber-800 font-bold uppercase tracking-wide">
-              Modo de visualizaÃ§Ã£o client-side: Os alunos foram agrupados por cidade para otimizaÃ§Ã£o.
+              Modo de visualização client-side: Os alunos foram agrupados por cidade para otimização.
             </p>
           </div>
 
@@ -553,7 +553,7 @@ export default function EventClassesPage({ eventIdProp, onClose }: { eventIdProp
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             {[
               { label: 'Total Geral', value: regionsData.overall.totalRegistrations, icon: <Users size={16} />, color: 'bg-indigo-50 text-indigo-600' },
-              { label: 'MunicÃ­pios', value: regionsData.regions.length, icon: <MapPin size={16} />, color: 'bg-emerald-50 text-emerald-600' },
+              { label: 'Municípios', value: regionsData.regions.length, icon: <MapPin size={16} />, color: 'bg-emerald-50 text-emerald-600' },
               { label: 'Turmas Ativas', value: regionsData.regions.reduce((acc, r) => acc + r.classes.filter(c => c.status === 'ACTIVE').length, 0), icon: <Layers size={16} />, color: 'bg-blue-50 text-blue-600' },
               { label: 'Participantes', value: Object.values(regionsData.overall.byParticipantType).reduce((a, b) => a + b, 0), icon: <UserCheck size={16} />, color: 'bg-violet-50 text-violet-600' },
             ].map((stat, i) => (
@@ -589,7 +589,7 @@ export default function EventClassesPage({ eventIdProp, onClose }: { eventIdProp
           {filteredRegions.length === 0 ? (
             <div className="bg-white rounded-lg shadow-md p-12 text-center">
               <p className="text-gray-500 text-lg">
-                Nenhum municÃ­pio ou cadastro encontrado para sua busca.
+                Nenhum município ou cadastro encontrado para sua busca.
               </p>
             </div>
           ) : (
@@ -627,7 +627,7 @@ export default function EventClassesPage({ eventIdProp, onClose }: { eventIdProp
                         className="bg-white text-[var(--secondary)] border border-[var(--border-light)] px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-100 transition-all flex items-center gap-2 shadow-sm"
                       >
                         <Download size={14} />
-                        Exportar MunicÃ­pio
+                        Exportar Município
                       </button>
                     </div>
                   </div>
@@ -747,7 +747,7 @@ export default function EventClassesPage({ eventIdProp, onClose }: { eventIdProp
                                                 <th className="px-4 py-3 text-left text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest">Aluno</th>
                                                 <th className="px-4 py-3 text-left text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest">CPF</th>
                                                 <th className="px-4 py-3 text-left text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest">Contato</th>
-                                                <th className="px-4 py-3 text-right text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest">InscriÃ§Ã£o</th>
+                                                <th className="px-4 py-3 text-right text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest">Inscrição</th>
                                               </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-100">

@@ -72,7 +72,7 @@ const CampaignListPage: React.FC = () => {
       case "completed":
         return (
           <Badge className="bg-blue-100 text-blue-700 border-none hover:bg-blue-100 flex items-center gap-1 w-fit">
-            <CheckCircle2 className="w-3 h-3" /> ConcluÃ­da
+            <CheckCircle2 className="w-3 h-3" /> Concluída
           </Badge>
         );
       case "processing":
@@ -153,7 +153,7 @@ const CampaignListPage: React.FC = () => {
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-2">
               <span className="text-orange-600 font-semibold text-sm">
-                Progresso MÃ©dio
+                Progresso Médio
               </span>
               <Clock className="w-4 h-4 text-orange-400" />
             </div>
@@ -209,10 +209,10 @@ const CampaignListPage: React.FC = () => {
                   Progresso
                 </TableHead>
                 <TableHead className="font-bold text-slate-700">
-                  Data de CriaÃ§Ã£o
+                  Data de Criação
                 </TableHead>
                 <TableHead className="text-right font-bold text-slate-700">
-                  AÃ§Ãµes
+                  Ações
                 </TableHead>
               </TableRow>
             </TableHeader>

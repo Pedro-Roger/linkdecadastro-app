@@ -21,7 +21,7 @@ interface ChatHeaderProps {
   selectedConversation: WhatsAppConversation;
   instances: WhatsAppInstance[];
   instance: WhatsAppInstance | null;
-  user: any; // Ajustar tipagem do user se possÃ­vel
+  user: any; // Ajustar tipagem do user se possível
   onAssumeConversation: () => void;
   onTransferConversation: (targetUserId: string) => void;
   transferPopoverOpen: boolean;

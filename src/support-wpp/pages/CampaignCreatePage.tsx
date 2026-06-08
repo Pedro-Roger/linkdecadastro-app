@@ -139,7 +139,7 @@ const CampaignCreatePage: React.FC = () => {
     if (!phone) {
       toast({
         title: "Aviso",
-        description: "Este cliente nÃ£o possui telefone cadastrado.",
+        description: "Este cliente não possui telefone cadastrado.",
         variant: "warning",
       });
       return;
@@ -149,7 +149,7 @@ const CampaignCreatePage: React.FC = () => {
     if (alreadyExists) {
       toast({
         title: "Aviso",
-        description: "Contato jÃ¡ adicionado.",
+        description: "Contato já adicionado.",
       });
       return;
     }
@@ -182,7 +182,7 @@ const CampaignCreatePage: React.FC = () => {
 
         allNewContacts = [...allNewContacts, ...batch];
 
-        // Verifica se ainda tem pÃ¡ginas para buscar
+        // Verifica se ainda tem páginas para buscar
         if (page >= response.totalPage || response.data.length < limit) {
           hasMore = false;
         } else {
@@ -200,12 +200,12 @@ const CampaignCreatePage: React.FC = () => {
 
       setAllClientsSelected(true);
       toast({
-        title: "ImportaÃ§Ã£o ConcluÃ­da",
+        title: "Importação Concluída",
         description: `${allNewContacts.length} contatos foram processados e adicionados.`,
       });
     } catch (error) {
       toast({
-        title: "Erro na ImportaÃ§Ã£o",
+        title: "Erro na Importação",
         description:
           "Ocorreu uma falha ao tentar buscar todos os clientes da base.",
         variant: "destructive",
@@ -234,7 +234,7 @@ const CampaignCreatePage: React.FC = () => {
       toast({
         title: "Erro",
         description:
-          "Formato invÃ¡lido. Use 'Nome, Telefone' ou apenas o telefone por linha.",
+          "Formato inválido. Use 'Nome, Telefone' ou apenas o telefone por linha.",
         variant: "destructive",
       });
       return;
@@ -259,7 +259,7 @@ const CampaignCreatePage: React.FC = () => {
   };
 
   const getPreviewMessage = () => {
-    if (!messageTemplate) return "Sua mensagem aparecerÃ¡ aqui...";
+    if (!messageTemplate) return "Sua mensagem aparecerá aqui...";
     const firstContactName = contacts.length > 0 ? contacts[0].name : "Cliente";
     return messageTemplate
       .replace(/{{nome}}/gi, firstContactName)
@@ -273,7 +273,7 @@ const CampaignCreatePage: React.FC = () => {
       toast({
         title: "Erro",
         description:
-          "Preencha todos os campos obrigatÃ³rios e adicione pelo menos um contato.",
+          "Preencha todos os campos obrigatórios e adicione pelo menos um contato.",
         variant: "destructive",
       });
       return;
@@ -297,7 +297,7 @@ const CampaignCreatePage: React.FC = () => {
     } catch (error) {
       toast({
         title: "Erro",
-        description: "NÃ£o foi possÃ­vel criar a campanha.",
+        description: "Não foi possível criar a campanha.",
         variant: "destructive",
       });
     } finally {
@@ -326,7 +326,7 @@ const CampaignCreatePage: React.FC = () => {
               <span className="text-slate-900 font-bold">Criar Nova</span>
             </div>
             <h1 className="text-3xl font-black text-slate-900 tracking-tighter">
-              LanÃ§amento de Campanha
+              Lançamento de Campanha
             </h1>
           </div>
         </div>
@@ -366,10 +366,10 @@ const CampaignCreatePage: React.FC = () => {
                     <div className="h-10 w-10 rounded-xl bg-orange-600 flex items-center justify-center shadow-lg shadow-orange-200">
                       <Info className="w-5 h-5 text-white" />
                     </div>
-                    ConteÃºdo e Canal
+                    Conteúdo e Canal
                   </CardTitle>
                   <CardDescription className="text-slate-500 mt-2">
-                    Defina o que serÃ¡ enviado e por qual canal.
+                    Defina o que será enviado e por qual canal.
                   </CardDescription>
                 </div>
               </div>
@@ -381,7 +381,7 @@ const CampaignCreatePage: React.FC = () => {
                     htmlFor="campaign-name"
                     className="text-sm font-bold text-slate-700"
                   >
-                    IdentificaÃ§Ã£o da Campanha
+                    Identificação da Campanha
                   </Label>
                   <Input
                     id="campaign-name"
@@ -410,7 +410,7 @@ const CampaignCreatePage: React.FC = () => {
                       {loadingInstances ? (
                         <div className="p-4 flex items-center gap-3 text-sm text-slate-500 italic">
                           <Loader2 className="w-5 h-5 animate-spin text-orange-500" />{" "}
-                          Carregando canais disponÃ­veis...
+                          Carregando canais disponíveis...
                         </div>
                       ) : (
                         instances.map((instance) => (
@@ -448,14 +448,14 @@ const CampaignCreatePage: React.FC = () => {
                     htmlFor="campaign-message"
                     className="text-lg font-black text-slate-900 tracking-tight"
                   >
-                    ComposiÃ§Ã£o da Mensagem
+                    Composição da Mensagem
                   </Label>
                   <div className="flex gap-2">
                     <Badge
                       variant="secondary"
                       className="bg-orange-600 text-white hover:bg-orange-700 px-3 py-1 font-bold rounded-lg border-none"
                     >
-                      VariÃ¡veis: {"{{nome}}"} ou {"{{name}}"}
+                      Variáveis: {"{{nome}}"} ou {"{{name}}"}
                     </Badge>
                   </div>
                 </div>
@@ -464,7 +464,7 @@ const CampaignCreatePage: React.FC = () => {
                   <div className="space-y-4">
                     <Textarea
                       id="campaign-message"
-                      placeholder="OlÃ¡ {{nome}}, tudo bem?"
+                      placeholder="Olá {{nome}}, tudo bem?"
                       className="min-h-[300px] text-lg rounded-3xl resize-none focus:ring-4 focus:ring-orange-50 focus:border-orange-500 p-8 leading-relaxed shadow-inner bg-slate-50/30 border-slate-200"
                       value={messageTemplate}
                       onChange={(e) => setMessageTemplate(e.target.value)}
@@ -472,16 +472,16 @@ const CampaignCreatePage: React.FC = () => {
                     <div className="flex items-start gap-4 bg-amber-50 rounded-2xl p-5 border border-amber-100">
                       <AlertCircle className="w-6 h-6 text-amber-500 shrink-0 mt-1" />
                       <p className="text-xs text-amber-800 font-medium leading-relaxed">
-                        <strong>Evite spam:</strong> Recomendamos nÃ£o enviar
-                        links externos em massa se o seu nÃºmero for novo.
-                        Procure manter uma cadÃªncia humana nos disparos.
+                        <strong>Evite spam:</strong> Recomendamos não enviar
+                        links externos em massa se o seu número for novo.
+                        Procure manter uma cadência humana nos disparos.
                       </p>
                     </div>
                   </div>
 
                   <div className="space-y-4">
                     <Label className="text-sm font-bold text-slate-500 uppercase tracking-widest">
-                      VisualizaÃ§Ã£o em Tempo Real
+                      Visualização em Tempo Real
                     </Label>
                     <div className="bg-slate-100 rounded-[2.5rem] p-6 h-[300px] border-4 border-slate-200 relative overflow-hidden shadow-2xl">
                       <div className="bg-[#e5ddd5] absolute inset-0 opacity-40"></div>
@@ -495,7 +495,7 @@ const CampaignCreatePage: React.FC = () => {
                           </span>
                         </div>
                         <div className="text-center w-full py-4 text-[10px] font-bold text-slate-500/50 uppercase tracking-widest">
-                          PrÃ©via do WhatsApp
+                          Prévia do WhatsApp
                         </div>
                       </div>
                     </div>
@@ -507,7 +507,7 @@ const CampaignCreatePage: React.FC = () => {
                         </span>
                       </div>
                       <p className="text-[11px] text-orange-700 leading-normal">
-                        Ao usar <code>{"{{nome}}"}</code>, o sistema substituirÃ¡
+                        Ao usar <code>{"{{nome}}"}</code>, o sistema substituirá
                         automaticamente pelo nome real do cliente na sua lista.
                       </p>
                     </div>
@@ -529,10 +529,10 @@ const CampaignCreatePage: React.FC = () => {
                     <div className="h-12 w-12 rounded-2xl bg-orange-600 flex items-center justify-center shadow-xl shadow-orange-100">
                       <Users className="w-6 h-6 text-white" />
                     </div>
-                    Lista de DestinatÃ¡rios
+                    Lista de Destinatários
                   </CardTitle>
                   <CardDescription className="ml-16 mt-1 text-slate-500 font-medium">
-                    Gerencie todos os nÃºmeros que receberÃ£o esta campanha.
+                    Gerencie todos os números que receberão esta campanha.
                   </CardDescription>
                 </div>
                 <div className="flex items-center gap-4 ml-16 lg:ml-0">
@@ -568,11 +568,11 @@ const CampaignCreatePage: React.FC = () => {
                   </div>
                   <div className="max-w-sm px-6">
                     <h3 className="text-xl font-black text-slate-800 mb-2">
-                      Sua lista estÃ¡ vazia
+                      Sua lista está vazia
                     </h3>
                     <p className="text-sm text-slate-500 font-medium leading-relaxed">
                       Utilize o painel lateral para buscar clientes na sua base
-                      ou adicione contatos manualmente para comeÃ§ar.
+                      ou adicione contatos manualmente para começar.
                     </p>
                   </div>
                 </div>
@@ -582,10 +582,10 @@ const CampaignCreatePage: React.FC = () => {
                     <thead>
                       <tr className="bg-slate-50/50 border-b border-slate-100">
                         <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] w-24">
-                          PosiÃ§Ã£o
+                          Posição
                         </th>
                         <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
-                          Nome do DestinatÃ¡rio
+                          Nome do Destinatário
                         </th>
                         <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
                           WhatsApp
@@ -731,7 +731,7 @@ const CampaignCreatePage: React.FC = () => {
             <CardHeader className="bg-slate-50/80 border-b border-slate-100 py-8 px-8">
               <CardTitle className="text-lg font-black text-slate-900 flex items-center gap-3">
                 <UserPlus className="w-5 h-5 text-orange-500" />
-                GestÃ£o de Lista
+                Gestão de Lista
               </CardTitle>
             </CardHeader>
             <CardContent className="p-8 space-y-8">
@@ -821,7 +821,7 @@ const CampaignCreatePage: React.FC = () => {
                   className="w-full h-12 rounded-xl font-black text-xs shadow-sm active:scale-95 transition-all"
                   onClick={handleAddManualContacts}
                 >
-                  ADICIONAR Ã€ LISTA
+                  ADICIONAR À LISTA
                 </Button>
               </div>
             </CardContent>

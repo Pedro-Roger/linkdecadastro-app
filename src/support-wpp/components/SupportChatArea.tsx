@@ -80,7 +80,7 @@ export const SupportChatArea: React.FC<SupportChatAreaProps> = ({
           Inbox de Atendimento
         </h3>
         <p className="max-w-xs mt-3 text-slate-400 font-medium">
-          Selecione uma conversa na lateral para comeÃ§ar a interagir em tempo
+          Selecione uma conversa na lateral para começar a interagir em tempo
           real com seu cliente.
         </p>
       </div>

@@ -42,11 +42,11 @@ export const MessageInput: React.FC<MessageInputProps> = ({
           className="rounded-full bg-slate-50 border-slate-200 text-slate-600 text-[11px] font-bold gap-1.5 whitespace-nowrap h-8"
         >
           <Filter className="w-3.5 h-3.5" />
-          Respostas RÃ¡pidas
+          Respostas Rápidas
         </Button>
         {/* Mock suggestions */}
         {[
-          "OlÃ¡, tudo bem?",
+          "Olá, tudo bem?",
           "Vou verificar agora",
           "Pode me enviar o comprovante?",
         ].map((s) => (
@@ -73,7 +73,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
             size="icon"
             className="h-10 w-10 text-slate-400 hover:text-orange-600 rounded-xl"
             onClick={onOpenProductCatalog}
-            title="CatÃ¡logo de Produtos"
+            title="Catálogo de Produtos"
           >
             <ShoppingBag className="w-5 h-5" />
           </Button>

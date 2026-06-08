@@ -45,7 +45,7 @@ export default function HomePage() {
     tone: 'success' | 'info' | 'warning'
   } | null>(null)
 
-  // Removido redirecionamento automÃ¡tico - admin pode ver pÃ¡gina pÃºblica
+  // Removido redirecionamento automático - admin pode ver página pública
 
   useEffect(() => {
     fetchAllCourses()
@@ -63,10 +63,10 @@ export default function HomePage() {
 
         switch (activeFilter) {
           case 'featured':
-            // Cursos em destaque (sem data ou comeÃ§ando em breve)
+            // Cursos em destaque (sem data ou começando em breve)
             return !startDate || startDate > now
           case 'available':
-            // DisponÃ­veis para inscriÃ§Ã£o
+            // Disponíveis para inscrição
             return !startDate || startDate >= now || (startDate <= now && (!endDate || endDate >= now))
           case 'ongoing':
             // Em andamento
@@ -123,33 +123,33 @@ export default function HomePage() {
         setEnrollmentFeedback({
           message:
             waitlistPosition && waitlistPosition > 0
-              ? `VocÃª entrou na lista de espera. PosiÃ§Ã£o atual: ${waitlistPosition}.`
-              : 'VocÃª entrou na lista de espera deste curso. Aguarde a aprovaÃ§Ã£o do administrador.',
+              ? `Você entrou na lista de espera. Posição atual: ${waitlistPosition}.`
+              : 'Você entrou na lista de espera deste curso. Aguarde a aprovação do administrador.',
           tone: 'info'
         })
       } else if (status === 'PENDING_REGION') {
         setEnrollmentFeedback({
           message:
             payload.enrollment.eligibilityReason ||
-            'Cadastro registrado, aguardando confirmaÃ§Ã£o da equipe.',
+            'Cadastro registrado, aguardando confirmação da equipe.',
           tone: 'warning'
         })
       } else if (status === 'REJECTED') {
         setEnrollmentFeedback({
           message:
             payload.enrollment.eligibilityReason ||
-            'Sua inscriÃ§Ã£o foi registrada, mas nÃ£o pÃ´de ser aprovada automaticamente.',
+            'Sua inscrição foi registrada, mas não pôde ser aprovada automaticamente.',
           tone: 'warning'
         })
       } else {
         setEnrollmentFeedback({
-          message: 'InscriÃ§Ã£o confirmada! VocÃª jÃ¡ pode acessar o conteÃºdo em "Meus Cursos".',
+          message: 'Inscrição confirmada! Você já pode acessar o conteúdo em "Meus Cursos".',
           tone: 'success'
         })
       }
     } else {
       setEnrollmentFeedback({
-        message: 'SolicitaÃ§Ã£o enviada. Verifique seus cursos em alguns instantes.',
+        message: 'Solicitação enviada. Verifique seus cursos em alguns instantes.',
         tone: 'info'
       })
     }
@@ -167,18 +167,18 @@ export default function HomePage() {
     }
 
     if (!startDate) {
-      return { label: 'InscriÃ§Ãµes Abertas', color: 'bg-green-500', badge: 'InscriÃ§Ãµes Abertas' }
+      return { label: 'Inscrições Abertas', color: 'bg-green-500', badge: 'Inscrições Abertas' }
     }
 
     if (startDate > now) {
-      return { label: 'InscriÃ§Ãµes Abertas', color: 'bg-green-500', badge: 'InscriÃ§Ãµes Abertas' }
+      return { label: 'Inscrições Abertas', color: 'bg-green-500', badge: 'Inscrições Abertas' }
     }
 
     if (startDate <= now && (!endDate || endDate >= now)) {
       return { label: 'Em Andamento', color: 'bg-blue-500', badge: 'Em Andamento' }
     }
 
-    return { label: 'DisponÃ­vel', color: 'bg-green-500', badge: 'InscriÃ§Ãµes Abertas' }
+    return { label: 'Disponível', color: 'bg-green-500', badge: 'Inscrições Abertas' }
   }
 
   const getFilterCount = (filterType: string) => {
@@ -241,7 +241,7 @@ export default function HomePage() {
             </div>
             <input
               type="text"
-              placeholder="Pesquisar cursos por nome, descriÃ§Ã£o ou local..."
+              placeholder="Pesquisar cursos por nome, descrição ou local..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               autoComplete="off"
@@ -289,7 +289,7 @@ export default function HomePage() {
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              DisponÃ­veis ({getFilterCount('available')})
+              Disponíveis ({getFilterCount('available')})
             </button>
             <button
               onClick={() => setActiveFilter('ongoing')}
@@ -361,7 +361,7 @@ export default function HomePage() {
                     </div>
                   ) : (
                     <>
-                      {/* Header do Card quando nÃ£o hÃ¡ banner */}
+                      {/* Header do Card quando não há banner */}
                       <div className={`h-2 ${isFeatured ? 'bg-[#FF6600]' : 'bg-[#003366]'}`}></div>
                       {isFeatured && (
                         <div className="absolute top-2 right-2 bg-[#FF6600] text-white text-xs px-2 py-1 rounded-full font-semibold">
@@ -379,19 +379,19 @@ export default function HomePage() {
                       </span>
                     </div>
                     
-                    {/* TÃ­tulo */}
+                    {/* Título */}
                     <h3 className="text-xl font-bold text-gray-800 mb-2 line-clamp-2">
                       {course.title}
                     </h3>
                     
-                    {/* DescriÃ§Ã£o */}
+                    {/* Descrição */}
                     {course.description && (
                       <p className="text-gray-600 text-sm mb-4 line-clamp-3">
                         {course.description}
                       </p>
                     )}
                     
-                    {/* InformaÃ§Ãµes */}
+                    {/* Informações */}
                     <div className="space-y-2 mb-4 text-sm text-gray-600">
                       {course.startDate && (
                         <div className="flex items-center gap-2">
@@ -422,7 +422,7 @@ export default function HomePage() {
                       </div>
                     </div>
                     
-                    {/* BotÃ£o de AÃ§Ã£o */}
+                    {/* Botão de Ação */}
                     <button
                       onClick={() => {
                         if (!isAuthenticated) {
@@ -449,10 +449,10 @@ export default function HomePage() {
       
       <Footer />
       
-      {/* EspaÃ§amento para navbar inferior no mobile */}
+      {/* Espaçamento para navbar inferior no mobile */}
       {isAuthenticated && <div className="md:hidden h-20" />}
 
-      {/* Modal de InscriÃ§Ã£o */}
+      {/* Modal de Inscrição */}
       <CourseEnrollmentModal
         isOpen={enrollmentModal.isOpen}
         onClose={() => setEnrollmentModal({ isOpen: false, courseId: '', courseTitle: '' })}
