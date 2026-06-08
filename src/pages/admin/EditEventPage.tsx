@@ -84,6 +84,7 @@ export default function EditEventPage() {
   const [addingCity, setAddingCity] = useState(false)
   const [cityActionLoading, setCityActionLoading] = useState<string | null>(null)
   const [editingMessages, setEditingMessages] = useState<Record<string, string>>({})
+  const [cityFeedback, setCityFeedback] = useState<{ id: string; msg: string; type: 'ok' | 'err' } | null>(null)
 
   const {
     register,
@@ -147,9 +148,14 @@ export default function EditEventPage() {
   const loadCities = async () => {
     if (!eventId) return
     try {
-      const data = await apiFetch<EventCity[]>(`/events/${eventId}/cities`)
+      const data = await apiFetch<EventCity[]>(`/admin/events/${eventId}/cities`, { auth: true })
       if (Array.isArray(data)) setEventCities(data)
     } catch { /* no cities yet */ }
+  }
+
+  const showFeedback = (id: string, msg: string, type: 'ok' | 'err') => {
+    setCityFeedback({ id, msg, type })
+    setTimeout(() => setCityFeedback(null), 3000)
   }
 
   const handleAddCity = async () => {
@@ -176,15 +182,17 @@ export default function EditEventPage() {
 
   const handleToggleClosed = async (city: EventCity) => {
     setCityActionLoading(city.id)
+    const willClose = !city.isClosed
     try {
       await apiFetch(`/admin/events/${eventId}/cities/${city.id}/status`, {
         method: 'PATCH',
         auth: true,
-        body: JSON.stringify({ isClosed: !city.isClosed }),
+        body: JSON.stringify({ isClosed: willClose }),
       })
       await loadCities()
+      showFeedback(city.id, willClose ? 'Inscrições encerradas.' : 'Inscrições reabertas.', 'ok')
     } catch (err: any) {
-      setError(err?.message || 'Erro ao atualizar cidade')
+      showFeedback(city.id, err?.message || 'Erro ao atualizar.', 'err')
     } finally {
       setCityActionLoading(null)
     }
@@ -199,8 +207,9 @@ export default function EditEventPage() {
         body: JSON.stringify({ closedMessage: editingMessages[city.id] ?? city.closedMessage ?? '' }),
       })
       await loadCities()
+      showFeedback(city.id + '-msg', 'Mensagem salva.', 'ok')
     } catch (err: any) {
-      setError(err?.message || 'Erro ao salvar mensagem')
+      showFeedback(city.id + '-msg', err?.message || 'Erro ao salvar.', 'err')
     } finally {
       setCityActionLoading(null)
     }
@@ -444,17 +453,29 @@ export default function EditEventPage() {
             ) : (
               <div className="space-y-3">
                 {eventCities.map((city) => {
-                  const isLoading = cityActionLoading === city.id || cityActionLoading === city.id + '-msg'
+                  const lockLoading = cityActionLoading === city.id
+                  const msgLoading = cityActionLoading === city.id + '-msg'
                   const msgValue = editingMessages[city.id] !== undefined ? editingMessages[city.id] : (city.closedMessage ?? '')
+                  const feedback = cityFeedback?.id === city.id ? cityFeedback : cityFeedback?.id === city.id + '-msg' ? cityFeedback : null
+                  const count = city.registrationCount ?? 0
+                  const limit = city.defaultLimit ?? 0
                   return (
                     <div key={city.id} className={`p-4 rounded-2xl border-2 transition-all ${city.isClosed ? 'border-red-200 bg-red-50/40' : city.status === 'FULL' ? 'border-orange-200 bg-orange-50/40' : 'border-[var(--border-light)] bg-white'}`}>
                       <div className="flex flex-wrap items-center gap-3">
                         <div className="flex-1 min-w-0">
                           <p className="font-black text-[var(--secondary)]">{city.municipality} — <span className="text-indigo-600">{city.state}</span></p>
                           <p className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mt-0.5">
-                            {(city.registrationCount ?? 0)} inscrições
-                            {city.defaultLimit ? ` / ${city.defaultLimit} vagas` : ' · Sem limite'}
+                            {count} inscrição{count !== 1 ? 'ões' : ''}
+                            {limit > 0 ? ` / ${limit} vagas` : ' · Sem limite'}
                           </p>
+                          {limit > 0 && (
+                            <div className="mt-1.5 h-1.5 bg-slate-200 rounded-full overflow-hidden w-32">
+                              <div
+                                className={`h-full rounded-full transition-all ${count >= limit ? 'bg-orange-500' : 'bg-emerald-500'}`}
+                                style={{ width: `${Math.min(100, (count / limit) * 100)}%` }}
+                              />
+                            </div>
+                          )}
                         </div>
 
                         <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
@@ -467,12 +488,15 @@ export default function EditEventPage() {
 
                         <button
                           type="button"
-                          disabled={isLoading}
+                          disabled={lockLoading}
                           onClick={() => handleToggleClosed(city)}
                           title={city.isClosed ? 'Reabrir inscrições' : 'Encerrar inscrições'}
-                          className={`p-2.5 rounded-xl border transition-all disabled:opacity-50 ${city.isClosed ? 'bg-emerald-50 border-emerald-200 text-emerald-600 hover:bg-emerald-100' : 'bg-red-50 border-red-200 text-red-600 hover:bg-red-100'}`}
+                          className={`p-2.5 rounded-xl border transition-all disabled:opacity-50 active:scale-90 ${city.isClosed ? 'bg-emerald-50 border-emerald-200 text-emerald-600 hover:bg-emerald-100' : 'bg-red-50 border-red-200 text-red-600 hover:bg-red-100'}`}
                         >
-                          {city.isClosed ? <Unlock size={16} /> : <Lock size={16} />}
+                          {lockLoading
+                            ? <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+                            : city.isClosed ? <Unlock size={16} /> : <Lock size={16} />
+                          }
                         </button>
                       </div>
 
@@ -486,13 +510,23 @@ export default function EditEventPage() {
                         />
                         <button
                           type="button"
-                          disabled={isLoading}
+                          disabled={msgLoading}
                           onClick={() => handleSaveMessage(city)}
-                          className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] uppercase rounded-xl transition-all disabled:opacity-50"
+                          className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] uppercase rounded-xl transition-all disabled:opacity-50 flex items-center gap-1.5 min-w-[80px] justify-center"
                         >
-                          {cityActionLoading === city.id + '-msg' ? '...' : 'SALVAR'}
+                          {msgLoading ? <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'SALVAR'}
                         </button>
                       </div>
+
+                      {feedback && (
+                        <div className={`mt-2 px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-wide flex items-center gap-2 animate-in fade-in slide-in-from-top-1 duration-200 ${feedback.type === 'ok' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                          {feedback.type === 'ok'
+                            ? <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                            : <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                          }
+                          {feedback.msg}
+                        </div>
+                      )}
                     </div>
                   )
                 })}
