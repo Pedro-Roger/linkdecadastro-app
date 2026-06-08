@@ -84,6 +84,7 @@ export default function EditEventPage() {
   const [addingCity, setAddingCity] = useState(false)
   const [cityActionLoading, setCityActionLoading] = useState<string | null>(null)
   const [editingMessages, setEditingMessages] = useState<Record<string, string>>({})
+  const [editingLimits, setEditingLimits] = useState<Record<string, string>>({})
   const [cityFeedback, setCityFeedback] = useState<{ id: string; msg: string; type: 'ok' | 'err' } | null>(null)
 
   const {
@@ -210,6 +211,31 @@ export default function EditEventPage() {
       showFeedback(city.id + '-msg', 'Mensagem salva.', 'ok')
     } catch (err: any) {
       showFeedback(city.id + '-msg', err?.message || 'Erro ao salvar.', 'err')
+    } finally {
+      setCityActionLoading(null)
+    }
+  }
+
+  const handleSaveLimit = async (city: EventCity) => {
+    const raw = editingLimits[city.id]
+    if (raw === undefined) return
+    const parsed = raw.trim() === '' ? 0 : parseInt(raw, 10)
+    if (isNaN(parsed) || parsed < 0) {
+      showFeedback(city.id + '-limit', 'Limite inválido.', 'err')
+      return
+    }
+    setCityActionLoading(city.id + '-limit')
+    try {
+      await apiFetch(`/admin/events/${eventId}/cities/${city.id}/status`, {
+        method: 'PATCH',
+        auth: true,
+        body: JSON.stringify({ defaultLimit: parsed }),
+      })
+      setEditingLimits((p) => { const n = { ...p }; delete n[city.id]; return n })
+      await loadCities()
+      showFeedback(city.id + '-limit', parsed === 0 ? 'Limite removido (ilimitado).' : `Limite definido: ${parsed} vagas.`, 'ok')
+    } catch (err: any) {
+      showFeedback(city.id + '-limit', err?.message || 'Erro ao salvar limite.', 'err')
     } finally {
       setCityActionLoading(null)
     }
@@ -455,8 +481,12 @@ export default function EditEventPage() {
                 {eventCities.map((city) => {
                   const lockLoading = cityActionLoading === city.id
                   const msgLoading = cityActionLoading === city.id + '-msg'
+                  const limitLoading = cityActionLoading === city.id + '-limit'
                   const msgValue = editingMessages[city.id] !== undefined ? editingMessages[city.id] : (city.closedMessage ?? '')
-                  const feedback = cityFeedback?.id === city.id ? cityFeedback : cityFeedback?.id === city.id + '-msg' ? cityFeedback : null
+                  const limitValue = editingLimits[city.id] !== undefined ? editingLimits[city.id] : String(city.defaultLimit ?? 0)
+                  const limitDirty = editingLimits[city.id] !== undefined
+                  const feedbackKey = [city.id, city.id + '-msg', city.id + '-limit']
+                  const feedback = feedbackKey.includes(cityFeedback?.id ?? '') ? cityFeedback : null
                   const count = city.registrationCount ?? 0
                   const limit = city.defaultLimit ?? 0
                   return (
@@ -465,8 +495,8 @@ export default function EditEventPage() {
                         <div className="flex-1 min-w-0">
                           <p className="font-black text-[var(--secondary)]">{city.municipality} — <span className="text-indigo-600">{city.state}</span></p>
                           <p className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mt-0.5">
-                            {count} inscrição{count !== 1 ? 'ões' : ''}
-                            {limit > 0 ? ` / ${limit} vagas` : ' · Sem limite'}
+                            <span className="text-[var(--secondary)]">{count}</span> inscrições
+                            {limit > 0 ? <> · <span className="text-[var(--secondary)]">{limit}</span> vagas</> : ' · Sem limite'}
                           </p>
                           {limit > 0 && (
                             <div className="mt-1.5 h-1.5 bg-slate-200 rounded-full overflow-hidden w-32">
@@ -500,7 +530,32 @@ export default function EditEventPage() {
                         </button>
                       </div>
 
-                      <div className="flex gap-2 mt-3">
+                      {/* Limit editor */}
+                      <div className="flex gap-2 mt-3 items-center">
+                        <label className="text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest whitespace-nowrap">Vagas:</label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={limitValue}
+                          onChange={(e) => setEditingLimits((p) => ({ ...p, [city.id]: e.target.value }))}
+                          placeholder="0 = ilimitado"
+                          className={`w-36 bg-[var(--bg-main)]/60 border rounded-xl px-3 py-2 text-xs font-bold text-[var(--secondary)] outline-none transition-all ${limitDirty ? 'border-indigo-400' : 'border-[var(--border-light)]'} focus:border-indigo-500`}
+                        />
+                        <span className="text-[9px] text-[var(--text-muted)] font-medium">0 = ilimitado</span>
+                        {limitDirty && (
+                          <button
+                            type="button"
+                            disabled={limitLoading}
+                            onClick={() => handleSaveLimit(city)}
+                            className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[9px] uppercase rounded-xl transition-all disabled:opacity-50 flex items-center gap-1 ml-auto"
+                          >
+                            {limitLoading ? <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><Save size={11} /> SALVAR</>}
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Message editor */}
+                      <div className="flex gap-2 mt-2">
                         <input
                           type="text"
                           placeholder="Mensagem quando encerrada/lotada (opcional)"
