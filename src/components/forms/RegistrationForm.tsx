@@ -377,46 +377,22 @@ export default function RegistrationForm({ eventId }: { eventId: string }) {
       {eventCities.length > 0 && (
         <div className="space-y-3">
           <label className={labelClass}>Cidade do Evento *</label>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {eventCities.map((city) => {
-              const isSelected = selectedEventCity?.id === city.id
-              const isUnavailable = city.status !== 'OPEN'
-              return (
-                <button
-                  key={city.id}
-                  type="button"
-                  disabled={isUnavailable}
-                  onClick={() => handleEventCitySelect(city)}
-                  className={`relative flex items-center justify-between px-5 py-4 rounded-2xl border-2 text-left transition-all
-                    ${isSelected
-                      ? 'border-[var(--primary)] bg-[var(--primary)]/5 text-[var(--primary)]'
-                      : isUnavailable
-                        ? 'border-[var(--border-light)] bg-slate-50 text-slate-400 cursor-not-allowed opacity-70'
-                        : 'border-[var(--border-light)] bg-white hover:border-[var(--primary)]/40 hover:bg-[var(--primary)]/5 text-[var(--text-main)]'
-                    }`}
-                >
-                  <div>
-                    <p className="font-black text-sm">{city.municipality}</p>
-                    <p className="text-[10px] font-bold uppercase tracking-wider opacity-60">{city.state}</p>
-                  </div>
-                  <div className="flex flex-col items-end gap-1">
-                    {isSelected && (
-                      <span className="w-5 h-5 bg-[var(--primary)] rounded-full flex items-center justify-center">
-                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                        </svg>
-                      </span>
-                    )}
-                    {isUnavailable && (
-                      <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${city.status === 'FULL' ? 'bg-orange-100 text-orange-600' : 'bg-red-100 text-red-600'}`}>
-                        {city.status === 'FULL' ? 'LOTADA' : 'ENCERRADA'}
-                      </span>
-                    )}
-                  </div>
-                </button>
-              )
-            })}
-          </div>
+          <select
+            value={selectedEventCity?.id ?? ''}
+            onChange={(e) => {
+              const city = eventCities.find((c) => c.id === e.target.value)
+              if (city) handleEventCitySelect(city)
+              else { setSelectedEventCity(null); setCityError(null) }
+            }}
+            className={`${inputClass} ${!selectedEventCity && cityError ? 'border-red-400 focus:border-red-400' : ''}`}
+          >
+            <option value="">Selecione a cidade do evento...</option>
+            {eventCities.map((city) => (
+              <option key={city.id} value={city.id} disabled={city.status !== 'OPEN'}>
+                {city.municipality} — {city.state}{city.status === 'FULL' ? ' (LOTADA)' : city.status === 'CLOSED' ? ' (ENCERRADA)' : ''}
+              </option>
+            ))}
+          </select>
           {cityError && (
             <div className="p-3 bg-orange-50 border border-orange-200 rounded-2xl text-orange-700 text-[11px] font-bold uppercase tracking-wide flex items-center gap-2">
               <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
