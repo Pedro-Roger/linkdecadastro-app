@@ -5,12 +5,24 @@ import { z } from 'zod'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   ArrowLeft, Image as ImageIcon,
-  Globe, Shield, Users, Save, X
+  Globe, Shield, Users, Save, X, MapPin, Plus, Lock, Unlock, Trash2
 } from 'lucide-react'
 import LoadingScreen from '@/components/ui/LoadingScreen'
 import { apiFetch, getApiUrl, normalizeImageUrl } from '@/lib/api'
 import { useAuth } from '@/lib/useAuth'
 import AdminLayout from '@/components/layouts/AdminLayout'
+
+interface EventCity {
+  id: string
+  municipality: string
+  state: string
+  status: 'OPEN' | 'FULL' | 'CLOSED'
+  message: string | null
+  defaultLimit?: number
+  registrationCount?: number
+  isClosed?: boolean
+  closedMessage?: string | null
+}
 
 const eventSchema = z.object({
   title: z.string().min(1, 'Título é obrigatório'),
@@ -65,6 +77,13 @@ export default function EditEventPage() {
   const [error, setError] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [bannerPreview, setBannerPreview] = useState<string | null>(null)
+
+  // Participating cities state
+  const [eventCities, setEventCities] = useState<EventCity[]>([])
+  const [newCity, setNewCity] = useState({ municipality: '', state: '', defaultLimit: '' })
+  const [addingCity, setAddingCity] = useState(false)
+  const [cityActionLoading, setCityActionLoading] = useState<string | null>(null)
+  const [editingMessages, setEditingMessages] = useState<Record<string, string>>({})
 
   const {
     register,
@@ -122,7 +141,70 @@ export default function EditEventPage() {
     }
 
     loadEvent()
+    loadCities()
   }, [eventId, reset])
+
+  const loadCities = async () => {
+    if (!eventId) return
+    try {
+      const data = await apiFetch<EventCity[]>(`/events/${eventId}/cities`)
+      if (Array.isArray(data)) setEventCities(data)
+    } catch { /* no cities yet */ }
+  }
+
+  const handleAddCity = async () => {
+    if (!newCity.municipality.trim() || !newCity.state.trim()) return
+    setAddingCity(true)
+    try {
+      await apiFetch(`/admin/events/${eventId}/cities`, {
+        method: 'POST',
+        auth: true,
+        body: JSON.stringify({
+          municipality: newCity.municipality.trim(),
+          state: newCity.state.trim().toUpperCase(),
+          defaultLimit: newCity.defaultLimit ? Number(newCity.defaultLimit) : 0,
+        }),
+      })
+      setNewCity({ municipality: '', state: '', defaultLimit: '' })
+      await loadCities()
+    } catch (err: any) {
+      setError(err?.message || 'Erro ao adicionar cidade')
+    } finally {
+      setAddingCity(false)
+    }
+  }
+
+  const handleToggleClosed = async (city: EventCity) => {
+    setCityActionLoading(city.id)
+    try {
+      await apiFetch(`/admin/events/${eventId}/cities/${city.id}/status`, {
+        method: 'PATCH',
+        auth: true,
+        body: JSON.stringify({ isClosed: !city.isClosed }),
+      })
+      await loadCities()
+    } catch (err: any) {
+      setError(err?.message || 'Erro ao atualizar cidade')
+    } finally {
+      setCityActionLoading(null)
+    }
+  }
+
+  const handleSaveMessage = async (city: EventCity) => {
+    setCityActionLoading(city.id + '-msg')
+    try {
+      await apiFetch(`/admin/events/${eventId}/cities/${city.id}/status`, {
+        method: 'PATCH',
+        auth: true,
+        body: JSON.stringify({ closedMessage: editingMessages[city.id] ?? city.closedMessage ?? '' }),
+      })
+      await loadCities()
+    } catch (err: any) {
+      setError(err?.message || 'Erro ao salvar mensagem')
+    } finally {
+      setCityActionLoading(null)
+    }
+  }
 
   const handleFileUpload = async (file: File) => {
     setUploading(true)
@@ -313,6 +395,110 @@ export default function EditEventPage() {
               </div>
             </section>
           </div>
+
+          {/* Participating Cities */}
+          <section className="bg-white rounded-[2.5rem] border border-[var(--border-light)] p-8 shadow-sm lg:col-span-3">
+            <h2 className="text-lg font-black text-[var(--secondary)] mb-6 flex items-center gap-2">
+              Cidades Participantes <MapPin size={20} className="text-indigo-600" />
+            </h2>
+
+            {/* Add new city */}
+            <div className="flex flex-wrap gap-3 mb-6 p-4 bg-[var(--bg-main)]/60 rounded-2xl border border-[var(--border-light)]">
+              <input
+                type="text"
+                placeholder="Município"
+                value={newCity.municipality}
+                onChange={(e) => setNewCity((p) => ({ ...p, municipality: e.target.value }))}
+                className="flex-1 min-w-[160px] bg-white border border-[var(--border-light)] rounded-xl px-4 py-3 text-sm font-bold text-[var(--secondary)] outline-none focus:border-indigo-500 transition-all"
+              />
+              <input
+                type="text"
+                placeholder="UF"
+                maxLength={2}
+                value={newCity.state}
+                onChange={(e) => setNewCity((p) => ({ ...p, state: e.target.value.toUpperCase() }))}
+                className="w-20 bg-white border border-[var(--border-light)] rounded-xl px-4 py-3 text-sm font-bold text-[var(--secondary)] outline-none focus:border-indigo-500 transition-all uppercase"
+              />
+              <input
+                type="number"
+                placeholder="Limite (0 = ilimitado)"
+                value={newCity.defaultLimit}
+                onChange={(e) => setNewCity((p) => ({ ...p, defaultLimit: e.target.value }))}
+                className="flex-1 min-w-[160px] bg-white border border-[var(--border-light)] rounded-xl px-4 py-3 text-sm font-bold text-[var(--secondary)] outline-none focus:border-indigo-500 transition-all"
+              />
+              <button
+                type="button"
+                disabled={addingCity || !newCity.municipality.trim() || !newCity.state.trim()}
+                onClick={handleAddCity}
+                className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-widest rounded-xl transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Plus size={16} /> {addingCity ? 'ADICIONANDO...' : 'ADICIONAR'}
+              </button>
+            </div>
+
+            {/* Cities list */}
+            {eventCities.length === 0 ? (
+              <p className="text-center text-[var(--text-muted)] text-sm font-medium py-8">
+                Nenhuma cidade configurada. Adicione cidades acima para controlar as vagas por município.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {eventCities.map((city) => {
+                  const isLoading = cityActionLoading === city.id || cityActionLoading === city.id + '-msg'
+                  const msgValue = editingMessages[city.id] !== undefined ? editingMessages[city.id] : (city.closedMessage ?? '')
+                  return (
+                    <div key={city.id} className={`p-4 rounded-2xl border-2 transition-all ${city.isClosed ? 'border-red-200 bg-red-50/40' : city.status === 'FULL' ? 'border-orange-200 bg-orange-50/40' : 'border-[var(--border-light)] bg-white'}`}>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-black text-[var(--secondary)]">{city.municipality} — <span className="text-indigo-600">{city.state}</span></p>
+                          <p className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mt-0.5">
+                            {(city.registrationCount ?? 0)} inscrições
+                            {city.defaultLimit ? ` / ${city.defaultLimit} vagas` : ' · Sem limite'}
+                          </p>
+                        </div>
+
+                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                          city.isClosed ? 'bg-red-100 text-red-600'
+                          : city.status === 'FULL' ? 'bg-orange-100 text-orange-600'
+                          : 'bg-emerald-100 text-emerald-600'
+                        }`}>
+                          {city.isClosed ? 'ENCERRADA' : city.status === 'FULL' ? 'LOTADA' : 'ABERTA'}
+                        </span>
+
+                        <button
+                          type="button"
+                          disabled={isLoading}
+                          onClick={() => handleToggleClosed(city)}
+                          title={city.isClosed ? 'Reabrir inscrições' : 'Encerrar inscrições'}
+                          className={`p-2.5 rounded-xl border transition-all disabled:opacity-50 ${city.isClosed ? 'bg-emerald-50 border-emerald-200 text-emerald-600 hover:bg-emerald-100' : 'bg-red-50 border-red-200 text-red-600 hover:bg-red-100'}`}
+                        >
+                          {city.isClosed ? <Unlock size={16} /> : <Lock size={16} />}
+                        </button>
+                      </div>
+
+                      <div className="flex gap-2 mt-3">
+                        <input
+                          type="text"
+                          placeholder="Mensagem quando encerrada/lotada (opcional)"
+                          value={msgValue}
+                          onChange={(e) => setEditingMessages((p) => ({ ...p, [city.id]: e.target.value }))}
+                          className="flex-1 bg-[var(--bg-main)]/60 border border-[var(--border-light)] rounded-xl px-4 py-2.5 text-xs font-medium text-[var(--secondary)] outline-none focus:border-indigo-500 transition-all"
+                        />
+                        <button
+                          type="button"
+                          disabled={isLoading}
+                          onClick={() => handleSaveMessage(city)}
+                          className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] uppercase rounded-xl transition-all disabled:opacity-50"
+                        >
+                          {cityActionLoading === city.id + '-msg' ? '...' : 'SALVAR'}
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </section>
 
           <div className="space-y-8">
             <section className="bg-slate-900 rounded-[2.5rem] p-8 text-white relative overflow-hidden group">
