@@ -20,7 +20,6 @@ import {
   UserCheck,
   GraduationCap,
   Briefcase,
-  AlertTriangle,
   ChevronDown,
   Layers,
   FileText
@@ -126,7 +125,7 @@ export default function EventClassesPage({ eventIdProp, onClose }: { eventIdProp
   ])
 
   const availableFields = [
-    { key: 'number', label: 'NÂº' },
+    { key: 'number', label: 'Nº' },
     { key: 'name', label: 'Nome Completo' },
     { key: 'cpf', label: 'CPF' },
     { key: 'email', label: 'E-mail' },
@@ -289,7 +288,7 @@ export default function EventClassesPage({ eventIdProp, onClose }: { eventIdProp
   const getParticipantTypeLabel = (type: string) => {
     const labels: Record<string, string> = {
       PRODUTOR: 'Produtor',
-      ESTUDANTE: 'Estudante',
+      ESTUDANTE: 'Outros',
       PROFESSOR: 'Professor',
       PESQUISADOR: 'Pesquisador',
     }
@@ -320,7 +319,7 @@ export default function EventClassesPage({ eventIdProp, onClose }: { eventIdProp
           doc.addPage();
           y = 20;
         }
-        const text = `${row['NÂº']}. ${row['Nome Completo']} - CPF: ${row['CPF']} - Tel: ${row['Telefone']}`;
+        const text = `${row['Nº']}. ${row['Nome Completo']} - CPF: ${row['CPF']} - Tel: ${row['Telefone']}`;
         doc.text(text, 10, y);
         y += 7;
       });
@@ -330,7 +329,7 @@ export default function EventClassesPage({ eventIdProp, onClose }: { eventIdProp
 
   const prepareStudentsForExport = (students: Registration[]) => {
     return students.map((student, index) => ({
-      'NÂº': index + 1,
+      'Nº': index + 1,
       'Nome Completo': student.name,
       'CPF': student.cpf,
       'Email': student.email,
@@ -540,15 +539,6 @@ export default function EventClassesPage({ eventIdProp, onClose }: { eventIdProp
             </div>
           </div>
 
-          <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl flex items-center gap-3 mb-8">
-            <div className="p-2 bg-white rounded-xl text-amber-500 shadow-sm">
-              <AlertTriangle size={18} />
-            </div>
-            <p className="text-[11px] text-amber-800 font-bold uppercase tracking-wide">
-              Modo de visualização client-side: Os alunos foram agrupados por cidade para otimização.
-            </p>
-          </div>
-
           {/* Stats Summary Grid */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             {[
@@ -607,7 +597,7 @@ export default function EventClassesPage({ eventIdProp, onClose }: { eventIdProp
                         </div>
                         <div>
                           <h2 className="text-lg font-black text-[var(--secondary)] tracking-tight">
-                            {region.municipality} â€” {region.state}
+                            {region.municipality} - {region.state}
                           </h2>
                           <div className="flex flex-wrap gap-2 mt-1.5">
                             <span className="text-[9px] font-black uppercase tracking-widest text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg">
