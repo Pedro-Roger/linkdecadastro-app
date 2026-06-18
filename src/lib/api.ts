@@ -67,6 +67,24 @@ export async function apiFetch<T = any>(
       // Se não conseguir parsear JSON, usar status text
       message = res.statusText || message;
     }
+
+    // Sessão expirada/inválida: limpa o token e redireciona ao login.
+    // Só age em requisições autenticadas com token presente, evitando
+    // afetar o 401 de login com senha errada (sem token / auth=false).
+    if (res.status === 401 && auth && typeof window !== 'undefined') {
+      const hadToken = !!localStorage.getItem('token');
+      if (hadToken) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        if (!window.location.pathname.startsWith('/login')) {
+          const returnUrl = encodeURIComponent(
+            window.location.pathname + window.location.search,
+          );
+          window.location.replace(`/login?expired=1&returnUrl=${returnUrl}`);
+        }
+      }
+    }
+
     const error = new Error(message);
     (error as any).status = res.status;
     (error as any).body = parsedBody;

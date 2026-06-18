@@ -16,6 +16,8 @@ export default function LoginPage() {
     const urlError = searchParams.get('error');
     if (urlError === 'google_auth_failed') {
       setError('Erro ao fazer login com Google. Tente novamente.');
+    } else if (searchParams.get('expired') === '1') {
+      setError('Sua sessão expirou. Faça login novamente.');
     }
   }, [searchParams]);
 
