@@ -49,6 +49,7 @@ export default function AdminEventsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE' | 'CLOSED'>('ALL')
   const [activeModal, setActiveModal] = useState<{ type: 'registrations' | 'classes' | null, eventId: string | null }>({ type: null, eventId: null })
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null)
 
   const fetchEvents = useCallback(async () => {
     try {
@@ -196,144 +197,166 @@ export default function AdminEventsPage() {
         </div>
       </div>
 
-      {/* Events View: Responsive Table/Cards */}
-      <div className="bg-white rounded-[2.5rem] border border-[var(--border-light)] shadow-sm overflow-hidden">
-        <div className="overflow-x-auto custom-scrollbar">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-[var(--border-light)] bg-slate-50/50">
-                <th className="px-8 py-5 text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">Informações do Evento</th>
-                <th className="px-6 py-5 text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest text-center">Inscritos</th>
-                <th className="px-6 py-5 text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">Status</th>
-                <th className="px-6 py-5 text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">Data de Criação</th>
-                <th className="px-8 py-5 text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest text-right">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--border-light)]">
-              {filteredEvents.map((event) => (
-                <tr key={event.id} className="hover:bg-[var(--bg-main)]/30 transition-colors group">
-                  <td className="px-8 py-6">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-xl border border-[var(--border-light)] bg-white overflow-hidden shrink-0 flex items-center justify-center text-indigo-600">
-                        {event.bannerUrl ? (
-                          <img src={normalizeImageUrl(event.bannerUrl)} className="w-full h-full object-cover" alt="" />
-                        ) : (
-                          <Calendar size={20} />
-                        )}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="font-bold text-[var(--secondary)] truncate group-hover:text-indigo-600 transition-colors">{event.title}</div>
-                        <div className="text-[10px] text-[var(--text-muted)] font-medium flex items-center gap-1 mt-1 uppercase tracking-tight">
-                          <LinkIcon size={10} /> /{event.slug || event.linkId}
-                        </div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-6 text-center">
-                    <div className="inline-flex flex-col items-center px-4 py-1.5 bg-indigo-50 rounded-xl border border-indigo-100">
-                      <span className="text-sm font-black text-indigo-700">{event._count?.registrations || 0}</span>
-                      <span className="text-[8px] font-bold text-indigo-400 uppercase tracking-tighter">Check-ins</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-6 font-medium">
-                    <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${getStatusColor(event.status)}`}>
-                      {event.status === 'ACTIVE' ? 'Ativo' : event.status === 'INACTIVE' ? 'Inativo' : 'Encerrado'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-6 text-xs text-[var(--text-muted)] font-medium">
-                    {format(new Date(event.createdAt), "dd/MM/yyyy", { locale: ptBR })}
-                  </td>
-                  <td className="px-8 py-6 text-right">
-                    <div className="grid grid-cols-2 gap-1.5 w-[240px] ml-auto">
-                      <button
-                        onClick={() => setActiveModal({ type: 'registrations', eventId: event.id })}
-                        className="flex items-center justify-center gap-2 h-9 bg-white border border-[var(--border-light)] text-[var(--secondary)] text-[10px] font-black uppercase tracking-widest rounded-xl shadow-sm hover:text-indigo-600 hover:border-indigo-100 hover:bg-indigo-50/30 transition-all active:scale-95"
-                      >
-                        <Users size={14} className="text-indigo-500" />
-                        Registros
-                      </button>
-                      <button
-                        onClick={() => setActiveModal({ type: 'classes', eventId: event.id })}
-                        className="flex items-center justify-center gap-2 h-9 bg-white border border-[var(--border-light)] text-[var(--secondary)] text-[10px] font-black uppercase tracking-widest rounded-xl shadow-sm hover:text-violet-600 hover:border-violet-100 hover:bg-violet-50/30 transition-all active:scale-95"
-                      >
-                        <LayoutGrid size={14} className="text-violet-500" />
-                        Turmas
-                      </button>
-                      <button
-                        onClick={() => {
-                          const url = buildPublicEventUrl(event)
-                          navigator.clipboard.writeText(url)
-                          alert('Link copiado!')
-                        }}
-                        className="flex items-center justify-center gap-2 h-9 bg-white border border-[var(--border-light)] text-[var(--secondary)] text-[10px] font-black uppercase tracking-widest rounded-xl shadow-sm hover:text-blue-600 hover:border-blue-100 hover:bg-blue-50/30 transition-all active:scale-95"
-                      >
-                        <Share2 size={14} className="text-blue-500" />
-                        Link
-                      </button>
-                      <Link
-                        to={`/admin/whatsapp/send?eventId=${event.id}`}
-                        className="flex items-center justify-center gap-2 h-9 bg-emerald-50 border border-emerald-100 text-emerald-700 text-[10px] font-black uppercase tracking-widest rounded-xl shadow-sm hover:bg-emerald-100 transition-all active:scale-95"
-                      >
-                        <MessageCircle size={14} />
-                        WhatsApp
-                      </Link>
-                      <Link
-                        to={`/admin/events/${event.id}/edit`}
-                        className="flex items-center justify-center gap-2 h-9 bg-amber-50 border border-amber-100 text-amber-700 text-[10px] font-black uppercase tracking-widest rounded-xl shadow-sm hover:bg-amber-100 transition-all active:scale-95"
-                      >
-                        <Pencil size={14} />
-                        Editar
-                      </Link>
-
-                      {event.status === 'ACTIVE' ? (
-                        <button
-                          onClick={() => handleUpdateStatus(event.id, 'INACTIVE')}
-                          className="flex items-center justify-center h-9 bg-white border border-[var(--border-light)] text-[var(--text-muted)] text-[10px] font-black uppercase tracking-widest rounded-xl shadow-sm hover:bg-slate-50 hover:text-slate-600 transition-all active:scale-95"
-                        >
-                          Inativar
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => handleUpdateStatus(event.id, 'ACTIVE')}
-                          className="flex items-center justify-center h-9 bg-indigo-50 border border-indigo-100 text-indigo-700 text-[10px] font-black uppercase tracking-widest rounded-xl shadow-sm hover:bg-indigo-100 transition-all active:scale-95"
-                        >
-                          Ativar
-                        </button>
-                      )}
-
-                      {event.status !== 'CLOSED' ? (
-                        <button
-                          onClick={() => {
-                            if (window.confirm('Tem certeza que deseja encerrar este evento? Não será possível reabri-lo.')) {
-                              handleUpdateStatus(event.id, 'CLOSED')
-                            }
-                          }}
-                          className="flex items-center justify-center h-9 bg-rose-50 border border-rose-100 text-rose-600 text-[10px] font-black uppercase tracking-widest rounded-xl shadow-sm hover:bg-rose-100 transition-all active:scale-95"
-                        >
-                          Encerrar
-                        </button>
-                      ) : (
-                        <div className="flex items-center justify-center h-9 bg-slate-100 border border-slate-200 text-slate-400 text-[10px] font-black uppercase tracking-widest rounded-xl cursor-not-allowed">
-                          Finalizado
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        {filteredEvents.length === 0 && (
-          <div className="py-24 text-center">
-            <div className="w-16 h-16 bg-[var(--bg-main)] rounded-full flex items-center justify-center mx-auto mb-4 text-[var(--text-muted)]">
-              <Calendar size={32} />
-            </div>
-            <p className="text-[var(--text-muted)] font-bold">Nenhum evento encontrado.</p>
-            <p className="text-xs text-[var(--text-muted)] mt-1">Ajuste os filtros ou crie um novo link.</p>
+      {/* Events Grid */}
+      {filteredEvents.length === 0 ? (
+        <div className="bg-white rounded-[2.5rem] border border-[var(--border-light)] shadow-sm py-24 text-center">
+          <div className="w-16 h-16 bg-[var(--bg-main)] rounded-full flex items-center justify-center mx-auto mb-4 text-[var(--text-muted)]">
+            <Calendar size={32} />
           </div>
-        )}
-      </div>
+          <p className="text-[var(--text-muted)] font-bold">Nenhum evento encontrado.</p>
+          <p className="text-xs text-[var(--text-muted)] mt-1">Ajuste os filtros ou crie um novo link.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          {filteredEvents.map((event) => (
+            <div
+              key={event.id}
+              className="group bg-white rounded-[2rem] border border-[var(--border-light)] shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all flex flex-col overflow-hidden"
+            >
+              {/* Banner */}
+              <div className="relative h-32 bg-gradient-to-br from-indigo-500 to-violet-600 overflow-hidden">
+                {event.bannerUrl ? (
+                  <img src={normalizeImageUrl(event.bannerUrl)} className="w-full h-full object-cover" alt="" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-white/40">
+                    <Calendar size={40} />
+                  </div>
+                )}
+                <span className={`absolute top-3 right-3 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border backdrop-blur-md bg-white/90 ${getStatusColor(event.status)}`}>
+                  {event.status === 'ACTIVE' ? 'Ativo' : event.status === 'INACTIVE' ? 'Inativo' : 'Encerrado'}
+                </span>
+              </div>
+
+              {/* Body */}
+              <div className="p-5 flex flex-col flex-1">
+                <h3 className="font-black text-lg leading-tight text-[var(--secondary)] line-clamp-1 group-hover:text-indigo-600 transition-colors">
+                  {event.title}
+                </h3>
+                <div className="text-[10px] text-[var(--text-muted)] font-medium flex items-center gap-1 mt-1 uppercase tracking-tight truncate">
+                  <LinkIcon size={10} className="shrink-0" /> /{event.slug || event.linkId}
+                </div>
+
+                {/* Stats */}
+                <div className="flex items-center gap-3 mt-4">
+                  <div className="flex-1 flex items-center gap-2 px-3 py-2 bg-indigo-50 rounded-xl border border-indigo-100">
+                    <Users size={16} className="text-indigo-500 shrink-0" />
+                    <div className="min-w-0">
+                      <div className="text-sm font-black text-indigo-700 leading-none">{event._count?.registrations || 0}</div>
+                      <div className="text-[8px] font-bold text-indigo-400 uppercase tracking-tighter mt-0.5">Inscritos</div>
+                    </div>
+                  </div>
+                  <div className="flex-1 flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-xl border border-slate-100">
+                    <Calendar size={16} className="text-slate-400 shrink-0" />
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold text-[var(--secondary)] leading-none">{format(new Date(event.createdAt), "dd/MM/yy", { locale: ptBR })}</div>
+                      <div className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter mt-0.5">Criado</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Primary actions */}
+                <div className="grid grid-cols-2 gap-2 mt-4">
+                  <button
+                    onClick={() => setActiveModal({ type: 'registrations', eventId: event.id })}
+                    className="flex items-center justify-center gap-2 h-10 bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-sm hover:bg-indigo-700 transition-all active:scale-95"
+                  >
+                    <Users size={14} />
+                    Registros
+                  </button>
+                  <button
+                    onClick={() => setActiveModal({ type: 'classes', eventId: event.id })}
+                    className="flex items-center justify-center gap-2 h-10 bg-white border border-[var(--border-light)] text-[var(--secondary)] text-[10px] font-black uppercase tracking-widest rounded-xl shadow-sm hover:text-violet-600 hover:border-violet-200 hover:bg-violet-50/30 transition-all active:scale-95"
+                  >
+                    <LayoutGrid size={14} className="text-violet-500" />
+                    Turmas
+                  </button>
+                </div>
+
+                {/* Secondary actions */}
+                <div className="flex items-center gap-2 mt-2">
+                  <button
+                    onClick={() => {
+                      const url = buildPublicEventUrl(event)
+                      navigator.clipboard.writeText(url)
+                      alert('Link copiado!')
+                    }}
+                    title="Copiar link público"
+                    className="flex-1 flex items-center justify-center gap-1.5 h-9 bg-white border border-[var(--border-light)] text-[var(--secondary)] text-[10px] font-black uppercase tracking-wider rounded-xl shadow-sm hover:text-blue-600 hover:border-blue-200 hover:bg-blue-50/30 transition-all active:scale-95"
+                  >
+                    <Share2 size={14} className="text-blue-500" />
+                    Link
+                  </button>
+                  <Link
+                    to={`/admin/whatsapp/send?eventId=${event.id}`}
+                    title="Enviar WhatsApp"
+                    className="flex-1 flex items-center justify-center gap-1.5 h-9 bg-emerald-50 border border-emerald-100 text-emerald-700 text-[10px] font-black uppercase tracking-wider rounded-xl shadow-sm hover:bg-emerald-100 transition-all active:scale-95"
+                  >
+                    <MessageCircle size={14} />
+                    Zap
+                  </Link>
+                  <Link
+                    to={`/admin/events/${event.id}/edit`}
+                    title="Editar evento"
+                    className="flex items-center justify-center h-9 w-9 bg-amber-50 border border-amber-100 text-amber-700 rounded-xl shadow-sm hover:bg-amber-100 transition-all active:scale-95"
+                  >
+                    <Pencil size={14} />
+                  </Link>
+
+                  {/* Status menu */}
+                  <div className="relative">
+                    <button
+                      onClick={() => setOpenMenuId(openMenuId === event.id ? null : event.id)}
+                      title="Mais ações"
+                      className="flex items-center justify-center h-9 w-9 bg-white border border-[var(--border-light)] text-[var(--text-muted)] rounded-xl shadow-sm hover:bg-slate-50 hover:text-[var(--secondary)] transition-all active:scale-95"
+                    >
+                      <MoreHorizontal size={16} />
+                    </button>
+                    {openMenuId === event.id && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setOpenMenuId(null)} />
+                        <div className="absolute right-0 bottom-11 z-50 w-44 bg-white rounded-2xl shadow-xl border border-[var(--border-light)] p-1.5 animate-in fade-in zoom-in-95 duration-150">
+                          {event.status === 'ACTIVE' ? (
+                            <button
+                              onClick={() => { setOpenMenuId(null); handleUpdateStatus(event.id, 'INACTIVE') }}
+                              className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors"
+                            >
+                              <XCircle size={15} /> Inativar evento
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => { setOpenMenuId(null); handleUpdateStatus(event.id, 'ACTIVE') }}
+                              className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold text-indigo-600 hover:bg-indigo-50 transition-colors"
+                            >
+                              <CheckCircle size={15} /> Ativar evento
+                            </button>
+                          )}
+                          {event.status !== 'CLOSED' ? (
+                            <button
+                              onClick={() => {
+                                setOpenMenuId(null)
+                                if (window.confirm('Tem certeza que deseja encerrar este evento? Não será possível reabri-lo.')) {
+                                  handleUpdateStatus(event.id, 'CLOSED')
+                                }
+                              }}
+                              className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 transition-colors"
+                            >
+                              <Trash2 size={15} /> Encerrar evento
+                            </button>
+                          ) : (
+                            <div className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold text-slate-300 cursor-not-allowed">
+                              <Trash2 size={15} /> Finalizado
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Quick Action Cards (Optional footer area) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
