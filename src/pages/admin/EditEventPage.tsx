@@ -100,6 +100,9 @@ export default function EditEventPage() {
   const [waSessions, setWaSessions] = useState<WaSession[]>([])
   const [waGroupsEnabled, setWaGroupsEnabled] = useState(false)
   const [waSessionId, setWaSessionId] = useState<string>('')
+  const [perDay, setPerDay] = useState('10')
+  const [backfilling, setBackfilling] = useState(false)
+  const [backfillMsg, setBackfillMsg] = useState<{ text: string; type: 'ok' | 'err' } | null>(null)
 
   const {
     register,
@@ -168,6 +171,27 @@ export default function EditEventPage() {
       const data = await apiFetch<{ success: boolean; sessions: WaSession[] }>('/api/whatsapp/sessions', { auth: true })
       if (data?.success && Array.isArray(data.sessions)) setWaSessions(data.sessions)
     } catch { /* sem sessões */ }
+  }
+
+  const handleBackfill = async () => {
+    if (!eventId) return
+    const n = parseInt(perDay, 10)
+    setBackfilling(true)
+    setBackfillMsg(null)
+    try {
+      const res = await apiFetch<{ scheduled: number; days: number; perDay: number; cities: number }>(
+        `/admin/events/${eventId}/whatsapp-groups/backfill`,
+        { method: 'POST', auth: true, body: JSON.stringify({ perDay: Number.isNaN(n) ? 10 : n }) },
+      )
+      setBackfillMsg({
+        text: `${res.scheduled} inscritos agendados (${res.cities} cidade(s)) — ${res.perDay}/dia ao longo de ${res.days} dia(s).`,
+        type: 'ok',
+      })
+    } catch (err: any) {
+      setBackfillMsg({ text: err?.message || 'Erro ao agendar. Salve as configurações primeiro.', type: 'err' })
+    } finally {
+      setBackfilling(false)
+    }
   }
 
   const loadCities = async () => {
@@ -706,6 +730,49 @@ export default function EditEventPage() {
                   )}
                   {waGroupsEnabled && !waSessionId && waSessions.length > 0 && (
                     <p className="text-[10px] text-amber-600 font-bold mt-2 px-1">Escolha uma conta para ativar os grupos.</p>
+                  )}
+                </div>
+              )}
+
+              {/* Backfill: adicionar inscritos atuais aos poucos */}
+              {waGroupsEnabled && waSessionId && (
+                <div className="mt-5 pt-5 border-t border-[var(--border-light)] animate-in fade-in duration-200">
+                  <label className="block text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2 px-1">
+                    Adicionar inscritos atuais
+                  </label>
+                  <p className="text-[11px] text-[var(--text-muted)] font-medium mb-3">
+                    Agenda quem já está inscrito para entrar nos grupos aos poucos (lotes por dia), evitando bloqueio do WhatsApp.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 bg-[var(--bg-main)]/60 border border-[var(--border-light)] rounded-xl px-3 py-2">
+                      <input
+                        type="number"
+                        min={1}
+                        max={50}
+                        value={perDay}
+                        onChange={(e) => setPerDay(e.target.value)}
+                        className="w-12 bg-transparent text-sm font-black text-[var(--secondary)] outline-none text-center"
+                      />
+                      <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase whitespace-nowrap">/ dia</span>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={backfilling}
+                      onClick={handleBackfill}
+                      className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] uppercase tracking-widest rounded-xl transition-all disabled:opacity-50 active:scale-95"
+                    >
+                      {backfilling
+                        ? <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        : <><Users size={14} /> Agendar</>}
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-[var(--text-muted)] font-medium mt-2 px-1">
+                    Salve as configurações antes de agendar.
+                  </p>
+                  {backfillMsg && (
+                    <div className={`mt-3 px-3 py-2 rounded-xl text-[10px] font-bold ${backfillMsg.type === 'ok' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                      {backfillMsg.text}
+                    </div>
                   )}
                 </div>
               )}
