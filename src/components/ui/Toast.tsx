@@ -57,8 +57,8 @@ export default function Toast({
   }
 
   return (
-    <div 
-      className="fixed top-4 right-4 z-50"
+    <div
+      className="fixed top-4 right-4 left-4 sm:left-auto z-50"
       style={{
         animation: 'slideIn 0.3s ease-out'
       }}
@@ -76,7 +76,7 @@ export default function Toast({
         }
       `}</style>
       <div
-        className={`${bgColors[type]} text-white px-6 py-4 rounded-lg shadow-lg flex items-center gap-3 min-w-[300px] max-w-md`}
+        className={`${bgColors[type]} text-white px-6 py-4 rounded-lg shadow-lg flex items-center gap-3 w-full sm:w-auto sm:min-w-[300px] max-w-md`}
       >
         <div className="flex-shrink-0">{icons[type]}</div>
         <p className="flex-1 text-sm font-medium">{message}</p>

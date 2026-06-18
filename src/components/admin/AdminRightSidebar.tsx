@@ -197,7 +197,8 @@ export default function AdminRightSidebar() {
             ref={panelRef}
             className="fixed z-40 overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-2xl"
             style={{
-                width: 420,
+                width: 'min(420px, calc(100vw - 24px))',
+                maxHeight: 'calc(100vh - 32px)',
                 right: position.x === 0 ? 24 : 'auto',
                 bottom: position.y === 0 ? 24 : 'auto',
                 left: position.x !== 0 ? position.x : 'auto',

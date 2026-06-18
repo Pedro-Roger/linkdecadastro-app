@@ -329,7 +329,7 @@ export default function CoursesPage() {
                   className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
                 >
                   {course.bannerUrl && course.bannerUrl.trim() ? (
-                    <div className="relative w-full h-[386px] overflow-hidden bg-gray-200">
+                    <div className="relative w-full h-48 sm:h-64 md:h-[386px] overflow-hidden bg-gray-200">
                       <img
                         src={normalizeImageUrl(course.bannerUrl)} alt={`Banner do curso ${course.title}`}
                         className="w-full h-full min-w-full min-h-full object-cover"
@@ -340,7 +340,7 @@ export default function CoursesPage() {
                       />
                     </div>
                   ) : (
-                    <div className="w-full h-[386px] bg-gradient-to-br from-[#003366] to-[#FF6600] flex items-center justify-center">
+                    <div className="w-full h-48 sm:h-64 md:h-[386px] bg-gradient-to-br from-[#003366] to-[#FF6600] flex items-center justify-center">
                       <span className="text-white text-sm font-medium">Sem banner</span>
                     </div>
                   )}

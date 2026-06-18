@@ -72,7 +72,7 @@ export default function RegisterPage() {
       </div>
 
       {event.bannerUrl && (
-        <div className="w-full h-[300px] md:h-[450px] relative overflow-hidden">
+        <div className="w-full h-48 sm:h-[300px] md:h-[450px] relative overflow-hidden">
           <div
             className="absolute inset-0 bg-cover bg-center transition-transform duration-700 hover:scale-105"
             style={{ backgroundImage: `url(${event.bannerUrl})` }}
@@ -82,8 +82,8 @@ export default function RegisterPage() {
       )}
 
       <div className={`container mx-auto px-4 ${event.bannerUrl ? '-mt-24 relative z-10' : 'pt-12'}`}>
-        <div className="max-w-3xl mx-auto glass rounded-[2.5rem] shadow-2xl overflow-hidden border border-[var(--glass-border)]">
-          <div className="p-8 md:p-12">
+        <div className="max-w-3xl mx-auto glass rounded-[2rem] sm:rounded-[2.5rem] shadow-2xl overflow-hidden border border-[var(--glass-border)]">
+          <div className="p-6 sm:p-8 md:p-12">
             <div className="flex items-center justify-between mb-8">
               <Link
                 to="/"
@@ -106,10 +106,10 @@ export default function RegisterPage() {
             </div>
 
             <div className="space-y-4 mb-10">
-              <h1 className="text-4xl md:text-5xl font-black text-[var(--secondary)] tracking-tighter leading-tight italic">
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-[var(--secondary)] tracking-tighter leading-tight italic">
                 {event.title}
               </h1>
-              <p className="text-lg text-[var(--text-muted)] font-medium leading-relaxed max-w-2xl">
+              <p className="text-base sm:text-lg text-[var(--text-muted)] font-medium leading-relaxed max-w-2xl">
                 {event.description}
               </p>
 

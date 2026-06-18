@@ -127,7 +127,7 @@ export default function LoginPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="Seu e-mail cadastrado"
                   required
-                  className="w-full pl-11 pr-4 py-3 bg-black/20 border border-[var(--border-light)] rounded-xl focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent text-white placeholder-gray-500 transition-all outline-none"
+                  className="w-full pl-11 pr-4 py-3.5 bg-black/20 border border-[var(--border-light)] rounded-xl focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent text-white text-base placeholder-gray-500 transition-all outline-none"
                 />
               </div>
             </div>
@@ -148,7 +148,7 @@ export default function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Sua senha secreta"
                   required
-                  className="w-full pl-11 pr-4 py-3 bg-black/20 border border-[var(--border-light)] rounded-xl focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent text-white placeholder-gray-500 transition-all outline-none"
+                  className="w-full pl-11 pr-4 py-3.5 bg-black/20 border border-[var(--border-light)] rounded-xl focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent text-white text-base placeholder-gray-500 transition-all outline-none"
                 />
               </div>
             </div>

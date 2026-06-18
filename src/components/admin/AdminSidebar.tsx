@@ -13,11 +13,17 @@ import {
     Sun,
     ShieldCheck,
     Bot,
-    Cpu
+    Cpu,
+    X
 } from 'lucide-react';
 import { useAuth } from '@/lib/useAuth';
 
-export default function AdminSidebar() {
+interface AdminSidebarProps {
+    mobileOpen?: boolean;
+    onClose?: () => void;
+}
+
+export default function AdminSidebar({ mobileOpen = false, onClose }: AdminSidebarProps) {
     const location = useLocation();
     const { user, signOut } = useAuth();
     const [collapsed, setCollapsed] = React.useState(false);
@@ -48,28 +54,47 @@ export default function AdminSidebar() {
     };
 
     return (
-        <aside
-            className={`h-screen bg-[var(--bg-sidebar)] border-r border-[var(--border-light)] flex flex-col transition-all duration-300 z-30 ${collapsed ? 'w-20' : 'w-72'
-                }`}
-        >
-            <div className="p-6 flex items-center justify-between">
-                {!collapsed && (
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-[var(--primary)] to-[var(--accent)] rounded-xl flex items-center justify-center text-white font-black text-xl shadow-lg shadow-[var(--primary)]/20 transition-transform hover:scale-105">
-                            L
+        <>
+            {/* Backdrop - mobile only */}
+            {mobileOpen && (
+                <div
+                    onClick={onClose}
+                    className="lg:hidden fixed inset-0 bg-black/40 z-40"
+                    aria-hidden="true"
+                />
+            )}
+
+            <aside
+                className={`fixed inset-y-0 left-0 z-50 w-72 transform transition-transform duration-300 lg:static lg:z-30 lg:translate-x-0 h-screen bg-[var(--bg-sidebar)] border-r border-[var(--border-light)] flex flex-col ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} ${collapsed ? 'lg:w-20' : 'lg:w-72'}`}
+            >
+                <div className="p-6 flex items-center justify-between">
+                    {!collapsed && (
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-gradient-to-br from-[var(--primary)] to-[var(--accent)] rounded-xl flex items-center justify-center text-white font-black text-xl shadow-lg shadow-[var(--primary)]/20 transition-transform hover:scale-105">
+                                L
+                            </div>
+                            <span className="font-extrabold text-xl text-[var(--secondary)] tracking-tight">
+                                Link<span className="text-[var(--primary)]">Cadastro</span>
+                            </span>
                         </div>
-                        <span className="font-extrabold text-xl text-[var(--secondary)] tracking-tight">
-                            Link<span className="text-[var(--primary)]">Cadastro</span>
-                        </span>
-                    </div>
-                )}
-                <button
-                    onClick={() => setCollapsed(!collapsed)}
-                    className="p-2 hover:bg-[var(--bg-main)] rounded-lg text-[var(--text-muted)] transition-colors"
-                >
-                    <ChevronLeft className={`transition-transform duration-300 ${collapsed ? 'rotate-180' : ''}`} size={20} />
-                </button>
-            </div>
+                    )}
+                    {/* Close button - mobile */}
+                    <button
+                        onClick={onClose}
+                        className="lg:hidden p-2 hover:bg-[var(--bg-main)] rounded-lg text-[var(--text-muted)] transition-colors"
+                        aria-label="Fechar menu"
+                    >
+                        <X size={20} />
+                    </button>
+                    {/* Collapse button - desktop */}
+                    <button
+                        onClick={() => setCollapsed(!collapsed)}
+                        className="hidden lg:block p-2 hover:bg-[var(--bg-main)] rounded-lg text-[var(--text-muted)] transition-colors"
+                        aria-label="Recolher menu"
+                    >
+                        <ChevronLeft className={`transition-transform duration-300 ${collapsed ? 'rotate-180' : ''}`} size={20} />
+                    </button>
+                </div>
 
             <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto custom-scrollbar">
                 <div className="px-3 mb-2 text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest">
@@ -81,6 +106,7 @@ export default function AdminSidebar() {
                         <Link
                             key={item.path}
                             to={item.path}
+                            onClick={onClose}
                             className={`flex items-center gap-3 px-3 py-3 rounded-xl transition-all group ${isActive
                                 ? 'bg-[var(--primary)] text-white shadow-lg shadow-[var(--primary)]/25'
                                 : 'text-[var(--text-muted)] hover:bg-[var(--sidebar-active)] hover:text-[var(--primary)]'
@@ -146,6 +172,7 @@ export default function AdminSidebar() {
                     )}
                 </div>
             </div>
-        </aside>
+            </aside>
+        </>
     );
 }

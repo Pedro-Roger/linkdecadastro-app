@@ -307,7 +307,7 @@ export default function MobileNavbar() {
           <div className="flex items-center justify-around px-2 py-2 max-w-screen-xl mx-auto">
             <Link
               to="/"
-              className={`flex flex-col items-center justify-center px-4 py-2 rounded-lg transition-colors ${isActive('/')
+              className={`flex flex-col items-center justify-center px-2 py-2 rounded-lg transition-colors min-w-0 ${isActive('/')
                 ? 'text-[#FF6600]'
                 : 'text-gray-600 hover:text-[#FF6600]'
                 }`}
@@ -320,7 +320,7 @@ export default function MobileNavbar() {
 
             <Link
               to="/courses"
-              className={`flex flex-col items-center justify-center px-4 py-2 rounded-lg transition-colors ${isActive('/courses')
+              className={`flex flex-col items-center justify-center px-2 py-2 rounded-lg transition-colors min-w-0 ${isActive('/courses')
                 ? 'text-[#FF6600]'
                 : 'text-gray-600 hover:text-[#FF6600]'
                 }`}
@@ -333,7 +333,7 @@ export default function MobileNavbar() {
 
             <Link
               to="/events"
-              className={`flex flex-col items-center justify-center px-4 py-2 rounded-lg transition-colors ${isActive('/events')
+              className={`flex flex-col items-center justify-center px-2 py-2 rounded-lg transition-colors min-w-0 ${isActive('/events')
                 ? 'text-[#FF6600]'
                 : 'text-gray-600 hover:text-[#FF6600]'
                 }`}
@@ -347,7 +347,7 @@ export default function MobileNavbar() {
             {(user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') ? (
               <Link
                 to="/admin/dashboard"
-                className={`flex flex-col items-center justify-center px-4 py-2 rounded-lg transition-colors ${isActive('/admin/dashboard') || isActive('/admin/courses')
+                className={`flex flex-col items-center justify-center px-2 py-2 rounded-lg transition-colors min-w-0 ${isActive('/admin/dashboard') || isActive('/admin/courses')
                   ? 'text-[#FF6600]'
                   : 'text-gray-600 hover:text-[#FF6600]'
                   }`}
@@ -360,7 +360,7 @@ export default function MobileNavbar() {
             ) : (
               <Link
                 to="/my-courses"
-                className={`flex flex-col items-center justify-center px-4 py-2 rounded-lg transition-colors ${isActive('/my-courses')
+                className={`flex flex-col items-center justify-center px-2 py-2 rounded-lg transition-colors min-w-0 ${isActive('/my-courses')
                   ? 'text-[#FF6600]'
                   : 'text-gray-600 hover:text-[#FF6600]'
                   }`}
@@ -372,7 +372,7 @@ export default function MobileNavbar() {
               </Link>
             )}
 
-            <div className="flex flex-col items-center justify-center px-4 py-2 rounded-lg">
+            <div className="flex flex-col items-center justify-center px-2 py-2 rounded-lg min-w-0">
               <div className="relative">
                 <NotificationBell />
               </div>
@@ -381,7 +381,7 @@ export default function MobileNavbar() {
 
             <Link
               to="/profile"
-              className={`flex flex-col items-center justify-center px-4 py-2 rounded-lg transition-colors ${isActive('/profile')
+              className={`flex flex-col items-center justify-center px-2 py-2 rounded-lg transition-colors min-w-0 ${isActive('/profile')
                 ? 'text-[#FF6600]'
                 : 'text-gray-600 hover:text-[#FF6600]'
                 }`}

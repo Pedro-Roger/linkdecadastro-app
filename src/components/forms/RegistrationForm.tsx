@@ -368,7 +368,7 @@ export default function RegistrationForm({ eventId }: { eventId: string }) {
     )
   }
 
-  const inputClass = "w-full px-5 py-4 bg-[var(--bg-main)] border border-[var(--border-light)] rounded-2xl focus:ring-4 focus:ring-[var(--primary)]/10 focus:border-[var(--primary)] text-[var(--text-main)] font-medium transition-all outline-none placeholder:text-slate-400";
+  const inputClass = "w-full px-5 py-4 bg-[var(--bg-main)] border border-[var(--border-light)] rounded-2xl focus:ring-4 focus:ring-[var(--primary)]/10 focus:border-[var(--primary)] text-[var(--text-main)] text-base font-medium transition-all outline-none placeholder:text-slate-400";
   const labelClass = "block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2 ml-1";
 
   return (
