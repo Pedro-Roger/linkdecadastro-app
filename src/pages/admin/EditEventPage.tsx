@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   ArrowLeft, Image as ImageIcon,
-  Globe, Shield, Users, Save, X, MapPin, Plus, Lock, Unlock, Trash2
+  Globe, Shield, Users, Save, X, MapPin, Plus, Lock, Unlock, Trash2, MessageCircle
 } from 'lucide-react'
 import LoadingScreen from '@/components/ui/LoadingScreen'
 import { apiFetch, getApiUrl, normalizeImageUrl } from '@/lib/api'
@@ -63,6 +63,15 @@ interface EventResponse {
   status: 'ACTIVE' | 'INACTIVE' | 'CLOSED'
   maxRegistrations?: number | null
   slug?: string | null
+  whatsappGroupsEnabled?: boolean
+  whatsappSessionId?: string | null
+}
+
+interface WaSession {
+  id: string
+  name?: string
+  phoneNumber?: string
+  status?: string
 }
 
 export default function EditEventPage() {
@@ -86,6 +95,11 @@ export default function EditEventPage() {
   const [editingMessages, setEditingMessages] = useState<Record<string, string>>({})
   const [editingLimits, setEditingLimits] = useState<Record<string, string>>({})
   const [cityFeedback, setCityFeedback] = useState<{ id: string; msg: string; type: 'ok' | 'err' } | null>(null)
+
+  // WhatsApp groups state
+  const [waSessions, setWaSessions] = useState<WaSession[]>([])
+  const [waGroupsEnabled, setWaGroupsEnabled] = useState(false)
+  const [waSessionId, setWaSessionId] = useState<string>('')
 
   const {
     register,
@@ -135,6 +149,8 @@ export default function EditEventPage() {
         })
 
         setBannerPreview(data.bannerUrl || null)
+        setWaGroupsEnabled(!!data.whatsappGroupsEnabled)
+        setWaSessionId(data.whatsappSessionId || '')
       } catch (err: any) {
         setError(err?.message || 'Erro ao carregar evento')
       } finally {
@@ -144,7 +160,15 @@ export default function EditEventPage() {
 
     loadEvent()
     loadCities()
+    loadWaSessions()
   }, [eventId, reset])
+
+  const loadWaSessions = async () => {
+    try {
+      const data = await apiFetch<{ success: boolean; sessions: WaSession[] }>('/api/whatsapp/sessions', { auth: true })
+      if (data?.success && Array.isArray(data.sessions)) setWaSessions(data.sessions)
+    } catch { /* sem sessões */ }
+  }
 
   const loadCities = async () => {
     if (!eventId) return
@@ -282,6 +306,8 @@ export default function EditEventPage() {
           status: data.status,
           maxRegistrations: data.maxRegistrations ? Number(data.maxRegistrations) : null,
           slug: data.slug || '',
+          whatsappGroupsEnabled: waGroupsEnabled,
+          whatsappSessionId: waGroupsEnabled ? (waSessionId || null) : null,
         }),
       })
 
@@ -629,6 +655,60 @@ export default function EditEventPage() {
                   </div>
                 </div>
               </div>
+            </section>
+
+            {/* WhatsApp Groups */}
+            <section className="bg-white rounded-[2.5rem] border border-[var(--border-light)] p-8 shadow-sm">
+              <h3 className="text-lg font-black text-[var(--secondary)] mb-2 flex items-center gap-2">
+                Grupos de WhatsApp <MessageCircle size={18} className="text-emerald-600" />
+              </h3>
+              <p className="text-[11px] text-[var(--text-muted)] font-medium mb-5">
+                Ao se inscrever, cada pessoa entra automaticamente no grupo da sua cidade. O grupo é criado no 1º inscrito.
+              </p>
+
+              {/* Toggle */}
+              <button
+                type="button"
+                onClick={() => setWaGroupsEnabled((v) => !v)}
+                className={`w-full flex items-center justify-between gap-3 p-4 rounded-2xl border-2 transition-all ${waGroupsEnabled ? 'border-emerald-300 bg-emerald-50/50' : 'border-[var(--border-light)] bg-[var(--bg-main)]/40'}`}
+              >
+                <span className="text-xs font-black uppercase tracking-wider text-[var(--secondary)]">
+                  Criar grupos automáticos
+                </span>
+                <span className={`relative w-12 h-6 rounded-full transition-all shrink-0 ${waGroupsEnabled ? 'bg-emerald-500' : 'bg-slate-300'}`}>
+                  <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${waGroupsEnabled ? 'left-6' : 'left-0.5'}`} />
+                </span>
+              </button>
+
+              {/* Session picker */}
+              {waGroupsEnabled && (
+                <div className="mt-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <label className="block text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2 px-1">
+                    Conta de WhatsApp
+                  </label>
+                  {waSessions.length === 0 ? (
+                    <p className="text-[11px] text-amber-600 font-bold bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
+                      Nenhuma conta conectada. Conecte um WhatsApp em "WhatsApp" no menu.
+                    </p>
+                  ) : (
+                    <select
+                      value={waSessionId}
+                      onChange={(e) => setWaSessionId(e.target.value)}
+                      className="w-full bg-[var(--bg-main)]/60 border border-[var(--border-light)] rounded-2xl px-4 py-3 text-sm font-bold text-[var(--secondary)] outline-none focus:border-emerald-500 transition-all"
+                    >
+                      <option value="">Selecione a conta...</option>
+                      {waSessions.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name || s.phoneNumber || s.id}{s.status ? ` (${s.status})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  {waGroupsEnabled && !waSessionId && waSessions.length > 0 && (
+                    <p className="text-[10px] text-amber-600 font-bold mt-2 px-1">Escolha uma conta para ativar os grupos.</p>
+                  )}
+                </div>
+              )}
             </section>
 
             <div className="bg-white rounded-[2.5rem] border border-[var(--border-light)] p-8 text-center shadow-sm">
