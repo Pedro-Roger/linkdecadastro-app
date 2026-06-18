@@ -353,7 +353,7 @@ export default function RegistrationForm({ eventId }: { eventId: string }) {
         <div className="space-y-2">
           <h2 className="text-3xl font-black text-[var(--secondary)] tracking-tight">Cadastro Confirmado!</h2>
           <p className="text-[var(--text-muted)] font-medium">
-            Tudo certo! Você receberá um e-mail com os detalhes em breve.
+            Tudo certo! Sua inscrição foi confirmada com sucesso.
           </p>
         </div>
         <div className="pt-6">
