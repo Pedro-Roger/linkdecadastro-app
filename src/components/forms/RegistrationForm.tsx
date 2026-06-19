@@ -117,7 +117,7 @@ export default function RegistrationForm({ eventId, formCities = [] }: { eventId
   const [loadingCities, setLoadingCities] = useState(false)
   const [loadingCep, setLoadingCep] = useState(false)
 
-  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<RegistrationFormData>({
+  const { register, handleSubmit, watch, setValue, getValues, formState: { errors } } = useForm<RegistrationFormData>({
     resolver: zodResolver(registrationSchema)
   })
 
@@ -318,6 +318,33 @@ export default function RegistrationForm({ eventId, formCities = [] }: { eventId
     }
   }
 
+  // Troca de cidade (re-inscrição): envia direto com os dados do perfil já
+  // carregados + a nova cidade, sem revalidar o formulário inteiro (campos ocultos).
+  const handleCityChange = async () => {
+    const data = getValues()
+    if (!data.city || !data.state) {
+      setCityError('Selecione a nova cidade.')
+      return
+    }
+    setSubmitting(true)
+    setError(null)
+    try {
+      const response = await apiFetch<any>('/registrations', {
+        method: 'POST',
+        body: JSON.stringify({ ...data, eventId }),
+      })
+      if (response?.error && !response?.id) {
+        setError(typeof response.error === 'string' ? response.error : 'Erro ao atualizar inscrição')
+        return
+      }
+      setSuccess(true)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao atualizar inscrição')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   const onSubmit = async (data: RegistrationFormData) => {
     // Re-inscrição (trocar de cidade) é permitida — não bloqueia mais.
     if (hasFormCities && !data.city) {
@@ -419,7 +446,7 @@ export default function RegistrationForm({ eventId, formCities = [] }: { eventId
   // MODO TROCA DE CIDADE: CPF já inscrito neste evento
   if (existingRegistration) {
     return (
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      <div className="space-y-6">
         <div className="p-5 bg-emerald-50 border border-emerald-200 rounded-2xl">
           <p className="font-black text-[var(--secondary)] text-lg">Você já está inscrito! ✓</p>
           <p className="text-xs text-[var(--text-muted)] font-medium mt-1">
@@ -459,7 +486,8 @@ export default function RegistrationForm({ eventId, formCities = [] }: { eventId
         )}
 
         <button
-          type="submit"
+          type="button"
+          onClick={handleCityChange}
           disabled={submitting}
           className="w-full py-5 bg-gradient-to-r from-[var(--primary)] to-[var(--accent)] text-white font-black text-xs uppercase tracking-[0.2em] rounded-[1.5rem] shadow-2xl shadow-[var(--primary)]/30 hover:-translate-y-1 transition-all active:scale-95 disabled:opacity-50"
         >
@@ -473,7 +501,7 @@ export default function RegistrationForm({ eventId, formCities = [] }: { eventId
         >
           Não é você? Usar outro CPF
         </button>
-      </form>
+      </div>
     )
   }
 
