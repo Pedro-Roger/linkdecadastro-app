@@ -364,6 +364,15 @@ export default function RegistrationForm({ eventId, formCities = [] }: { eventId
     }
   }
 
+  // Chamado quando a validação do zod falha (ex.: cidade não selecionada).
+  // Se o problema é a cidade, dispara o aviso + shake (os botões não mostram
+  // erro de campo sozinhos). Os demais campos já exibem seus próprios erros.
+  const onInvalid = (errs: any) => {
+    if (errs?.city || (hasFormCities && !getValues().city)) {
+      flagCityMissing()
+    }
+  }
+
   const onSubmit = async (data: RegistrationFormData) => {
     // Re-inscrição (trocar de cidade) é permitida — não bloqueia mais.
     if (hasFormCities && !data.city) {
@@ -539,7 +548,7 @@ export default function RegistrationForm({ eventId, formCities = [] }: { eventId
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+    <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-8">
       {shakeStyle}
 
       {(hasFormCities || eventCities.length > 0) && (
