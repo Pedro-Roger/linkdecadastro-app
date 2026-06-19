@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -104,6 +104,16 @@ export default function RegistrationForm({ eventId, formCities = [] }: { eventId
   const [previousCity, setPreviousCity] = useState<{ city: string; state: string } | null>(null)
 
   const hasFormCities = Array.isArray(formCities) && formCities.length > 0
+  const [cityShake, setCityShake] = useState(false)
+  const citySectionRef = useRef<HTMLDivElement>(null)
+
+  // Sinaliza que falta escolher a cidade: mostra erro, treme e rola até os botões.
+  const flagCityMissing = () => {
+    setCityError('Selecione a cidade do evento para continuar.')
+    setCityShake(true)
+    setTimeout(() => setCityShake(false), 600)
+    citySectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
 
   // Event participating cities
   const [eventCities, setEventCities] = useState<EventCity[]>([])
@@ -332,7 +342,7 @@ export default function RegistrationForm({ eventId, formCities = [] }: { eventId
   const handleCityChange = async () => {
     const data = getValues()
     if (!data.city || !data.state) {
-      setCityError('Selecione a nova cidade.')
+      flagCityMissing()
       return
     }
     setSubmitting(true)
@@ -357,12 +367,12 @@ export default function RegistrationForm({ eventId, formCities = [] }: { eventId
   const onSubmit = async (data: RegistrationFormData) => {
     // Re-inscrição (trocar de cidade) é permitida — não bloqueia mais.
     if (hasFormCities && !data.city) {
-      setCityError('Selecione a cidade do evento para continuar.')
+      flagCityMissing()
       return
     }
 
     if (!hasFormCities && eventCities.length > 0 && !selectedEventCity) {
-      setCityError('Selecione a cidade do evento para continuar.')
+      flagCityMissing()
       return
     }
 
@@ -462,9 +472,14 @@ export default function RegistrationForm({ eventId, formCities = [] }: { eventId
   )
 
   // MODO TROCA DE CIDADE: CPF já inscrito neste evento
+  const shakeStyle = (
+    <style>{`@keyframes shake {0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}`}</style>
+  )
+
   if (existingRegistration) {
     return (
       <div className="space-y-6">
+        {shakeStyle}
         <div className="p-5 bg-emerald-50 border border-emerald-200 rounded-2xl">
           <p className="font-black text-[var(--secondary)] text-lg">Você já está inscrito! ✓</p>
           <p className="text-xs text-[var(--text-muted)] font-medium mt-1">
@@ -477,7 +492,7 @@ export default function RegistrationForm({ eventId, formCities = [] }: { eventId
           )}
         </div>
 
-        <div className="space-y-3">
+        <div ref={citySectionRef} className={`space-y-3 ${cityShake ? 'animate-[shake_0.5s_ease-in-out]' : ''}`}>
           <label className={labelClass}>Deseja mudar de cidade?</label>
           {hasFormCities ? (
             formCityDropdown
@@ -525,9 +540,10 @@ export default function RegistrationForm({ eventId, formCities = [] }: { eventId
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+      {shakeStyle}
 
       {(hasFormCities || eventCities.length > 0) && (
-        <div className="space-y-3">
+        <div ref={citySectionRef} className={`space-y-3 ${cityShake ? 'animate-[shake_0.5s_ease-in-out]' : ''}`}>
           <label className={labelClass}>Cidade do Evento *</label>
           {hasFormCities ? formCityDropdown : (
           <select
