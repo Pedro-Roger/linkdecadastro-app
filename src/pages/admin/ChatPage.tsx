@@ -62,6 +62,8 @@ export default function ChatPage() {
     const [showSessionSelector, setShowSessionSelector] = useState(false);
 
     const [conversations, setConversations] = useState<any[]>([]);
+    const conversationsRef = useRef<any[]>([]);
+    useEffect(() => { conversationsRef.current = conversations; }, [conversations]);
     const [selectedChat, setSelectedChat] = useState<any>(null);
     const [messages, setMessages] = useState<any[]>([]);
     const [newMessage, setNewMessage] = useState('');
@@ -339,7 +341,7 @@ export default function ChatPage() {
 
             const combinedMap = new Map<string, any>();
 
-            conversations.forEach((chat: any) => {
+            conversationsRef.current.forEach((chat: any) => {
                 const key = chat.jid || chat.id;
                 if (!key) return;
                 combinedMap.set(key, chat);
@@ -359,7 +361,7 @@ export default function ChatPage() {
             if (nextConversations.length > 0) {
                 setConversations(nextConversations);
                 writeChatInboxCache(nextConversations, user?.id, currentSessionId);
-            } else if (conversations.length === 0) {
+            } else if (conversationsRef.current.length === 0) {
                 setConversations([]);
             }
         } catch (error: any) {
@@ -368,7 +370,7 @@ export default function ChatPage() {
         } finally {
             setLoadingConversations(false);
         }
-    }, [conversations, currentSessionId, fallbackAvatar, user?.id]);
+    }, [currentSessionId, fallbackAvatar, user?.id]);
 
     const handleRefreshWorkspace = useCallback(async () => {
         await Promise.allSettled([
