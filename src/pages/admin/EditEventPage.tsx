@@ -65,6 +65,7 @@ interface EventResponse {
   slug?: string | null
   whatsappGroupsEnabled?: boolean
   whatsappSessionId?: string | null
+  formCities?: { city: string; state: string }[] | null
 }
 
 interface WaSession {
@@ -103,6 +104,10 @@ export default function EditEventPage() {
   const [perDay, setPerDay] = useState('10')
   const [backfilling, setBackfilling] = useState(false)
   const [backfillMsg, setBackfillMsg] = useState<{ text: string; type: 'ok' | 'err' } | null>(null)
+
+  // Cidades exibidas no dropdown do formulário (independente das participantes)
+  const [formCities, setFormCities] = useState<{ city: string; state: string }[]>([])
+  const [newFormCity, setNewFormCity] = useState({ city: '', state: '' })
 
   const {
     register,
@@ -154,6 +159,7 @@ export default function EditEventPage() {
         setBannerPreview(data.bannerUrl || null)
         setWaGroupsEnabled(!!data.whatsappGroupsEnabled)
         setWaSessionId(data.whatsappSessionId || '')
+        setFormCities(Array.isArray(data.formCities) ? data.formCities : [])
       } catch (err: any) {
         setError(err?.message || 'Erro ao carregar evento')
       } finally {
@@ -171,6 +177,21 @@ export default function EditEventPage() {
       const data = await apiFetch<{ success: boolean; sessions: WaSession[] }>('/api/whatsapp/sessions', { auth: true })
       if (data?.success && Array.isArray(data.sessions)) setWaSessions(data.sessions)
     } catch { /* sem sessões */ }
+  }
+
+  const addFormCity = () => {
+    const city = newFormCity.city.trim()
+    const state = newFormCity.state.trim().toUpperCase()
+    if (!city || !state) return
+    setFormCities((prev) => {
+      if (prev.some((c) => c.city.toLowerCase() === city.toLowerCase() && c.state === state)) return prev
+      return [...prev, { city, state }].sort((a, b) => a.city.localeCompare(b.city))
+    })
+    setNewFormCity({ city: '', state: '' })
+  }
+
+  const removeFormCity = (city: string, state: string) => {
+    setFormCities((prev) => prev.filter((c) => !(c.city === city && c.state === state)))
   }
 
   const handleBackfill = async () => {
@@ -332,6 +353,7 @@ export default function EditEventPage() {
           slug: data.slug || '',
           whatsappGroupsEnabled: waGroupsEnabled,
           whatsappSessionId: waGroupsEnabled ? (waSessionId || null) : null,
+          formCities,
         }),
       })
 
@@ -637,6 +659,70 @@ export default function EditEventPage() {
                 })}
               </div>
             )}
+          </section>
+
+          {/* Form Cities (dropdown do formulário público) */}
+          <section className="bg-white rounded-[2.5rem] border border-[var(--border-light)] p-8 shadow-sm lg:col-span-3">
+            <h2 className="text-lg font-black text-[var(--secondary)] mb-2 flex items-center gap-2">
+              Cidades do Formulário <MapPin size={20} className="text-emerald-600" />
+            </h2>
+            <p className="text-[11px] text-[var(--text-muted)] font-medium mb-6">
+              Estas são as cidades que aparecem no seletor "Cidade do Evento" do formulário público — independente das cidades participantes e de limites. Se a lista estiver vazia, o formulário usa o comportamento padrão.
+            </p>
+
+            <div className="flex flex-wrap gap-3 mb-6 p-4 bg-[var(--bg-main)]/60 rounded-2xl border border-[var(--border-light)]">
+              <input
+                type="text"
+                placeholder="Município"
+                value={newFormCity.city}
+                onChange={(e) => setNewFormCity((p) => ({ ...p, city: e.target.value }))}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addFormCity() } }}
+                className="flex-1 min-w-[160px] bg-white border border-[var(--border-light)] rounded-xl px-4 py-3 text-sm font-bold text-[var(--secondary)] outline-none focus:border-emerald-500 transition-all"
+              />
+              <input
+                type="text"
+                placeholder="UF"
+                maxLength={2}
+                value={newFormCity.state}
+                onChange={(e) => setNewFormCity((p) => ({ ...p, state: e.target.value.toUpperCase() }))}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addFormCity() } }}
+                className="w-20 bg-white border border-[var(--border-light)] rounded-xl px-4 py-3 text-sm font-bold text-[var(--secondary)] outline-none focus:border-emerald-500 transition-all uppercase"
+              />
+              <button
+                type="button"
+                disabled={!newFormCity.city.trim() || !newFormCity.state.trim()}
+                onClick={addFormCity}
+                className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-widest rounded-xl transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Plus size={16} /> ADICIONAR
+              </button>
+            </div>
+
+            {formCities.length === 0 ? (
+              <p className="text-center text-[var(--text-muted)] text-sm font-medium py-6">
+                Nenhuma cidade na lista do formulário. Adicione acima as cidades que devem aparecer no seletor.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {formCities.map((c) => (
+                  <span
+                    key={`${c.city}-${c.state}`}
+                    className="inline-flex items-center gap-2 pl-4 pr-2 py-2 bg-emerald-50 border border-emerald-100 rounded-xl text-sm font-bold text-[var(--secondary)]"
+                  >
+                    {c.city} <span className="text-emerald-600">{c.state}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeFormCity(c.city, c.state)}
+                      className="w-6 h-6 flex items-center justify-center rounded-lg text-[var(--text-muted)] hover:bg-red-50 hover:text-red-500 transition-all"
+                      title="Remover"
+                    >
+                      <X size={14} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+            <p className="text-[10px] text-[var(--text-muted)] font-medium mt-4">Lembre de clicar em SALVAR ALTERAÇÕES no topo.</p>
           </section>
 
           <div className="space-y-8">

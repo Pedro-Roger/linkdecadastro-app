@@ -94,12 +94,16 @@ function formatDateTime(value?: string | Date | null) {
   }).format(date)
 }
 
-export default function RegistrationForm({ eventId }: { eventId: string }) {
+export default function RegistrationForm({ eventId, formCities = [] }: { eventId: string; formCities?: { city: string; state: string }[] }) {
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loadingCpf, setLoadingCpf] = useState(false)
   const [existingRegistration, setExistingRegistration] = useState<ExistingRegistrationInfo | null>(null)
+  // Cidade que a pessoa já tinha escolhido (para o modo "trocar cidade")
+  const [previousCity, setPreviousCity] = useState<{ city: string; state: string } | null>(null)
+
+  const hasFormCities = Array.isArray(formCities) && formCities.length > 0
 
   // Event participating cities
   const [eventCities, setEventCities] = useState<EventCity[]>([])
@@ -148,6 +152,18 @@ export default function RegistrationForm({ eventId }: { eventId: string }) {
     setValue('city', city.municipality, { shouldValidate: true, shouldDirty: true })
     setValue('state', city.state, { shouldValidate: true, shouldDirty: true })
     fetchCities(city.state, city.municipality)
+  }
+
+  // Seleção na lista de cidades do formulário (formCities). value = "Cidade|UF"
+  const selectFormCity = (value: string) => {
+    setCityError(null)
+    if (!value) {
+      setValue('city', '', { shouldValidate: true, shouldDirty: true })
+      return
+    }
+    const [c, s] = value.split('|')
+    setValue('city', c, { shouldValidate: true, shouldDirty: true })
+    setValue('state', s, { shouldValidate: true, shouldDirty: true })
   }
 
   useEffect(() => {
@@ -287,6 +303,11 @@ export default function RegistrationForm({ eventId }: { eventId: string }) {
       const response = await apiFetch<any>(`/registrations/cpf/${cpf}?eventId=${eventId}`)
       await applyProfileData(response?.profile)
       setExistingRegistration(response?.existingRegistration || null)
+      if (response?.existingRegistration && response?.profile?.city) {
+        setPreviousCity({ city: response.profile.city, state: response.profile.state || '' })
+      } else {
+        setPreviousCity(null)
+      }
     } catch (lookupError: any) {
       if (lookupError?.status === 404) {
         setExistingRegistration(null)
@@ -298,12 +319,13 @@ export default function RegistrationForm({ eventId }: { eventId: string }) {
   }
 
   const onSubmit = async (data: RegistrationFormData) => {
-    if (existingRegistration) {
-      setError(`Você já está inscrito neste evento desde ${formatDateTime(existingRegistration.createdAt)}.`)
+    // Re-inscrição (trocar de cidade) é permitida — não bloqueia mais.
+    if (hasFormCities && !data.city) {
+      setCityError('Selecione a cidade do evento para continuar.')
       return
     }
 
-    if (eventCities.length > 0 && !selectedEventCity) {
+    if (!hasFormCities && eventCities.length > 0 && !selectedEventCity) {
       setCityError('Selecione a cidade do evento para continuar.')
       return
     }
@@ -371,12 +393,97 @@ export default function RegistrationForm({ eventId }: { eventId: string }) {
   const inputClass = "w-full px-5 py-4 bg-[var(--bg-main)] border border-[var(--border-light)] rounded-2xl focus:ring-4 focus:ring-[var(--primary)]/10 focus:border-[var(--primary)] text-[var(--text-main)] text-base font-medium transition-all outline-none placeholder:text-slate-400";
   const labelClass = "block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2 ml-1";
 
+  const currentCity = watch('city')
+  const currentState = watch('state')
+
+  const resetReRegistration = () => {
+    setExistingRegistration(null)
+    setPreviousCity(null)
+    setValue('cpf', '', { shouldValidate: false, shouldDirty: true })
+  }
+
+  // Dropdown da lista de cidades do formulário (formCities)
+  const formCityDropdown = (
+    <select
+      value={hasFormCities && formCities.some((c) => c.city === currentCity && c.state === currentState) ? `${currentCity}|${currentState}` : ''}
+      onChange={(e) => selectFormCity(e.target.value)}
+      className={`${inputClass} appearance-none cursor-pointer ${cityError ? 'border-red-400 focus:border-red-400' : ''}`}
+    >
+      <option value="">Selecione a cidade do evento...</option>
+      {formCities.map((c) => (
+        <option key={`${c.city}|${c.state}`} value={`${c.city}|${c.state}`}>{c.city} - {c.state}</option>
+      ))}
+    </select>
+  )
+
+  // MODO TROCA DE CIDADE: CPF já inscrito neste evento
+  if (existingRegistration) {
+    return (
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        <div className="p-5 bg-emerald-50 border border-emerald-200 rounded-2xl">
+          <p className="font-black text-[var(--secondary)] text-lg">Você já está inscrito! ✓</p>
+          <p className="text-xs text-[var(--text-muted)] font-medium mt-1">
+            Inscrição feita em {formatDateTime(existingRegistration.createdAt)}.
+          </p>
+          {previousCity?.city && (
+            <p className="text-sm font-bold text-[var(--secondary)] mt-3">
+              Cidade atual: <span className="text-[var(--primary)]">{previousCity.city}{previousCity.state ? ` - ${previousCity.state}` : ''}</span>
+            </p>
+          )}
+        </div>
+
+        <div className="space-y-3">
+          <label className={labelClass}>Deseja mudar de cidade?</label>
+          {hasFormCities ? (
+            formCityDropdown
+          ) : (
+            <SearchableSelect
+              value={currentCity}
+              onChange={(val) => setValue('city', val, { shouldValidate: true })}
+              options={cities.map((c) => ({ value: c.nome, label: c.nome }))}
+              placeholder={loadingCities ? 'Carregando...' : 'Selecione a cidade...'}
+              searchPlaceholder="Buscar cidade..."
+              disabled={loadingCities}
+              loading={loadingCities}
+            />
+          )}
+          <p className="text-[11px] text-[var(--text-muted)] font-medium">
+            Selecione a nova cidade e confirme — você entrará no grupo de WhatsApp da cidade escolhida.
+          </p>
+        </div>
+
+        {error && (
+          <div className="p-4 bg-red-500/10 border border-red-500/20 text-red-600 rounded-2xl text-xs font-bold uppercase tracking-wide">
+            {error}
+          </div>
+        )}
+
+        <button
+          type="submit"
+          disabled={submitting}
+          className="w-full py-5 bg-gradient-to-r from-[var(--primary)] to-[var(--accent)] text-white font-black text-xs uppercase tracking-[0.2em] rounded-[1.5rem] shadow-2xl shadow-[var(--primary)]/30 hover:-translate-y-1 transition-all active:scale-95 disabled:opacity-50"
+        >
+          {submitting ? 'ATUALIZANDO...' : 'CONFIRMAR / TROCAR CIDADE'}
+        </button>
+
+        <button
+          type="button"
+          onClick={resetReRegistration}
+          className="w-full text-center text-[11px] font-bold text-[var(--text-muted)] hover:text-[var(--primary)] uppercase tracking-wider transition-colors"
+        >
+          Não é você? Usar outro CPF
+        </button>
+      </form>
+    )
+  }
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
 
-      {eventCities.length > 0 && (
+      {(hasFormCities || eventCities.length > 0) && (
         <div className="space-y-3">
           <label className={labelClass}>Cidade do Evento *</label>
+          {hasFormCities ? formCityDropdown : (
           <select
             value={selectedEventCity?.id ?? ''}
             onChange={(e) => {
@@ -393,6 +500,7 @@ export default function RegistrationForm({ eventId }: { eventId: string }) {
               </option>
             ))}
           </select>
+          )}
           {cityError && (
             <div className="p-3 bg-orange-50 border border-orange-200 rounded-2xl text-orange-700 text-[11px] font-bold uppercase tracking-wide flex items-center gap-2">
               <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -450,7 +558,7 @@ export default function RegistrationForm({ eventId }: { eventId: string }) {
           {errors.email && <p className="text-red-500 text-[10px] font-bold uppercase tracking-wider mt-2 ml-1">{errors.email.message}</p>}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className={`grid grid-cols-1 gap-6 ${hasFormCities ? 'md:grid-cols-2' : 'md:grid-cols-3'}`}>
           <div>
             <label className={labelClass}>CEP *</label>
             <input
@@ -473,6 +581,7 @@ export default function RegistrationForm({ eventId }: { eventId: string }) {
             {errors.locality && <p className="text-red-500 text-[10px] font-bold uppercase tracking-wider mt-2 ml-1">{errors.locality.message}</p>}
           </div>
 
+          {!hasFormCities && (
           <div>
             <label className={labelClass}>Estado *</label>
             <SearchableSelect
@@ -490,8 +599,10 @@ export default function RegistrationForm({ eventId }: { eventId: string }) {
             />
             {errors.state && <p className="text-red-500 text-[10px] font-bold uppercase tracking-wider mt-2 ml-1">{errors.state.message}</p>}
           </div>
+          )}
         </div>
 
+        {!hasFormCities && (
         <div>
           <label className={labelClass}>Cidade *</label>
           <SearchableSelect
@@ -508,6 +619,7 @@ export default function RegistrationForm({ eventId }: { eventId: string }) {
           />
           {errors.city && <p className="text-red-500 text-[10px] font-bold uppercase tracking-wider mt-2 ml-1">{errors.city.message}</p>}
         </div>
+        )}
 
         <div>
           <label className={labelClass}>Perfil do Participante *</label>

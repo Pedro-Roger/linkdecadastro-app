@@ -122,7 +122,7 @@ export default function RegisterPage() {
             </div>
 
             <div className="pt-8 border-t border-[var(--border-light)]">
-              <RegistrationForm eventId={event.id} />
+              <RegistrationForm eventId={event.id} formCities={event.formCities || []} />
             </div>
           </div>
         </div>
