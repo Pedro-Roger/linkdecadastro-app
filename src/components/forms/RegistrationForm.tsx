@@ -553,7 +553,7 @@ export default function RegistrationForm({ eventId, formCities = [] }: { eventId
 
       {(hasFormCities || eventCities.length > 0) && (
         <div ref={citySectionRef} className={`space-y-3 ${cityShake ? 'animate-[shake_0.5s_ease-in-out]' : ''}`}>
-          <label className={labelClass}>Cidade do Evento *</label>
+          <label className={labelClass}>Escolha a Cidade do Evento *</label>
           {hasFormCities ? formCityDropdown : (
           <select
             value={selectedEventCity?.id ?? ''}
