@@ -248,15 +248,19 @@ export default function RegistrationForm({ eventId, formCities = [] }: { eventId
 
       if (!data) return
 
-      if (data.state) {
-        setValue('state', data.state, { shouldValidate: true, shouldDirty: true })
-      }
-
-      if (data.city) {
-        ensureCityOption(data.city)
-        setValue('city', data.city, { shouldValidate: true, shouldDirty: true })
+      // Com lista de cidades do formulário, a cidade/estado vêm SÓ do dropdown.
+      // O CEP preenche apenas o bairro, sem sobrescrever a cidade escolhida.
+      if (!hasFormCities) {
         if (data.state) {
-          await fetchCities(data.state, data.city)
+          setValue('state', data.state, { shouldValidate: true, shouldDirty: true })
+        }
+
+        if (data.city) {
+          ensureCityOption(data.city)
+          setValue('city', data.city, { shouldValidate: true, shouldDirty: true })
+          if (data.state) {
+            await fetchCities(data.state, data.city)
+          }
         }
       }
 
@@ -278,13 +282,18 @@ export default function RegistrationForm({ eventId, formCities = [] }: { eventId
       ['phone', profile.phone || ''],
       ['cep', profile.cep || ''],
       ['locality', profile.locality || ''],
-      ['state', profile.state || ''],
-      ['city', profile.city || ''],
       ['participantType', profile.participantType === 'PRODUTOR' ? 'PRODUTOR' : 'OUTROS'],
       ['otherType', profile.participantType === 'PRODUTOR' ? '' : (profile.otherType || '')],
       ['pondCount', profile.pondCount ?? undefined],
       ['waterArea', profile.waterArea ?? undefined],
     ]
+
+    // Com lista de cidades do formulário, NÃO pré-preenche cidade/estado do
+    // perfil — a cidade é escolhida no dropdown (evita herdar a cidade de casa).
+    if (!hasFormCities) {
+      updates.push(['state', profile.state || ''])
+      updates.push(['city', profile.city || ''])
+    }
 
     updates.forEach(([field, value]) => {
       if (value !== undefined) {
@@ -292,7 +301,7 @@ export default function RegistrationForm({ eventId, formCities = [] }: { eventId
       }
     })
 
-    if (profile.state) {
+    if (!hasFormCities && profile.state) {
       await fetchCities(profile.state, profile.city)
     }
   }
