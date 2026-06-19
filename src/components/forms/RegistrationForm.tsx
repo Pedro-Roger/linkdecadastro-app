@@ -438,18 +438,27 @@ export default function RegistrationForm({ eventId, formCities = [] }: { eventId
     setValue('cpf', '', { shouldValidate: false, shouldDirty: true })
   }
 
-  // Dropdown da lista de cidades do formulário (formCities)
+  // Botões da lista de cidades do formulário (formCities) — clicar escolhe.
   const formCityDropdown = (
-    <select
-      value={hasFormCities && formCities.some((c) => c.city === currentCity && c.state === currentState) ? `${currentCity}|${currentState}` : ''}
-      onChange={(e) => selectFormCity(e.target.value)}
-      className={`${inputClass} appearance-none cursor-pointer ${cityError ? 'border-red-400 focus:border-red-400' : ''}`}
-    >
-      <option value="">Selecione a cidade do evento...</option>
-      {formCities.map((c) => (
-        <option key={`${c.city}|${c.state}`} value={`${c.city}|${c.state}`}>{c.city} - {c.state}</option>
-      ))}
-    </select>
+    <div className="flex flex-wrap gap-2">
+      {formCities.map((c) => {
+        const selected = c.city === currentCity && c.state === currentState
+        return (
+          <button
+            key={`${c.city}|${c.state}`}
+            type="button"
+            onClick={() => selectFormCity(`${c.city}|${c.state}`)}
+            className={`px-4 py-3 rounded-2xl border-2 text-sm font-bold transition-all active:scale-95 ${
+              selected
+                ? 'border-[var(--primary)] bg-[var(--primary)]/10 text-[var(--primary)] shadow-sm'
+                : `bg-[var(--bg-main)] text-[var(--text-main)] hover:border-[var(--primary)]/40 ${cityError ? 'border-red-300' : 'border-[var(--border-light)]'}`
+            }`}
+          >
+            {c.city} <span className="opacity-60 font-medium">- {c.state}</span>
+          </button>
+        )
+      })}
+    </div>
   )
 
   // MODO TROCA DE CIDADE: CPF já inscrito neste evento
