@@ -94,7 +94,15 @@ function formatDateTime(value?: string | Date | null) {
   }).format(date)
 }
 
-export default function RegistrationForm({ eventId, formCities = [] }: { eventId: string; formCities?: { city: string; state: string }[] }) {
+export default function RegistrationForm({
+  eventId,
+  formCities = [],
+  groupInviteLink,
+}: {
+  eventId: string
+  formCities?: { city: string; state: string }[]
+  groupInviteLink?: string | null
+}) {
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -433,6 +441,18 @@ export default function RegistrationForm({ eventId, formCities = [] }: { eventId
             Tudo certo! Sua inscrição foi confirmada com sucesso.
           </p>
         </div>
+        {groupInviteLink && (
+          <div className="pt-2">
+            <a
+              href={groupInviteLink}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-[var(--primary)] to-[var(--accent)] text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:shadow-xl transition-all active:scale-95"
+            >
+              Entrar no grupo do evento
+            </a>
+          </div>
+        )}
         <div className="pt-6">
           <Link
             to="/"
@@ -787,4 +807,3 @@ export default function RegistrationForm({ eventId, formCities = [] }: { eventId
     </form>
   )
 }
-

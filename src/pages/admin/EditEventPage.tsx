@@ -51,6 +51,13 @@ const eventSchema = z.object({
     (val) => !val || /^[a-z0-9-]+$/.test(val),
     { message: 'URL personalizada deve conter apenas letras minúsculas, números e hífens' }
   ),
+  groupInviteLink: z.string().optional().or(z.literal('')).transform((val) => {
+    if (!val || !val.trim()) return undefined
+    return val.trim()
+  }).refine(
+    (val) => !val || /^https?:\/\/.+/.test(val),
+    { message: 'Link do grupo deve ser uma URL válida' }
+  ),
 })
 
 type EventFormData = z.infer<typeof eventSchema>
@@ -63,6 +70,7 @@ interface EventResponse {
   status: 'ACTIVE' | 'INACTIVE' | 'CLOSED'
   maxRegistrations?: number | null
   slug?: string | null
+  groupInviteLink?: string | null
   whatsappGroupsEnabled?: boolean
   whatsappSessionId?: string | null
   formCities?: { city: string; state: string }[] | null
@@ -154,6 +162,7 @@ export default function EditEventPage() {
               ? ''
               : String(data.maxRegistrations),
           slug: data.slug || undefined,
+          groupInviteLink: data.groupInviteLink || undefined,
         })
 
         setBannerPreview(data.bannerUrl || null)
@@ -351,6 +360,7 @@ export default function EditEventPage() {
           status: data.status,
           maxRegistrations: data.maxRegistrations ? Number(data.maxRegistrations) : null,
           slug: data.slug || '',
+          groupInviteLink: data.groupInviteLink || '',
           whatsappGroupsEnabled: waGroupsEnabled,
           whatsappSessionId: waGroupsEnabled ? (waSessionId || null) : null,
           formCities,
@@ -466,6 +476,18 @@ export default function EditEventPage() {
                     </p>
                   )}
                   {errors.slug && <p className="text-red-500 text-[10px] font-bold mt-1.5 px-1">{errors.slug.message}</p>}
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2 px-1">Link do Grupo do Evento (Opcional)</label>
+                  <input
+                    type="url"
+                    {...register('groupInviteLink')}
+                    className="w-full bg-[var(--bg-main)]/50 border-2 border-transparent focus:border-indigo-600/20 rounded-2xl px-5 py-4 text-sm font-bold text-[var(--secondary)] transition-all outline-none"
+                    placeholder="https://chat.whatsapp.com/..."
+                  />
+                  <p className="text-[9px] text-[var(--text-muted)] font-medium mt-2 px-1 uppercase tracking-tighter">Se não houver grupo, deixe este campo em branco.</p>
+                  {errors.groupInviteLink && <p className="text-red-500 text-[10px] font-bold mt-1.5 px-1">{errors.groupInviteLink.message}</p>}
                 </div>
 
                 <div>

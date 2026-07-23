@@ -99,6 +99,7 @@ interface EventEnrollmentModalProps {
   onClose: () => void
   eventId: string
   eventTitle: string
+  groupInviteLink?: string | null
   onSuccess?: () => void
 }
 
@@ -146,6 +147,7 @@ export default function EventEnrollmentModal({
   onClose,
   eventId,
   eventTitle,
+  groupInviteLink,
   onSuccess
 }: EventEnrollmentModalProps) {
   const { user } = useAuth()
@@ -291,11 +293,6 @@ export default function EventEnrollmentModal({
         
         setSuccess(true)
         onSuccess?.()
-        setTimeout(() => {
-            onClose()
-            setSuccess(false)
-            reset()
-        }, 2000)
 
     } catch (err) {
         setError(err instanceof Error ? err.message : 'Erro ao realizar inscrição')
@@ -321,8 +318,50 @@ export default function EventEnrollmentModal({
             <p className="mb-6 text-gray-600">Evento: <span className="font-semibold text-[#003366]">{eventTitle}</span></p>
             
             {success ? (
-                <div className="bg-green-50 text-green-800 p-4 rounded-lg text-center">
-                    Inscrição realizada com sucesso!
+                <div className="space-y-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-center">
+                    <div className="space-y-2">
+                        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+                            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                            </svg>
+                        </div>
+                        <h3 className="text-lg font-black text-emerald-900">Inscrição realizada com sucesso!</h3>
+                        <p className="text-sm text-emerald-800">
+                            Agora é só entrar no grupo do evento para receber as orientações e atualizações.
+                        </p>
+                    </div>
+
+                    {groupInviteLink ? (
+                        <div className="space-y-3 pt-2">
+                            <a
+                                href={groupInviteLink}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex w-full items-center justify-center rounded-xl bg-[#FF6600] px-4 py-3 text-sm font-black text-white transition-colors hover:bg-[#e55a00]"
+                            >
+                                Entrar no grupo do evento
+                            </a>
+                            <p className="text-xs font-medium text-emerald-700">
+                                Dica: se o WhatsApp não abrir sozinho, toque no botão acima.
+                            </p>
+                        </div>
+                    ) : (
+                        <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700">
+                            Este evento não possui grupo configurado.
+                        </p>
+                    )}
+
+                    <button
+                        type="button"
+                        onClick={() => {
+                            onClose()
+                            setSuccess(false)
+                            reset()
+                        }}
+                        className="inline-flex w-full items-center justify-center rounded-xl border border-emerald-200 bg-white px-4 py-3 text-xs font-black uppercase tracking-widest text-emerald-800 transition-colors hover:bg-emerald-100"
+                    >
+                        Fechar
+                    </button>
                 </div>
             ) : (
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">

@@ -122,7 +122,11 @@ export default function RegisterPage() {
             </div>
 
             <div className="pt-8 border-t border-[var(--border-light)]">
-              <RegistrationForm eventId={event.id} formCities={event.formCities || []} />
+              <RegistrationForm
+                eventId={event.id}
+                formCities={event.formCities || []}
+                groupInviteLink={event.groupInviteLink || null}
+              />
             </div>
           </div>
         </div>
@@ -132,4 +136,3 @@ export default function RegisterPage() {
     </div>
   )
 }
-

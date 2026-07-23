@@ -56,7 +56,7 @@ export default function RegisterPage() {
           <h1 className="text-3xl font-bold mb-4 text-[#003366]">{event.title}</h1>
           <p className="text-gray-600 mb-8">{event.description}</p>
           
-          <RegistrationForm eventId={event.id} />
+          <RegistrationForm eventId={event.id} groupInviteLink={event.groupInviteLink || null} />
         </div>
       </div>
 
@@ -64,4 +64,3 @@ export default function RegisterPage() {
     </div>
   )
 }
-

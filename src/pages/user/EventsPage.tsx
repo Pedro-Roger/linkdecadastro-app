@@ -14,10 +14,11 @@ export default function EventsPage() {
   const [events, setEvents] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
-  const [enrollmentModal, setEnrollmentModal] = useState<{ isOpen: boolean; eventId: string; eventTitle: string }>({
+  const [enrollmentModal, setEnrollmentModal] = useState<{ isOpen: boolean; eventId: string; eventTitle: string; groupInviteLink?: string }>({
     isOpen: false,
     eventId: '',
-    eventTitle: ''
+    eventTitle: '',
+    groupInviteLink: undefined,
   })
 
   useEffect(() => {
@@ -55,11 +56,12 @@ export default function EventsPage() {
     }
   }
 
-  const handleEnroll = (eventId: string, eventTitle: string) => {
+  const handleEnroll = (eventId: string, eventTitle: string, groupInviteLink?: string | null) => {
     setEnrollmentModal({
       isOpen: true,
       eventId,
-      eventTitle
+      eventTitle,
+      groupInviteLink: groupInviteLink || undefined,
     })
   }
 
@@ -110,7 +112,7 @@ export default function EventsPage() {
                       {event.location && ` • ${event.location}`}
                     </div>
                     <button
-                      onClick={() => handleEnroll(event.id, event.title)}
+                      onClick={() => handleEnroll(event.id, event.title, event.groupInviteLink)}
                       className="w-full bg-[#FF6600] text-white py-2 px-4 rounded-md font-semibold hover:bg-[#e55a00] transition-colors"
                     >
                       Inscrever-se
@@ -129,6 +131,7 @@ export default function EventsPage() {
         onClose={() => setEnrollmentModal({ isOpen: false, eventId: '', eventTitle: '' })}
         eventId={enrollmentModal.eventId}
         eventTitle={enrollmentModal.eventTitle}
+        groupInviteLink={enrollmentModal.groupInviteLink}
         onSuccess={() => {
            // Maybe refetch or show success message?
            // The modal handles its own success message/closing usually or we can show a toast here.
