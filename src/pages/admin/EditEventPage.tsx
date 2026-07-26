@@ -73,7 +73,7 @@ interface EventResponse {
   groupInviteLink?: string | null
   whatsappGroupsEnabled?: boolean
   whatsappSessionId?: string | null
-  formCities?: { city: string; state: string }[] | null
+  formCities?: { city: string; state: string; hidden?: boolean }[] | null
 }
 
 interface WaSession {
@@ -114,7 +114,7 @@ export default function EditEventPage() {
   const [backfillMsg, setBackfillMsg] = useState<{ text: string; type: 'ok' | 'err' } | null>(null)
 
   // Cidades exibidas no dropdown do formulário (independente das participantes)
-  const [formCities, setFormCities] = useState<{ city: string; state: string }[]>([])
+  const [formCities, setFormCities] = useState<{ city: string; state: string; hidden?: boolean }[]>([])
   const [newFormCity, setNewFormCity] = useState({ city: '', state: '' })
 
   const {
@@ -201,6 +201,14 @@ export default function EditEventPage() {
 
   const removeFormCity = (city: string, state: string) => {
     setFormCities((prev) => prev.filter((c) => !(c.city === city && c.state === state)))
+  }
+
+  const toggleFormCityHidden = (city: string, state: string) => {
+    setFormCities((prev) =>
+      prev.map((c) =>
+        c.city === city && c.state === state ? { ...c, hidden: !c.hidden } : c,
+      ),
+    )
   }
 
   const handleBackfill = async () => {
@@ -689,7 +697,7 @@ export default function EditEventPage() {
               Cidades do Formulário <MapPin size={20} className="text-emerald-600" />
             </h2>
             <p className="text-[11px] text-[var(--text-muted)] font-medium mb-6">
-              Estas são as cidades que aparecem no seletor "Cidade do Evento" do formulário público — independente das cidades participantes e de limites. Se a lista estiver vazia, o formulário usa o comportamento padrão.
+              Estas são as cidades que aparecem no seletor "Cidade do Evento" do formulário público — independente das cidades participantes e de limites. Cidades marcadas como ocultas continuam salvas aqui, mas somem do formulário público. Se a lista estiver vazia, o formulário usa o comportamento padrão.
             </p>
 
             <div className="flex flex-wrap gap-3 mb-6 p-4 bg-[var(--bg-main)]/60 rounded-2xl border border-[var(--border-light)]">
@@ -729,9 +737,28 @@ export default function EditEventPage() {
                 {formCities.map((c) => (
                   <span
                     key={`${c.city}-${c.state}`}
-                    className="inline-flex items-center gap-2 pl-4 pr-2 py-2 bg-emerald-50 border border-emerald-100 rounded-xl text-sm font-bold text-[var(--secondary)]"
+                    className={`inline-flex items-center gap-2 pl-4 pr-2 py-2 rounded-xl text-sm font-bold border ${
+                      c.hidden
+                        ? 'bg-slate-100 border-slate-200 text-[var(--text-muted)]'
+                        : 'bg-emerald-50 border-emerald-100 text-[var(--secondary)]'
+                    }`}
                   >
-                    {c.city} <span className="text-emerald-600">{c.state}</span>
+                    {c.city} <span className={c.hidden ? 'text-slate-400' : 'text-emerald-600'}>{c.state}</span>
+                    {c.hidden && (
+                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Oculta</span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => toggleFormCityHidden(c.city, c.state)}
+                      className={`w-6 h-6 flex items-center justify-center rounded-lg transition-all ${
+                        c.hidden
+                          ? 'text-emerald-600 hover:bg-emerald-50'
+                          : 'text-[var(--text-muted)] hover:bg-slate-100'
+                      }`}
+                      title={c.hidden ? 'Mostrar no formulário público' : 'Esconder do formulário público'}
+                    >
+                      {c.hidden ? <Unlock size={14} /> : <Lock size={14} />}
+                    </button>
                     <button
                       type="button"
                       onClick={() => removeFormCity(c.city, c.state)}
