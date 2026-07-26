@@ -427,6 +427,12 @@ export default function RegistrationForm({
     }
   }
 
+  useEffect(() => {
+    if (success && groupInviteLink) {
+      window.location.href = groupInviteLink
+    }
+  }, [success, groupInviteLink])
+
   if (success) {
     return (
       <div className="text-center py-12 space-y-6 animate-in fade-in zoom-in duration-500">
