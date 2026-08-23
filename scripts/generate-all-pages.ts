@@ -2,7 +2,7 @@ import fs from 'fs'
 import path from 'path'
 
 // URL da API
-const API_URL = process.env.VITE_API_URL || process.env.API_URL || 'https://backend-linkdecadastro.onrender.com'
+const API_URL = process.env.VITE_API_URL || process.env.API_URL || 'https://api.linkdecadastro.com.br'
 
 // Template base para todas as páginas HTML
 // Simplesmente redireciona para a rota sem .html
@@ -259,4 +259,3 @@ generateAllPages().catch((error) => {
   console.error('❌ Erro ao gerar páginas:', error)
   process.exit(1)
 })
-

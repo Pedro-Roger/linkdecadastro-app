@@ -23,7 +23,7 @@ dist/
 
 ### Configuração:
 
-O script usa a variável de ambiente `VITE_API_URL` ou `API_URL` para buscar os cursos. Se não estiver definida, usa o valor padrão: `https://backend-linkdecadastro.onrender.com`
+O script usa a variável de ambiente `VITE_API_URL` ou `API_URL` para buscar os cursos. Se não estiver definida, usa o valor padrão: `https://api.linkdecadastro.com.br`
 
 ### Execução:
 
@@ -44,4 +44,3 @@ npm run generate-course-pages
 - Node.js com suporte a `fetch` (Node 18+)
 - Acesso à API do backend durante o build
 - `tsx` instalado (já está nas devDependencies)
-

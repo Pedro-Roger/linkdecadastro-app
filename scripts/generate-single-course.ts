@@ -2,7 +2,7 @@ import fs from 'fs'
 import path from 'path'
 
 // URL da API - pode ser configurada via variável de ambiente
-const API_URL = process.env.VITE_API_URL || process.env.API_URL || 'https://backend-linkdecadastro.onrender.com'
+const API_URL = process.env.VITE_API_URL || process.env.API_URL || 'https://api.linkdecadastro.com.br'
 
 interface Course {
   id: string
@@ -170,4 +170,3 @@ if (!slug) {
 }
 
 generateSingleCoursePage(slug)
-

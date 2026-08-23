@@ -16,7 +16,7 @@ export const getApiUrl = (): string => {
   }
   // Fallback: URL de produção (para Hostgator sem variáveis de ambiente)
   // Em desenvolvimento local, use VITE_API_URL=http://localhost:3333 no .env
-  return 'https://backend-linkdecadastro.onrender.com';
+  return 'https://api.linkdecadastro.com.br';
 };
 
 const API_URL = getApiUrl();

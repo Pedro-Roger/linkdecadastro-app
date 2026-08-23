@@ -121,7 +121,7 @@ function generateCourseHTML(course: Course, baseUrl: string, apiUrl: string): st
 }
 
 async function generateCourseHTMLFile(courseIdOrSlug: string) {
-  const API_URL = process.env.VITE_API_URL || process.env.API_URL || 'https://backend-linkdecadastro.onrender.com'
+  const API_URL = process.env.VITE_API_URL || process.env.API_URL || 'https://api.linkdecadastro.com.br'
   
   try {
     // Tenta buscar por slug primeiro, depois por ID
@@ -184,4 +184,3 @@ if (!courseIdOrSlug) {
 }
 
 generateCourseHTMLFile(courseIdOrSlug)
-
